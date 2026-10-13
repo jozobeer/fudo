@@ -18,6 +18,8 @@ import { Tier0Tools } from '@fudo/tools-tier0'
 import {
   jobTools,
   makeJobs,
+  makeWebSearchTool,
+  type SearchHost,
   makeSubagentTool,
   makeWorkingDirectoryTool,
   tier1Tools,
@@ -55,6 +57,8 @@ export interface CommandOptions {
   readonly skills?: ReadonlyArray<string>
   /** Lets the model run tasks in child agents. */
   readonly subagents?: boolean
+  /** A search provider; without one the web_search tool is not registered. */
+  readonly search?: SearchHost
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -157,6 +161,9 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             agent.session,
           )
           const list = [...tier1Tools(ask, options.skills ?? [])]
+          if (options.search !== undefined) {
+            list.push(makeWebSearchTool(options.search))
+          }
           const jobs = yield* makeJobs()
           for (const tool of jobTools(jobs)) list.push(tool)
           list.push(
