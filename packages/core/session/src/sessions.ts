@@ -4,6 +4,7 @@ import { SessionError } from './errors.ts'
 import { SESSION_FORMAT_VERSION, type SessionHeader, type SessionId } from './events.ts'
 import type { OpenedSession, SessionPersistence, SessionSummary } from './persistence.ts'
 import { makeSession, type Session } from './session.ts'
+import { SessionPersistenceService } from './service.ts'
 
 export interface CreateSessionOptions {
   readonly cwd: string
@@ -22,43 +23,61 @@ export interface SessionsLayerOptions {
   readonly now?: () => number
 }
 
+/** Builds the session registry over one persistence provider. */
+export function sessionsService(
+  persistence: SessionPersistence,
+  options?: SessionsLayerOptions,
+): Effect.Effect<SessionsShape, never, Hooks> {
+  return Effect.gen(function* () {
+    const hooks = yield* Hooks
+    const now = options?.now ?? Date.now
+
+    const attach = (opened: OpenedSession): Effect.Effect<Session, SessionError> =>
+      makeSession({
+        id: opened.id,
+        events: opened.events,
+        sink: opened.sink,
+        now,
+        notify: (event) => hooks.emit('session/event', event),
+      })
+
+    return {
+      create: (createOptions: CreateSessionOptions) =>
+        Effect.gen(function* () {
+          const header: SessionHeader = {
+            formatVersion: SESSION_FORMAT_VERSION,
+            createdAt: now(),
+            cwd: createOptions.cwd,
+          }
+          const opened = yield* persistence.create(header)
+          return yield* attach(opened)
+        }),
+      open: (id: SessionId) =>
+        Effect.gen(function* () {
+          const opened = yield* persistence.open(id)
+          return yield* attach(opened)
+        }),
+      list: () => persistence.list(),
+    }
+  })
+}
+
 export function sessionsLayer(
   persistence: SessionPersistence,
   options?: SessionsLayerOptions,
 ): Layer.Layer<Sessions, never, Hooks> {
-  return Layer.effect(
-    Sessions,
-    Effect.gen(function* () {
-      const hooks = yield* Hooks
-      const now = options?.now ?? Date.now
-
-      const attach = (opened: OpenedSession): Effect.Effect<Session, SessionError> =>
-        makeSession({
-          id: opened.id,
-          events: opened.events,
-          sink: opened.sink,
-          now,
-          notify: (event) => hooks.emit('session/event', event),
-        })
-
-      return {
-        create: (createOptions: CreateSessionOptions) =>
-          Effect.gen(function* () {
-            const header: SessionHeader = {
-              formatVersion: SESSION_FORMAT_VERSION,
-              createdAt: now(),
-              cwd: createOptions.cwd,
-            }
-            const opened = yield* persistence.create(header)
-            return yield* attach(opened)
-          }),
-        open: (id: SessionId) =>
-          Effect.gen(function* () {
-            const opened = yield* persistence.open(id)
-            return yield* attach(opened)
-          }),
-        list: () => persistence.list(),
-      }
-    }),
-  )
+  return Layer.effect(Sessions, sessionsService(persistence, options))
 }
+
+/** The `Sessions` layer that resolves its provider from the context. */
+export const sessionsFromServiceLayer: Layer.Layer<
+  Sessions,
+  never,
+  SessionPersistenceService | Hooks
+> = Layer.effect(
+  Sessions,
+  Effect.gen(function* () {
+    const persistence = yield* SessionPersistenceService
+    return yield* sessionsService(persistence)
+  }),
+)
