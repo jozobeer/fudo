@@ -1,4 +1,6 @@
 import type { ContentBlock } from '@fudo/llm'
+import { Effect } from 'effect'
+import type { ToolExecutionResult } from './types.ts'
 
 export type SpillPlan =
   | { readonly kind: 'keep' }
@@ -38,4 +40,49 @@ export function planSpill(
     bytes,
     lines: text.split('\n').length,
   }
+}
+
+/** How the pipeline writes a spilled result away; returns the reference to show. */
+export type SpillWriter = (callId: string, text: string) => Effect.Effect<string>
+
+export interface SpillOptions {
+  /** Results larger than this are written away. Unset means no spilling. */
+  readonly maxSpillBytes?: number
+  readonly spill?: SpillWriter
+}
+
+/**
+ * Replaces an oversized result with a reference and a preview. Errors are left
+ * alone: the model needs to see what failed.
+ */
+export function applySpill(
+  result: ToolExecutionResult,
+  callId: string,
+  options: SpillOptions,
+): Effect.Effect<ToolExecutionResult> {
+  return Effect.gen(function* () {
+    const maxBytes = options.maxSpillBytes
+    const write = options.spill
+    if (maxBytes === undefined || write === undefined || result.isError) return result
+    const plan = planSpill(result.content, maxBytes)
+    if (plan.kind === 'keep') return result
+    const reference = yield* write(callId, plan.text)
+    return {
+      ...result,
+      content: [
+        {
+          type: 'text',
+          text:
+            '[spilled to ' +
+            reference +
+            ': ' +
+            String(plan.lines) +
+            ' lines, ' +
+            String(plan.bytes) +
+            ' bytes]\n' +
+            plan.preview,
+        },
+      ],
+    }
+  })
 }

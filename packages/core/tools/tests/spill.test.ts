@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { planSpill, SPILL_PREVIEW_CHARS, textOf } from '../src/index.ts'
+import { applySpill, planSpill, SPILL_PREVIEW_CHARS, textOf } from '../src/index.ts'
+import { Effect } from 'effect'
 
 const blocks = (text: string) => [{ type: 'text' as const, text }]
 
@@ -39,5 +40,59 @@ describe('textOf', () => {
       ]),
     ).toBe('ab')
     expect(SPILL_PREVIEW_CHARS).toBe(2000)
+  })
+})
+
+describe('applySpill', () => {
+  const result = (text: string) => ({ isError: false, content: blocks(text) })
+
+  test('writes a big result away and keeps a preview', async () => {
+    const written: Array<{ callId: string; text: string }> = []
+    const spilled = await Effect.runPromise(
+      applySpill(result('x'.repeat(100)), 'c1', {
+        maxSpillBytes: 10,
+        spill: (callId, text) =>
+          Effect.sync(() => {
+            written.push({ callId, text })
+            return 'spill/c1.txt'
+          }),
+      }),
+    )
+
+    expect(written).toEqual([{ callId: 'c1', text: 'x'.repeat(100) }])
+    const first = spilled.content[0]
+    expect(first?.type === 'text' ? first.text : '').toContain(
+      '[spilled to spill/c1.txt: 1 lines, 100 bytes]',
+    )
+    expect(first?.type === 'text' ? first.text.length : 0).toBeGreaterThan(50)
+  })
+
+  test('keeps a small result and never writes', async () => {
+    let writes = 0
+    const kept = await Effect.runPromise(
+      applySpill(result('small'), 'c1', {
+        maxSpillBytes: 100,
+        spill: () =>
+          Effect.sync(() => {
+            writes += 1
+            return 'x'
+          }),
+      }),
+    )
+
+    expect(kept.content).toEqual(blocks('small'))
+    expect(writes).toBe(0)
+  })
+
+  test('leaves an error result alone', async () => {
+    const failed = await Effect.runPromise(
+      applySpill({ isError: true, content: blocks('boom'.repeat(50)) }, 'c1', {
+        maxSpillBytes: 1,
+        spill: () => Effect.succeed('x'),
+      }),
+    )
+
+    expect(failed.isError).toBe(true)
+    expect(failed.content).toEqual(blocks('boom'.repeat(50)))
   })
 })
