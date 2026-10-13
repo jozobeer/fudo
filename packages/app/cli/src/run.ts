@@ -1,4 +1,4 @@
-import { Effect, Stream } from 'effect'
+import { Deferred, Effect, Stream } from 'effect'
 import { main, type MainIo } from './bin.ts'
 
 export interface ProcessIo extends MainIo {
@@ -43,6 +43,7 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
     cwd: process.cwd(),
     isTty: process.stdin.isTTY === true,
     readStdin: () => Bun.stdin.text(),
+    interrupt: interruptOnSignal(),
   })
     .pipe(Effect.runPromise)
     .then((code) => {
@@ -51,3 +52,17 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
 }
 
 if (import.meta.main) runAsProcess(Bun.argv.slice(2))
+
+/** Completes when the process receives SIGINT; the running turn is cancelled. */
+export function interruptOnSignal(): Effect.Effect<void> {
+  return Effect.gen(function* () {
+    const signal = yield* Deferred.make<void>()
+    const onSignal = (): void => {
+      void Effect.runSync(Deferred.succeed(signal, undefined))
+    }
+    yield* Effect.sync(() => {
+      process.once('SIGINT', onSignal)
+    })
+    return yield* Deferred.await(signal)
+  })
+}

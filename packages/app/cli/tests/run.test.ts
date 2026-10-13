@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { linesOf, runFudo } from '../src/run.ts'
+import { interruptOnSignal, linesOf, runFudo } from '../src/run.ts'
 
 const patchWithRoot = async (dir: string): Promise<string> => {
   const path = join(dir, 'sessions.yml')
@@ -74,6 +74,22 @@ describe('runFudo', () => {
         readStdin: async () => '',
         interrupt: Effect.sleep('5 millis'),
       }),
+    )
+
+    expect(code).toBe(0)
+  })
+
+  test('signals complete the interrupt effect', async () => {
+    const code = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* Effect.forkScoped(interruptOnSignal())
+        yield* Effect.sleep('5 millis')
+        yield* Effect.sync(() => {
+          process.emit('SIGINT')
+        })
+        yield* Effect.sleep('5 millis')
+        return 0
+      }).pipe(Effect.scoped),
     )
 
     expect(code).toBe(0)
