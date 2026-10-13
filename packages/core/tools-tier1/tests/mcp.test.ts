@@ -28,13 +28,15 @@ describe('startMcpServer', () => {
 
   test('a server that is not there reports a tool error', async () => {
     const message = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* startMcpServer({ command: ['bash', '-lc', 'exit 0'] })
-        return yield* Effect.match(client.request(TOOLS_LIST), {
-          onFailure: (error) => error.message,
-          onSuccess: () => 'answered',
-        })
-      }).pipe(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* startMcpServer({ command: ['bash', '-lc', 'exit 0'] })
+          return yield* Effect.match(client.request(TOOLS_LIST), {
+            onFailure: (error) => error.message,
+            onSuccess: () => 'answered',
+          })
+        }),
+      ).pipe(
         Effect.timeout('2 seconds'),
         Effect.orElseSucceed(() => 'timed out'),
       ),
