@@ -6,8 +6,10 @@
   "dependencies": {
     "@fudo/agent": "workspace:*",
     "@fudo/agent-loop": "workspace:*",
+    "@fudo/bundle-base": "workspace:*",
     "@fudo/kernel": "workspace:*",
     "@fudo/llm": "workspace:*",
+    "@fudo/llm-openai": "workspace:*",
     "@fudo/session": "workspace:*",
     "@fudo/session-jsonl": "workspace:*",
     "@fudo/system-prompt": "workspace:*",

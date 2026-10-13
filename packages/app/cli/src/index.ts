@@ -1,3 +1,5 @@
+export * from './args.ts'
+export * from './bin.ts'
 import { Agents, type Agent } from '@fudo/agent'
 import {
   Hooks,
