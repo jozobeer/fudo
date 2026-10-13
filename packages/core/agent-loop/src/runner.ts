@@ -23,6 +23,7 @@ import { applySpill, type SpillOptions } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
 import { tmpdir } from 'node:os'
+import { groupCalls } from './batch.ts'
 import type { AgentRequest } from './hooks.ts'
 
 export class AgentLoop extends Context.Service<AgentLoop, AgentRunner>()('fudo/AgentLoop') {}
@@ -182,30 +183,44 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         const pending = new Map<string, ToolCall>()
         yield* Effect.onExit(
           Effect.gen(function* () {
-            for (const call of calls) {
-              yield* append(agent, 'tool/call', {
-                callId: call.id,
-                name: call.name,
-                arguments: call.arguments,
-              })
-              pending.set(call.id, call)
-              const outcome = yield* tools.call({
-                callId: call.id,
-                tool: call.name,
-                arguments: call.arguments,
-                context: {
-                  sessionId: agent.id,
-                  cwd: cwdOf(agent.session.events(), agent.session.header),
+            const runOne = (call: ToolCall) =>
+              Effect.gen(function* () {
+                const outcome = yield* tools.call({
                   callId: call.id,
-                },
+                  tool: call.name,
+                  arguments: call.arguments,
+                  context: {
+                    sessionId: agent.id,
+                    cwd: cwdOf(agent.session.events(), agent.session.header),
+                    callId: call.id,
+                  },
+                })
+                const shown = yield* applySpill(outcome, call.id, SPILL)
+                yield* append(agent, 'tool/result', {
+                  callId: call.id,
+                  isError: shown.isError,
+                  content: shown.content,
+                })
+                pending.delete(call.id)
               })
-              const shown = yield* applySpill(outcome, call.id, SPILL)
-              yield* append(agent, 'tool/result', {
-                callId: call.id,
-                isError: shown.isError,
-                content: shown.content,
-              })
-              pending.delete(call.id)
+
+            const batches = groupCalls(calls, (call) =>
+              tools.isConcurrencySafe(call.name, call.arguments),
+            )
+            for (const batch of batches) {
+              for (const call of batch.calls) {
+                yield* append(agent, 'tool/call', {
+                  callId: call.id,
+                  name: call.name,
+                  arguments: call.arguments,
+                })
+                pending.set(call.id, call)
+              }
+              if (batch.parallel) {
+                yield* Effect.forEach(batch.calls, runOne, { concurrency: 'unbounded' })
+              } else {
+                for (const call of batch.calls) yield* runOne(call)
+              }
             }
           }),
           () =>
