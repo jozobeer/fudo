@@ -11,6 +11,12 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/core/scope": {
+      "name": "@fudo/scope",
+      "dependencies": {
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/session": {
       "name": "@fudo/session",
       "dependencies": {
@@ -60,6 +66,8 @@
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
     "@fudo/llm": ["@fudo/llm@workspace:packages/llm/llm"],
+
+    "@fudo/scope": ["@fudo/scope@workspace:packages/core/scope"],
 
     "@fudo/session": ["@fudo/session@workspace:packages/core/session"],
 
