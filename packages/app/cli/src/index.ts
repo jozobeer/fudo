@@ -11,6 +11,7 @@ import {
   type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
+import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
 import { Tools } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import {
@@ -98,6 +99,9 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
               options.stdout(timed.chunk.text)
           })
         }
+
+        // Workspace instructions join the prompt before the first turn.
+        yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
 
         const agents = Context.get(context, Agents)
         const agent: Agent =
