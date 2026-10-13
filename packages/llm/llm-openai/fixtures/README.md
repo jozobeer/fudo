@@ -11,3 +11,7 @@
   - 設計の「usage は finish より前に出す」という adapter 契約とは順序が逆になるため、adapter は finish を保留して usage を先に emit する
 - 並列の tool call は**1 つの delta** にまとめて届く。各要素は `id` / `index` / `type` / `function.name` / `function.arguments` を持ち、`arguments` は分割されず完全な JSON 文字列で入ることがある
 - `qwen3-coder:480b` は 2026-07-15 に retire 済み。bundle の既定 route には現行モデルを使う
+
+- `Schema.toJsonSchemaDocument()` が返す draft 2020-12 の JSON Schema は tools パラメータとしてそのまま受理された。
+  入れ子の struct は `definitions` へ退避されず `schema` に inline され、`$ref` は現れなかった（`{ ...document.schema, $defs: document.definitions }` の形で送信）。
+  検証は 2026-10-13 に `kimi-k2.7-code` で実施し、`collect` が `{"label":"x","items":[{"path":"a"}]}` で呼ばれた。
