@@ -1,5 +1,6 @@
 import { Deferred, Effect, Stream } from 'effect'
 import { main, type MainIo } from './bin.ts'
+import { runAuthAtStart } from './auth-cli.ts'
 
 export interface ProcessIo extends MainIo {
   /** True when the process owns a terminal; piped input becomes REPL lines. */
@@ -37,6 +38,13 @@ export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effe
 
 /** The real entry point: streams, stdin, and the process exit code. */
 export function runAsProcess(argv: ReadonlyArray<string>): void {
+  if (argv[0] === 'auth') {
+    void runAuthAtStart(argv).then((code) => {
+      process.exitCode = code ?? 0
+    })
+    return
+  }
+
   void runFudo(argv, {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
