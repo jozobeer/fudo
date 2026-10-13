@@ -10,7 +10,13 @@ import {
   type StreamChunk,
   type TimedStreamChunk,
 } from '@fudo/llm'
-import { deriveMessages, type Session, type SessionEventMap } from '@fudo/session'
+import {
+  compactMessages,
+  deriveMessages,
+  type CompactOptions,
+  type Session,
+  type SessionEventMap,
+} from '@fudo/session'
 import { SystemPrompt } from '@fudo/system-prompt'
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
@@ -23,6 +29,9 @@ type ToolCall = Extract<ContentBlock, { type: 'tool-call' }>
 type StepOutcome =
   | { readonly ok: true; readonly content: ReadonlyArray<ContentBlock> }
   | { readonly ok: false; readonly failure: LlmFailure }
+
+/** The newest messages stay intact; older output is shortened before every request. */
+const COMPACT_MESSAGES: CompactOptions = { keepLast: 12, maxBytes: 32_000 }
 
 const isToolCall = (block: ContentBlock): block is ToolCall => block.type === 'tool-call'
 
@@ -132,7 +141,8 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
             agent.options.reasoningEffort === undefined
               ? {}
               : { reasoningEffort: agent.options.reasoningEffort },
-          messages: deriveMessages(agent.session.events()),
+          messages: compactMessages(deriveMessages(agent.session.events()), COMPACT_MESSAGES)
+            .messages,
           tools: build.tools,
         }
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
