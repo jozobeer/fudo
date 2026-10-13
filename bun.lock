@@ -81,6 +81,13 @@
         "effect": "4.0.3",
       },
     },
+    "packages/llm/llm-openai": {
+      "name": "@fudo/llm-openai",
+      "dependencies": {
+        "@fudo/llm": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
   },
   "packages": {
     "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
@@ -90,6 +97,8 @@
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
     "@fudo/llm": ["@fudo/llm@workspace:packages/llm/llm"],
+
+    "@fudo/llm-openai": ["@fudo/llm-openai@workspace:packages/llm/llm-openai"],
 
     "@fudo/scope": ["@fudo/scope@workspace:packages/core/scope"],
 
