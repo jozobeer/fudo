@@ -5,6 +5,7 @@ import { kernelPlugin, type Plugin } from '@fudo/kernel'
 import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { sessionPlugin } from '@fudo/session'
 import { safetyPlugin } from '@fudo/safety'
+import { tier0Plugin } from '@fudo/tools-tier0'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
@@ -23,6 +24,7 @@ export const bundledPlugins: ReadonlyArray<Plugin<any, any, any>> = [
   agentPlugin,
   agentLoopPlugin,
   safetyPlugin,
+  tier0Plugin,
 ]
 
 export interface MainIo {

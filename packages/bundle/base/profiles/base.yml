@@ -16,6 +16,8 @@ plugins:
     name: '@fudo/safety'
     config:
       preset: workspace-write
+  - id: tier0
+    name: '@fudo/tools-tier0'
   - id: llm
     name: '@fudo/llm-openai'
     config:

@@ -11,6 +11,8 @@ import {
   type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
+import { Tools } from '@fudo/tools'
+import { Tier0Tools } from '@fudo/tools-tier0'
 import {
   Approval,
   approvalServiceLayer,
@@ -106,6 +108,12 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
                 resume: options.resume,
                 options: { route },
               })
+
+        // Tools come from the profile's tier rows.
+        if (rows.some((row) => row.name === '@fudo/tools-tier0')) {
+          const registry = Context.get(context, Tools)
+          for (const tool of Context.get(context, Tier0Tools)) yield* registry.register(tool)
+        }
 
         // Approval is enforced only when the profile chose a safety row.
         if (rows.some((row) => row.name === '@fudo/safety')) {
