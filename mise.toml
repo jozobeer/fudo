@@ -1,5 +1,6 @@
 [tools]
 bun = "1.4.3"
+"github:moznion/cccc" = "1.8.2"
 
 [env]
 _.file = ".env"

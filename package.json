@@ -12,6 +12,7 @@
     "lint": "oxlint --deny-warnings",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "complexity": "cccc --top-cognitive 10 --table packages",
     "check": "bun run fmt:check && bun run lint && bun run typecheck && bun run test"
   },
   "devDependencies": {
