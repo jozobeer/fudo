@@ -63,4 +63,19 @@ describe('runFudo', () => {
     expect(err).toEqual([])
     await rm(dir, { recursive: true, force: true })
   })
+
+  test('accepts an interrupt effect on the task path', async () => {
+    const code = await Effect.runPromise(
+      runFudo(['--help'], {
+        stdout: () => undefined,
+        stderr: () => undefined,
+        cwd: '/work',
+        isTty: true,
+        readStdin: async () => '',
+        interrupt: Effect.sleep('5 millis'),
+      }),
+    )
+
+    expect(code).toBe(0)
+  })
 })

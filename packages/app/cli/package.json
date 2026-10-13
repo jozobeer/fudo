@@ -1,6 +1,9 @@
 {
   "name": "@fudo/cli",
   "private": true,
+  "bin": {
+    "fudo": "./src/run.ts"
+  },
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {

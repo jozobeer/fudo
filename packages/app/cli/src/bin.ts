@@ -29,6 +29,8 @@ export interface MainIo {
   readonly cwd: string
   /** REPL input; the real entry point streams process.stdin. */
   readonly lines?: Stream.Stream<string>
+  /** Completes to request a user cancellation of the running turn. */
+  readonly interrupt?: Effect.Effect<void>
 }
 
 const HELP = `fudo "task"                     one-shot headless run
@@ -84,6 +86,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       ...(patches.length === 0 ? {} : { patches }),
       ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
       ...(parsed.json ? { json: true } : {}),
+      ...(io.interrupt === undefined ? {} : { interrupt: io.interrupt }),
     }
     return yield* runCommand(options)
   }).pipe(

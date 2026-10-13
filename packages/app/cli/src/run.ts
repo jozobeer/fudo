@@ -29,7 +29,25 @@ export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effe
       stdout: io.stdout,
       stderr: io.stderr,
       cwd: io.cwd,
+      ...(io.interrupt === undefined ? {} : { interrupt: io.interrupt }),
       ...(io.isTty ? {} : { lines: Stream.fromIterable(linesOf(text)) }),
     })
   })
 }
+
+/** The real entry point: streams, stdin, and the process exit code. */
+export function runAsProcess(argv: ReadonlyArray<string>): void {
+  void runFudo(argv, {
+    stdout: (text) => process.stdout.write(text),
+    stderr: (text) => process.stderr.write(text),
+    cwd: process.cwd(),
+    isTty: process.stdin.isTTY === true,
+    readStdin: () => Bun.stdin.text(),
+  })
+    .pipe(Effect.runPromise)
+    .then((code) => {
+      process.exitCode = code
+    })
+}
+
+if (import.meta.main) runAsProcess(Bun.argv.slice(2))
