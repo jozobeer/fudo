@@ -133,6 +133,7 @@
     "packages/core/tools-tier1": {
       "name": "@fudo/tools-tier1",
       "dependencies": {
+        "@fudo/agent": "workspace:*",
         "@fudo/kernel": "workspace:*",
         "@fudo/safety": "workspace:*",
         "@fudo/session": "workspace:*",
