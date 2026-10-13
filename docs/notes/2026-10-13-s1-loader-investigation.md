@@ -1,29 +1,20 @@
-# S1 loader 調査メモ（2026-10-13）
+# S1 loader 調査メモ（2026-10-13、解決済み）
 
-## 確認できたこと（テストで固定済み）
+## 結論
 
-- カーネル loader の合成は健全。`loadProfile → Layer.build → Context.get` で、提供 service が context に現れる
-  （`packages/kernel/kernel/tests/loader.test.ts`）。
-- 依存する側の行が提供側より先にあっても解決できる（行順に依存しない）。
-- 層の Effect が別 row の層の service を読む二段構えでも通る。二依存でも通る。
-- `@fudo/session` の plugin は loader 経由で `Sessions.create` まで動く
-  （`packages/core/session/tests/service-layer.test.ts`）。
-- `@fudo/session-jsonl` の plugin は loader 経由で実ファイルへ `session/header` を書ける
-  （`packages/core/session-jsonl/tests/plugin.test.ts`）。
+`bundle/base` の 5 行アセンブリで `Sessions` が見えなかった原因は **テスト側の row id の取り違え**だった。
+`profiles/base.yml` の session 行の id は `sessions`（複数形）だが、テストのフィルタが `session` を指定していたため
+その行が除外され、`Sessions` は最初から組まれていなかった。loader にも plugin 定義にも欠陥はない。
 
-## 未解決
+## 検証済み（テストで固定）
 
-`packages/bundle/base/tests/assembly.test.ts` で 5 行
-（kernel / session / session-jsonl / system-prompt / tools）をまとめて組むと、
-`Context.get(context, Tools)` と `SystemPrompt` は取れるのに **`Sessions` だけ context に現れない**
-（`Service not found: fudo/Sessions`）。同じ plugin 定義は自パッケージの loader テストでは通るため、
-bundle テスト文脈のモジュール解決（`@fudo/session` の解決先が複数になる等）が最有力候補。
+- loader の合成は健全。提供 service は built context に現れる（`packages/kernel/kernel/tests/loader.test.ts`）。
+- 行順に依存しない。二段構えの層・二依存の層も通る（同上）。
+- `@fudo/session` plugin は loader 経由で `Sessions.create` まで動く（`packages/core/session/tests/service-layer.test.ts`）。
+- `@fudo/session-jsonl` plugin は loader 経由で実ファイルへ `session/header` を書ける（`packages/core/session-jsonl/tests/plugin.test.ts`）。
+- `bundle/base` の 5 行（kernel / sessions / session-jsonl / system-prompt / tools）を実際に読み、
+  1 つの Layer に組んで `Tools` / `SystemPrompt` / `Sessions` が取れる（`packages/bundle/base/tests/assembly.test.ts`）。
 
-## 次の診断（1 回で終わるように）
+## 学び
 
-1. `bun install` 後に `readlink packages/bundle/base/node_modules/@fudo/session` を確認し、
-   `packages/core/session` と同一実体かを確かめる。
-2. bundle の 5 行テストを再導入し、失敗時に `Sessions.key` / `SessionPersistenceService.key` の文字列と
-   loader が組んだ row id 一覧を出力する。
-3. 解決先が分かれているなら bundle の依存宣言を直す。同一なら loader の 5 行での provider 対応付けを疑い、
-   最小再現（Hooks を要求する row を 2 つ置く）を作る。
+`Service not found: <key>` は「層が壊れている」とは限らない。**その service を提供する行がプロファイルに含まれているか**を先に確認する。
