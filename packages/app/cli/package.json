@@ -13,6 +13,7 @@
     "@fudo/session": "workspace:*",
     "@fudo/session-jsonl": "workspace:*",
     "@fudo/system-prompt": "workspace:*",
+    "@fudo/test-support-replay": "workspace:*",
     "@fudo/tools": "workspace:*",
     "effect": "4.0.3"
   }
