@@ -60,3 +60,7 @@ packages/llm/llm/tests/assembler.test.ts
 packages/llm/llm/tests/assistant-stream.test.ts
 packages/llm/llm/tests/schemas.test.ts
 packages/test-support/replay/tests/replay.test.ts
+
+## 環境の確認（2026-10-13）
+
+- この環境には OLLAMA_API_KEY が設定されておらず、~/.fudo も無い。したがって条件 1 の実 API 実行はここでは行えない（キーを用意した環境で fudo --profile headless を実行し、この記録を更新する）。
