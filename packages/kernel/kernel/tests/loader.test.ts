@@ -253,3 +253,63 @@ describe('loader composition', () => {
     expect(built).toEqual({ id: 'up-down' })
   })
 })
+
+describe('loader composition with two dependencies', () => {
+  class Base extends Context.Service<Base, { readonly id: string }>()('test/Base') {}
+  class Also extends Context.Service<Also, { readonly tag: string }>()('test/Also') {}
+  class Nested extends Context.Service<Nested, { readonly value: string }>()('test/Nested') {}
+
+  const basePlugin: Plugin<{}, Base, never> = {
+    name: 'base',
+    config: Schema.Struct({}),
+    provides: [Base],
+    requires: [],
+    layer: () => Layer.succeed(Base, { id: 'base' }),
+  }
+
+  const alsoPlugin: Plugin<{}, Also, never> = {
+    name: 'also',
+    config: Schema.Struct({}),
+    provides: [Also],
+    requires: [],
+    layer: () => Layer.succeed(Also, { tag: 'also' }),
+  }
+
+  /** Mirrors `sessionsService`: a layer effect that reads a second service. */
+  const nestedService: Effect.Effect<{ readonly value: string }, never, Also> = Effect.gen(
+    function* () {
+      const also = yield* Also
+      return { value: `${also.tag}-nested` }
+    },
+  )
+
+  const nestedPlugin: Plugin<{}, Nested, Base | Also> = {
+    name: 'nested',
+    config: Schema.Struct({}),
+    provides: [Nested],
+    requires: [Base, Also],
+    layer: () =>
+      Layer.effect(
+        Nested,
+        Effect.gen(function* () {
+          yield* Base
+          return yield* nestedService
+        }),
+      ),
+  }
+
+  test('reaches the context when the layer effect reads a second service', async () => {
+    const built = await Effect.runPromise(
+      Effect.gen(function* () {
+        const layer = yield* loadProfile({
+          plugins: [basePlugin, alsoPlugin, nestedPlugin],
+          layers: [[row('base', 'base'), row('also', 'also'), row('nested', 'nested')]],
+        })
+        const context = yield* Layer.build(layer)
+        return Context.get(context, Nested)
+      }).pipe(Effect.scoped),
+    )
+
+    expect(built).toEqual({ value: 'also-nested' })
+  })
+})
