@@ -10,10 +10,11 @@ describe('tier1Tools', () => {
 
     expect(tools.map((tool) => tool.name)).toEqual([
       'todo_write',
+      'goal',
       'ask_user',
       'web_fetch',
       'read_image',
     ])
-    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], [], ['network'], ['read']])
+    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], [], [], ['network'], ['read']])
   })
 })
