@@ -40,3 +40,21 @@
 
 - ToolDefinition に必要種別（read / write / exec / network）を宣言する欄を足す。S1 のツールはまだ無いので、S3 のツールを書くときに埋める。
 - 承認待ちの間に turn がどう見えるかは、上記 1 のとおり「turn は開いたまま」で確定。イベント語彙の追加は上記 2 種のみ。
+
+## 実装（2026-10-13）
+
+| 決定 | 実装 |
+|---|---|
+| 1. 承認はイベント | events.ts（safety/approval/requested と answered、session カタログへ登録）、approval.ts（Approval サービスと保持）、bridge.ts（installApproval: pre-execute の ask を受けて記録し、回答を待つ / その場で答える 2 経路） |
+| 2. sandbox は包む seam | sandbox.ts（Sandbox サービス、none provider）、seatbelt.ts（SBPL の生成と sandbox-exec の argv 組み立て） |
+| 3. 失敗はツールのエラー | SandboxError。bridge は承認要求を記録できない場合も拒否へ倒す |
+| 4. preset と escalation | policy.ts（decide: allow / ask / deny）、policy-service.ts（Policy サービス、preset を保持） |
+| 5. policy は専用行 | plugin.ts（@fudo/safety の行: preset / sandbox / writableRoots）、base.yml の safety 行（preset: workspace-write） |
+
+CLI 側: runCommand は profile に安全行があるときだけ承認を有効にし、approve 未指定なら拒否（答えてくれる相手がいないまま待ち続けない）。prompt.ts が端末の y/n を扱う（既定は拒否）。
+
+テスト: packages/core/safety/tests/ の sandbox / seatbelt / policy / policy-service / approval / approval-service / bridge / prompt / plugin / wiring。承認が実際の tool 呼び出しで発火する CLI レベル確認は、exec を要求する tool が入る S3 で行う。
+
+## 学び（Effect 4）
+
+- Layer.mergeAll は requirements を満たさない。片方の層が要求する service をもう片方から供給するには Layer.provide か provideMerge を使う。テストで toolsLayer と HooksLive を mergeAll したために Service not found: fudo/Hooks が 2 ラウンド追いかける羽目になった。
