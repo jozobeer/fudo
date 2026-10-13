@@ -11,3 +11,4 @@ export const tier1Tools = (ask: AskShape): ReadonlyArray<ToolDefinition<any, any
   todoWriteTool,
   askUserToolFor(ask),
 ]
+export * from './plugin.ts'

@@ -3,6 +3,8 @@ import { Layer, Schema } from 'effect'
 import { Sandbox } from './sandbox.ts'
 import { noneSandboxLayer } from './sandbox.ts'
 import { seatbeltSandbox } from './seatbelt.ts'
+import { Ask } from './ask.ts'
+import { askServiceLayer } from './ask.ts'
 import { Policy } from './policy-service.ts'
 import { policyLayer } from './policy-service.ts'
 
@@ -32,4 +34,13 @@ export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, never> = {
   provides: [Policy, Sandbox],
   requires: [],
   layer: (config) => Layer.mergeAll(policyLayer(config.preset), sandboxLayer(config)),
+}
+
+/** Loader definition for the ask holder: questions wait for an answer. */
+export const askPlugin: Plugin<{}, Ask, never> = {
+  name: '@fudo/ask',
+  config: Schema.Struct({}),
+  provides: [Ask],
+  requires: [],
+  layer: () => askServiceLayer,
 }
