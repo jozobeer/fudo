@@ -4,6 +4,8 @@ export interface ParsedArgs {
   readonly profileFlag: string | undefined
   readonly patches: ReadonlyArray<string>
   readonly task: string | undefined
+  /** `fudo models`: list what the provider offers instead of running. */
+  readonly models: boolean
   readonly resume: string | undefined
   readonly model: string
   /** The raw --model, so a settings file can be overridden. */
@@ -74,11 +76,13 @@ const first = (values: ReadonlyMap<string, Array<string>>, flag: string): string
 /** Parses `fudo` arguments. Positional words join into the one-shot task. */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   const { values, words, errors } = scan(argv)
+  const models = words.length === 1 && words[0] === 'models'
   return {
     profile: first(values, '--profile') ?? 'headless',
     profileFlag: first(values, '--profile'),
     patches: values.get('--patch') ?? [],
-    task: words.length === 0 ? undefined : words.join(' '),
+    task: words.length === 0 || models ? undefined : words.join(' '),
+    models,
     resume: first(values, '--resume'),
     model: first(values, '--model') ?? '',
     modelFlag: first(values, '--model'),

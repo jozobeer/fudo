@@ -26,7 +26,7 @@ describe('main with a line stream', () => {
     const dir = await mkdtemp(join(tmpdir(), 'fudo-main-'))
     const err: Array<string> = []
     const code = await Effect.runPromise(
-      main(['--patch', await patchWithRoot(dir)], {
+      main(['--model', 'test/model', '--patch', await patchWithRoot(dir)], {
         stdout: () => undefined,
         stderr: (text) => err.push(text),
         cwd: '/work',

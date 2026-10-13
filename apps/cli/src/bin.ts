@@ -1,7 +1,7 @@
 import { agentPlugin } from '@fudo/agent'
 import { agentLoopPlugin } from '@fudo/agent-loop'
 import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
+import { kernelPlugin, type Plugin, type PluginRow } from '@fudo/kernel'
 import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { sessionPlugin } from '@fudo/session'
 import { askPlugin, safetyPlugin } from '@fudo/safety'
@@ -16,8 +16,9 @@ import { parseArgs, type ParsedArgs } from './args.ts'
 import { configPaths, loadSecrets } from './config.ts'
 import { loadConfigFile, type FudoConfig } from './config-file.ts'
 import { loadEnvFrom } from './env-file.ts'
+import { listModels, modelEndpointOf } from './models.ts'
 import { searchFromEnv } from './search-env.ts'
-import { runCommand, type CommandOptions } from './index.ts'
+import { profileRows, runCommand, type CommandOptions } from './index.ts'
 
 /** Every plugin the S1 bundle can assemble. */
 export const bundledPlugins: ReadonlyArray<Plugin<any, any, any>> = [
@@ -50,6 +51,7 @@ fudo                             REPL (later slice)
 fudo --profile <name> --patch <file.yml>...
 fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
 fudo --dump-config
+fudo models                      list the models the provider offers
 fudo --resume <sessionId> [task]
 fudo --json "task"
 `
@@ -101,6 +103,14 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     }
   })
 
+/** Every model the profile's provider offers, as sorted routes. */
+const routesOf = (rows: ReadonlyArray<PluginRow>): Effect.Effect<ReadonlyArray<string>, Error> => {
+  const endpoint = modelEndpointOf(rows)
+  return endpoint === undefined
+    ? Effect.fail(new Error('the profile has no @fudo/llm-openai row to ask for models'))
+    : listModels(endpoint, process.env)
+}
+
 type Present<K extends keyof CommandOptions> = Pick<CommandOptions, K>
 
 /** A field is left out entirely when its value is missing; exactOptionalPropertyTypes. */
@@ -138,6 +148,26 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   ...optional('interrupt', io.interrupt),
 })
 
+/** `fudo models`: one route per line on stdout; a failure is one line on stderr. */
+const printModels = (inputs: CommandInputs, io: MainIo): Effect.Effect<number> =>
+  profileRows({
+    profiles: inputs.documents,
+    patches: inputs.patches,
+    ...optional('extraRows', inputs.settings.plugins),
+  }).pipe(
+    Effect.flatMap(routesOf),
+    Effect.match({
+      onFailure: (error) => {
+        io.stderr(`fudo: ${error.message}\n`)
+        return 1
+      },
+      onSuccess: (routes) => {
+        io.stdout(routes.map((route) => route + '\n').join(''))
+        return 0
+      },
+    }),
+  )
+
 /** The `fudo` entry point: parse argv, load the bundled base profile, run. */
 export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<number> {
   const parsed = parseArgs(argv)
@@ -151,6 +181,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
   }
   return Effect.gen(function* () {
     const inputs = yield* loadInputs(parsed, io)
+    if (parsed.models) return yield* printModels(inputs, io)
     return yield* runCommand(commandOptions(parsed, io, inputs))
   }).pipe(
     Effect.catchCause((cause) =>

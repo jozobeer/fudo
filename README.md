@@ -33,13 +33,15 @@ cp .env.example .env   # OLLAMA_API_KEY=... を書く
 
 ### 使うモデル
 
+使えるモデルは `fudo models` で一覧できる。プロバイダの `GET /models` を問い合わせ、`provider/model` の形で 1 行ずつ出す。
+
 既定のモデルは `~/.config/fudo/config.yaml` に書く。
 
 ```yaml
 model: ollama-cloud/deepseek-v4.1-flash
 ```
 
-モデルを指定せずに実行すると `model "" not found` で止まる。`--model` を渡すとこの設定を上書きする。
+モデルは `--model`、設定ファイル、プロファイルの順に探す。どれにも無ければ `no model is set` で止まる。
 
 ### 動かす
 

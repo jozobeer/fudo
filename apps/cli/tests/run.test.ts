@@ -50,7 +50,7 @@ describe('runFudo', () => {
     const dir = await mkdtemp(join(tmpdir(), 'fudo-run-'))
     const err: Array<string> = []
     const code = await Effect.runPromise(
-      runFudo(['--patch', await patchWithRoot(dir)], {
+      runFudo(['--model', 'test/model', '--patch', await patchWithRoot(dir)], {
         stdout: () => undefined,
         stderr: (text) => err.push(text),
         cwd: '/work',

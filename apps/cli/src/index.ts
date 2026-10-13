@@ -124,11 +124,14 @@ const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
   return ''
 }
 
+const NO_MODEL =
+  'no model is set: pass --model provider/model or set model in the settings file (fudo models lists them)'
+
 const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
 
 /** The rows the command runs with: profiles first, then settings, then patches. */
-const profileRows = (
-  options: CommandOptions,
+export const profileRows = (
+  options: Pick<CommandOptions, 'profiles' | 'extraRows' | 'patches'>,
 ): Effect.Effect<ReadonlyArray<PluginRow>, PluginError> =>
   Effect.gen(function* () {
     const layers: Array<ReadonlyArray<PluginRow>> = []
@@ -306,15 +309,21 @@ const serveTask = (agent: Agent, options: CommandOptions, task: string) =>
     return cancelled ? 130 : 0
   })
 
-const serveAgent = (agent: Agent, options: CommandOptions) => {
-  if (options.task !== undefined) return serveTask(agent, options, options.task)
-  const lines = options.lines
-  if (lines === undefined) {
-    options.stderr('nothing to do: pass a task or run on a terminal')
-    return Effect.succeed(2)
-  }
-  return serveLines(agent, options, lines)
+/** What one run serves: a one-shot task or the lines of a REPL. */
+type Work =
+  | { readonly kind: 'task'; readonly task: string }
+  | { readonly kind: 'lines'; readonly lines: Stream.Stream<string> }
+
+const workOf = (options: CommandOptions): Work | undefined => {
+  if (options.task !== undefined) return { kind: 'task', task: options.task }
+  if (options.lines !== undefined) return { kind: 'lines', lines: options.lines }
+  return undefined
 }
+
+const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
+  work.kind === 'task'
+    ? serveTask(agent, options, work.task)
+    : serveLines(agent, options, work.lines)
 
 /** The scoped body that owns the built layer and serves one agent run. */
 const runSession = (
@@ -323,6 +332,7 @@ const runSession = (
   route: string,
   spillBytes: number | undefined,
   layer: Layer.Layer<any, PluginError, never>,
+  work: Work,
 ) =>
   Effect.gen(function* () {
     const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer))
@@ -366,7 +376,7 @@ const runSession = (
         Context.get(context, Approval),
       )
     }
-    return yield* serveAgent(agent, options)
+    return yield* serveAgent(agent, options, work)
   })
 
 /**
@@ -376,16 +386,26 @@ const runSession = (
 export function runCommand(options: CommandOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
     const rows = yield* profileRows(options)
-    const route = options.route !== '' ? options.route : routeFromRows(rows)
-    const spillBytes = spillBytesOf(rows)
 
     if (options.dumpConfig === true) {
       options.stdout(renderConfig(rows))
       return 0
     }
 
+    const work = workOf(options)
+    if (work === undefined) {
+      options.stderr('nothing to do: pass a task or run on a terminal')
+      return 2
+    }
+
+    const route = options.route !== '' ? options.route : routeFromRows(rows)
+    if (route === '') {
+      options.stderr(`fudo: ${NO_MODEL}\n`)
+      return 1
+    }
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
-    return yield* Effect.scoped(runSession(options, rows, route, spillBytes, layer))
+    const spillBytes = spillBytesOf(rows)
+    return yield* Effect.scoped(runSession(options, rows, route, spillBytes, layer, work))
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {
