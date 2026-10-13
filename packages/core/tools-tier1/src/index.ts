@@ -5,6 +5,7 @@ import type { AskShape } from '@fudo/safety'
 import type { ToolDefinition } from '@fudo/tools'
 import { askUserToolFor } from './ask.ts'
 import { webFetchTool } from './fetch.ts'
+import { readImageTool } from './image.ts'
 import { makeSkillTool } from './skill.ts'
 import { todoWriteTool } from './todo.ts'
 
@@ -16,8 +17,10 @@ export const tier1Tools = (
   todoWriteTool,
   askUserToolFor(ask),
   webFetchTool,
+  readImageTool,
   ...(skillRoots.length === 0 ? [] : [makeSkillTool(skillRoots)]),
 ]
 export * from './plugin.ts'
 export * from './skill.ts'
 export * from './fetch.ts'
+export * from './image.ts'
