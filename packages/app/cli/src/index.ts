@@ -242,3 +242,4 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     ),
   )
 }
+export * from './search-env.ts'

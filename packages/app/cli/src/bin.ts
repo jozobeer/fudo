@@ -12,6 +12,7 @@ import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
 import { Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
+import { searchFromEnv } from './search-env.ts'
 import { runCommand, type CommandOptions } from './index.ts'
 
 /** Every plugin the S1 bundle can assemble. */
@@ -60,6 +61,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
     return Effect.succeed(2)
   }
   return Effect.gen(function* () {
+    const search = searchFromEnv(process.env)
     const base = yield* Effect.tryPromise({
       try: () => loadBundledProfile(),
       catch: (cause) => new Error(`cannot read the bundled profile: ${String(cause)}`),
@@ -82,6 +84,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       plugins: bundledPlugins,
       cwd: io.cwd,
       route: parsed.model,
+      ...(search === undefined ? {} : { search }),
       stdout: io.stdout,
       stderr: io.stderr,
       ...(parsed.task === undefined
