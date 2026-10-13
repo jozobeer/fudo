@@ -1,4 +1,5 @@
 import { Data } from 'effect'
+import type { Stream } from 'effect'
 
 /** One block of model-facing content. Tool call arguments stay a raw JSON string. */
 export type ContentBlock =
@@ -90,4 +91,11 @@ export interface LlmRequest {
   readonly messages: ReadonlyArray<RequestMessage>
   readonly tools: ReadonlyArray<ToolSchema> | undefined
   readonly params: Readonly<Record<string, unknown>>
+}
+
+/** One provider adapter. One `stream` call is one attempt; it never retries internally. */
+export interface LlmAdapter {
+  readonly name: string
+  readonly capabilities: LlmCapabilities
+  stream(request: LlmRequest): Stream.Stream<StreamChunk, LlmFailure>
 }

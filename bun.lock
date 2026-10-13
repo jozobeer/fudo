@@ -19,6 +19,18 @@
         "effect": "4.0.3",
       },
     },
+    "packages/core/agent-loop": {
+      "name": "@fudo/agent-loop",
+      "dependencies": {
+        "@fudo/agent": "workspace:*",
+        "@fudo/kernel": "workspace:*",
+        "@fudo/llm": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "@fudo/system-prompt": "workspace:*",
+        "@fudo/tools": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/scope": {
       "name": "@fudo/scope",
       "dependencies": {
@@ -72,6 +84,8 @@
   },
   "packages": {
     "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
+
+    "@fudo/agent-loop": ["@fudo/agent-loop@workspace:packages/core/agent-loop"],
 
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 

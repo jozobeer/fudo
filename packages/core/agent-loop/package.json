@@ -1,0 +1,15 @@
+{
+  "name": "@fudo/agent-loop",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/agent": "workspace:*",
+    "@fudo/kernel": "workspace:*",
+    "@fudo/llm": "workspace:*",
+    "@fudo/session": "workspace:*",
+    "@fudo/system-prompt": "workspace:*",
+    "@fudo/tools": "workspace:*",
+    "effect": "4.0.3"
+  }
+}
