@@ -303,3 +303,4 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
 export * from './search-env.ts'
 export * from './env-file.ts'
 export * from './config.ts'
+export * from './secrets-file.ts'
