@@ -4,8 +4,9 @@ import { Sessions, sessionPlugin } from '@fudo/session'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { SystemPrompt, systemPromptPlugin } from '@fudo/system-prompt'
 import { Tools, toolsPlugin } from '@fudo/tools'
-import { Policy, safetyPlugin } from '@fudo/safety'
+import { Policy, askPlugin, safetyPlugin } from '@fudo/safety'
 import { tier0Plugin } from '@fudo/tools-tier0'
+import { tier1Plugin } from '@fudo/tools-tier1'
 import { Llm } from '@fudo/llm'
 import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { Agents, agentPlugin } from '@fudo/agent'
@@ -27,6 +28,8 @@ const plugins = [
   agentLoopPlugin,
   safetyPlugin,
   tier0Plugin,
+  askPlugin,
+  tier1Plugin,
 ]
 
 afterAll(async () => {
@@ -64,7 +67,7 @@ describe('bundled profile assembly', () => {
     )
 
     expect(built).toEqual({
-      rows: 10,
+      rows: 12,
       listed: 1,
       status: 'idle',
       sessions: true,

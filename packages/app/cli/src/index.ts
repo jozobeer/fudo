@@ -14,10 +14,14 @@ import type { SessionId } from '@fudo/session'
 import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
 import { Tools } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
+import { tier1Tools } from '@fudo/tools-tier1'
 import {
   Approval,
+  Ask,
   approvalServiceLayer,
+  askServiceLayer,
   installApproval,
+  installAsk,
   Policy,
   type ApprovalRequested,
 } from '@fudo/safety'
@@ -87,7 +91,9 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
     return yield* Effect.scoped(
       Effect.gen(function* () {
-        const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer))
+        const context = yield* Layer.build(
+          Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer),
+        )
         const hooks = Context.get(context, Hooks)
         if (options.json === true) {
           yield* hooks.on('session/event', (event) => {
@@ -117,6 +123,13 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
         if (rows.some((row) => row.name === '@fudo/tools-tier0')) {
           const registry = Context.get(context, Tools)
           for (const tool of Context.get(context, Tier0Tools)) yield* registry.register(tool)
+        }
+
+        // Tier 1 tools ask the user; their questions and answers join the log.
+        if (rows.some((row) => row.name === '@fudo/tools-tier1')) {
+          const registry = Context.get(context, Tools)
+          const ask = installAsk(Context.get(context, Ask), agent.session)
+          for (const tool of tier1Tools(ask)) yield* registry.register(tool)
         }
 
         // Approval is enforced only when the profile chose a safety row.

@@ -16,6 +16,8 @@ describe('base profile', () => {
       'system-prompt',
       'safety',
       'tier0',
+      'ask',
+      'tier1',
       'llm',
       'agent',
       'agent-loop',
