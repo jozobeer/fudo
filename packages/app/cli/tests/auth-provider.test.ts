@@ -1,0 +1,58 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { describe, expect, test } from 'bun:test'
+import { runAuth, type AuthIo } from '../src/index.ts'
+
+const collector = (value: string): { io: AuthIo; out: Array<string>; err: Array<string> } => {
+  const out: Array<string> = []
+  const err: Array<string> = []
+  return {
+    out,
+    err,
+    io: {
+      stdout: (text) => void out.push(text),
+      stderr: (text) => void err.push(text),
+      readLine: async () => value,
+    },
+  }
+}
+
+describe('fudo auth add', () => {
+  test('stores a provider key under its environment name', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const env = { XDG_CONFIG_HOME: directory }
+    const { io, out } = collector('key-value')
+
+    const code = await runAuth(['add', 'ollama'], io, env)
+
+    const path = join(directory, 'fudo', 'secrets.env')
+    expect(code).toBe(0)
+    expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=key-value\n')
+    expect(out.join('')).toContain('stored the ollama key')
+    expect(out.join('')).not.toContain('key-value')
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  test('list names the service and the variable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const env = { XDG_CONFIG_HOME: directory }
+    await runAuth(['add', 'ollama'], collector('one').io, env)
+
+    const list = collector('')
+    await runAuth(['list'], list.io, env)
+
+    expect(list.out.join('')).toBe('ollama (OLLAMA_API_KEY)\n')
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  test('an unknown provider only prints usage', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const { io, err } = collector('x')
+
+    expect(await runAuth(['add', 'nope'], io, { XDG_CONFIG_HOME: directory })).toBe(2)
+    expect(err.join('')).toContain('fudo auth add PROVIDER')
+    expect(err.join('')).toContain('ollama')
+    await rm(directory, { recursive: true, force: true })
+  })
+})

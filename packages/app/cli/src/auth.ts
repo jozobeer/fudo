@@ -1,4 +1,5 @@
 import { configPaths } from './config.ts'
+import { PROVIDERS, providerByEnv, providerByName } from './providers.ts'
 import { listSecrets, removeSecret, writeSecret } from './secrets-file.ts'
 
 export interface AuthIo {
@@ -11,9 +12,14 @@ export interface AuthIo {
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 const usage = (io: AuthIo): number => {
-  io.stderr('fudo auth set NAME     read one secret and store it\n')
-  io.stderr('fudo auth list         show which names are stored\n')
-  io.stderr('fudo auth remove NAME  forget one secret\n')
+  io.stderr(
+    'fudo auth add PROVIDER  store the key for a service (' +
+      PROVIDERS.map((p) => p.name).join(', ') +
+      ')\n',
+  )
+  io.stderr('fudo auth set NAME      store one secret under an exact name\n')
+  io.stderr('fudo auth list          show which services have a key\n')
+  io.stderr('fudo auth remove NAME   forget one secret\n')
   return 2
 }
 
@@ -28,6 +34,19 @@ export async function runAuth(
 ): Promise<number> {
   const paths = configPaths(env)
   const command = argv[0] ?? ''
+
+  if (command === 'add') {
+    const provider = providerByName(argv[1] ?? '')
+    if (provider === undefined) return usage(io)
+    const value = (await io.readLine(provider.env + ': ')).trim()
+    if (value === '') {
+      io.stderr('fudo: nothing was read, so nothing was stored\n')
+      return 2
+    }
+    writeSecret(paths.secrets, provider.env, value)
+    io.stdout('fudo: stored the ' + provider.name + ' key in ' + paths.secrets + '\n')
+    return 0
+  }
 
   if (command === 'set') {
     const name = argv[1] ?? ''
@@ -44,7 +63,14 @@ export async function runAuth(
 
   if (command === 'list') {
     const names = listSecrets(paths.secrets)
-    io.stdout(names.length === 0 ? 'fudo: no secrets stored\n' : names.join('\n') + '\n')
+    if (names.length === 0) {
+      io.stdout('fudo: no secrets stored\n')
+      return 0
+    }
+    for (const name of names) {
+      const provider = providerByEnv(name)
+      io.stdout(provider === undefined ? name + '\n' : provider.name + ' (' + name + ')\n')
+    }
     return 0
   }
 
