@@ -11,7 +11,7 @@ import {
   type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
-import { Cause, Context, Effect, Layer } from 'effect'
+import { Cause, Context, Effect, Layer, Stream } from 'effect'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -20,6 +20,8 @@ export interface CommandOptions {
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
   /** One-shot task. Without it the command has nothing to run (the REPL lands later). */
   readonly task?: string
+  /** Lines of a REPL session; when absent the command has nothing to run. */
+  readonly lines?: Stream.Stream<string>
   /** Completes to request a \`user\` cancellation, as SIGINT does. */
   readonly interrupt?: Effect.Effect<void>
   readonly resume?: SessionId
@@ -95,8 +97,20 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
               })
 
         if (options.task === undefined) {
-          options.stderr('nothing to do: pass a task (the REPL lands in a later slice)')
-          return 2
+          const lines = options.lines
+          if (lines === undefined) {
+            options.stderr('nothing to do: pass a task or run on a terminal')
+            return 2
+          }
+          yield* Stream.runForEach(lines, (line) =>
+            line.trim() === ''
+              ? Effect.void
+              : Effect.gen(function* () {
+                  yield* agent.followup({ text: line, source: 'user' })
+                  yield* agent.whenIdle
+                }),
+          )
+          return 0
         }
         yield* agent.followup({ text: options.task, source: 'user' })
         let cancelled = false
