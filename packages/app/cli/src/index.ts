@@ -11,6 +11,13 @@ import {
   type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
+import {
+  Approval,
+  approvalServiceLayer,
+  installApproval,
+  Policy,
+  type ApprovalRequested,
+} from '@fudo/safety'
 import { Cause, Context, Effect, Layer, Stream } from 'effect'
 
 export interface CommandOptions {
@@ -24,6 +31,8 @@ export interface CommandOptions {
   readonly lines?: Stream.Stream<string>
   /** Completes to request a \`user\` cancellation, as SIGINT does. */
   readonly interrupt?: Effect.Effect<void>
+  /** Answers an approval request; the default denies, so nothing hangs unanswered. */
+  readonly approve?: (request: ApprovalRequested) => Effect.Effect<boolean>
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -36,6 +45,8 @@ export interface CommandOptions {
 }
 
 /** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
+const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
+
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -73,7 +84,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
     return yield* Effect.scoped(
       Effect.gen(function* () {
-        const context = yield* Layer.build(layer)
+        const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer))
         const hooks = Context.get(context, Hooks)
         if (options.json === true) {
           yield* hooks.on('session/event', (event) => {
@@ -96,6 +107,14 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
                 options: { route },
               })
 
+        // Approval is enforced only when the profile chose a safety row.
+        if (rows.some((row) => row.name === '@fudo/safety')) {
+          yield* installApproval(agent.session, options.approve ?? denyApproval).pipe(
+            Effect.provideService(Hooks, hooks),
+            Effect.provideService(Policy, Context.get(context, Policy)),
+            Effect.provideService(Approval, Context.get(context, Approval)),
+          )
+        }
         if (options.task === undefined) {
           const lines = options.lines
           if (lines === undefined) {
