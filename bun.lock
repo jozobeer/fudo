@@ -120,6 +120,7 @@
       "name": "@fudo/tools-tier0",
       "dependencies": {
         "@fudo/kernel": "workspace:*",
+        "@fudo/safety": "workspace:*",
         "@fudo/tools": "workspace:*",
         "effect": "4.0.3",
       },
