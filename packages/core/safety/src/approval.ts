@@ -11,7 +11,7 @@ export interface ApprovalShape {
 
 /** Answers are held in memory only: approval is one call wide and never remembered. */
 export const makeApproval = (): Effect.Effect<ApprovalShape> =>
-  Effect.gen(function* () {
+  Effect.sync(() => {
     const waiting = new Map<string, Deferred.Deferred<boolean>>()
     return {
       request: (callId) =>
