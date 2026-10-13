@@ -1,12 +1,13 @@
 # fudo 設計: 全体構成と S1 Kernel
 
-fudo は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis に依存せず、一人で全体を把握できる規模に保つ。
+fudo は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis の代わりに Effect を基盤にして、一人で全体を把握できる規模に保つ。
 
 ## 目的と前提
 
 fudo を dsh のプラグインとして作らず独自に作る理由は三つある。中身を隅々まで把握して自分の判断で育てられること、Cordis と dsh の規模に縛られない技術スタックを選べること、モデルとプロバイダを自由に選べること、である。
 
 - 言語とランタイム: TypeScript と Bun。プロバイダ SDK や MCP SDK の層が厚く、dsh の実装と読み比べながら作れる。Rust は単一バイナリ配布で勝るが、プラグインの動的ロードに WASM か子プロセスが要る
+- 実行基盤: Effect 4（`effect@4.0.3` を exact で固定する）。キャンセルの伝播、リソースの寿命、型付きの失敗、retry と timeout、schema を Effect に任せる
 - 最初のモデル接続先: Ollama Cloud の OpenAI 互換 API（`https://ollama.com/v1`、`Authorization: Bearer $OLLAMA_API_KEY`）。Anthropic adapter は S1 の後に追加する
 - 開発環境: macOS。sandbox backend は最終的に macOS・Linux・Windows に対応するが、v1 では macOS だけを実装する
 
@@ -35,8 +36,8 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 
 | 外すもの | 理由 |
 |---|---|
-| Cordis | 必要な部分集合を自作する（[カーネル](#カーネル)）。Effect-TS 上に作る案は、waterfall 型イベントが Effect の流儀から外れて結局自作になるため退けた。イベントソーシングを核にする案は、承認待ちやストリーミングのような時間をまたぐ介入を純粋関数で書くのが不自然なため退けた |
-| HMR と実行中の load / unload | 依存先が実行中に現れたり消えたりしないので、DI は起動時のトポロジカルソート一回で済む。登録はすべて disposer を返すので、後から HMR を足すときは disposer を束ねる scope を加えればよい |
+| Cordis | service の DI を `Layer`、登録の寿命を `Scope` で置き換え、waterfall などの hook だけを自作する（[カーネル](#カーネル)）。Cordis の部分集合を自作する案は、キャンセルと teardown の正しさを dsh と同じく規約と防御的なコードで守ることになるため退けた。イベントソーシングを核にする案は、承認待ちやストリーミングのような時間をまたぐ介入を純粋関数で書くのが不自然なため退けた |
+| HMR と実行中の load / unload | 依存先が実行中に現れたり消えたりしないので、Layer は起動時に一度組み立てて終了時に一度閉じればよい。登録はすべて Scope に結びつくので、後から HMR を足すときは plugin ごとの Scope を作り直せばよい |
 | Desktop、Python SDK、ACP | v1 の UI は CLI だけである。S7 と S8 の後で再検討する |
 | 二言語ドキュメント | 個人の基盤には不要 |
 | OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる |
@@ -54,14 +55,14 @@ Bun workspaces の monorepo とし、パッケージを `packages/<group>/<pkg>/
 
 ```
 packages/
-  kernel/kernel        Context・service・event・effect・loader
+  kernel/kernel        Plugin 定義・hook registry・loader（YAML から Layer を組み立てる）
   core/session         SessionEventMap・append-only log・deriveMessages
   core/session-jsonl   JSONL 永続化 provider
   core/tools           tool registry と実行 pipeline
   core/system-prompt   prompt section と tool schema の組み立て
   core/agent           Agent interface・registry・agent/* イベント
   core/agent-loop      turn/step driver（プラグイン）
-  core/scope           Agent 単位の scoped registration
+  core/scope           Agent 単位の Scope と、親の登録を継承して上書きする scoped registry
   llm/llm              StreamChunk・LlmFailure・adapter seam
   llm/llm-openai       OpenAI 互換 adapter
   bundle/base          既定の plugin 行（YAML）
@@ -71,36 +72,49 @@ packages/
 
 ### カーネル
 
-カーネルは Cordis の部分集合である。service の DI、型付きイベント、disposer を返す登録を持ち、実行中の load と unload は持たない。
+カーネルは Effect の上に、plugin 定義、hook registry、loader だけを足す。service は `Context.Service` で定義し、実装を `Layer` として提供する。実行中の load と unload は持たない。
 
 ```ts
-// 宣言マージで拡張する。dispatch mode をイベントの型に埋め込む
-interface Events {
-  'agent/pre-step': Waterfall<(input: PreStepInput) => Promise<PreStepDecision>>
-  'agent/created':  Serial<(agent: Agent) => Promise<void>>
-  'session/event':  Emit<(ev: SessionEvent) => void>
-}
-interface Services { sessions: SessionStore; tools: ToolRuntime; llm: LlmRuntime }
+class Tools extends Context.Service<Tools, ToolRuntime>()("fudo/Tools") {}
+const ToolsLive = Layer.effect(Tools, Effect.gen(function* () {
+  const sessions = yield* Sessions   // 依存は Layer の要求型に現れる
+  // ...
+}))
 
-interface Plugin<C> {
+interface Plugin<C, P, R> {
   name: string
-  inject?: (keyof Services)[]
-  config: z.ZodType<C>
-  apply(ctx: Context, config: C): void | Promise<void>
+  config: Schema.Schema<C>
+  provides: ReadonlyArray<Context.Key<P>>
+  requires: ReadonlyArray<Context.Key<R>>
+  layer: (config: C) => Layer.Layer<P, PluginError, R>
 }
-
-ctx.provide(name, impl)              // service を登録し、disposer を返す
-ctx.on(name, listener, { prepend })  // listener を登録し、disposer を返す
-ctx.effect(() => disposer)           // 任意のリソースを登録する
-ctx.emit / serial / parallel / bail / waterfall(name, ...args)
-ctx.child()                          // 子 Context。dispose で配下の登録を逆順に解除する
 ```
 
-dispatch mode は emit、serial、parallel、bail、waterfall の五つで、意味は dsh の Cordis primer と同じである。waterfall の listener は `(...args, next)` を受け、`next()` を呼べば次へ委譲し、呼ばずに返せば short-circuit する。単一の決定を返すイベントでは short-circuit が正規の使い方である。dsh はイベントの mode を JSDoc の `@mode` で宣言し、gate で dispatch 箇所と照合する。fudo は mode を `Waterfall<F>` などの型に埋め込み、mode と異なる dispatch 関数ではそのイベントを呼べないようにする。
+plugin は提供する service と要求する service を、`layer` の型と、`provides` / `requires` の実行時メタデータの両方で宣言する。YAML による組み立ては実行時に行われ、型情報が残らないので、loader は実行時メタデータで依存を解決する。`layer` の型引数と `provides` / `requires` の要素型が一致しない plugin はコンパイルできない。
 
-loader は dsh と同じ行形式 `{ id, name, config, disabled }` の YAML を、bundle、profile patch、home patch、`--patch` の順に id 単位で重ねる。起動時は `inject` から依存をトポロジカルソートし、循環や存在しない service があれば起動を失敗させる。activate の途中で失敗したら、それまでの disposer を逆順に呼ぶ。`--dump-config` は最終的なツリーを表示する。
+loader は dsh と同じ行形式 `{ id, name, config, disabled }` の YAML を、bundle、profile patch、home patch、`--patch` の順に id 単位で重ねる。次に `provides` と `requires` から依存をトポロジカルソートし、`Layer.provide` でつないだ一つの Layer を作る。循環や存在しない service があれば起動を失敗させる。Layer の構築が途中で失敗すると、構築済みの部分は Layer の Scope が逆順に解放する。`--dump-config` は最終的なツリーを表示する。
 
-plugin の config と tool の引数・出力の schema は zod v4 で書く。tool の JSON Schema は `z.toJSONSchema()` で同じ定義から生成する。
+hook は dsh の Cordis イベントに相当し、Effect に対応する仕組みが無いので自作する。
+
+```ts
+// 宣言マージで拡張する。dispatch mode を hook の型に埋め込む
+interface HookMap {
+  'agent/pre-step': Waterfall<(input: PreStepInput) => Effect.Effect<PreStepDecision>>
+  'agent/created':  Serial<(agent: Agent) => Effect.Effect<void, AgentInitError>>
+  'session/event':  Emit<(ev: SessionEvent) => void>
+}
+
+hooks.on(name, listener, { prepend })  // Effect<void, never, Scope>。Scope が閉じると登録が外れる
+hooks.emit / serial / parallel / bail / waterfall(name, ...args)
+```
+
+dispatch mode は emit、serial、parallel、bail、waterfall の五つで、意味は dsh の Cordis primer と同じである。waterfall の listener は `(...args, next)` を受け、`next()` を呼べば次へ委譲し、呼ばずに返せば short-circuit する。単一の決定を返す hook では short-circuit が正規の使い方である。dsh は mode を JSDoc の `@mode` で宣言し、gate で dispatch 箇所と照合する。fudo は mode を `Waterfall<F>` などの型に埋め込み、mode と異なる dispatch 関数ではその hook を呼べないようにする。listener も Effect なので、呼び出し元の Fiber が interrupt されると listener の処理も interrupt される。
+
+登録の寿命は `Scope` で管理する。plugin の登録はアプリケーションの Scope に、Agent に限定した登録はその Agent の子 Scope に結びつく。Agent の Scope を閉じると、その Agent の hook、tool、prompt section が外れる。
+
+config、tool の引数と出力、session event のデコードは Effect Schema で書く。tool の JSON Schema は `Schema.toJsonSchemaDocument()`（draft 2020-12）で同じ定義から生成する。プロセス内の失敗は `Data.TaggedError` で表し、ログに残す失敗（`LlmFailure` など）は Schema で定義して encode してから書き込む。
+
+Effect のモジュールは安定度が分かれている。`effect@4.0.3` の型定義の `@stability` では、`Effect`、`Layer`、`Scope`、`Context`、`Schedule`、`Fiber`、`PubSub`、`JsonSchema` が stable、`Stream` と `Schema` は大半が stable、`effect/ai`、`effect/process`、`effect/rpc`、`effect/cli` が unstable である。unstable なモジュールは fudo の seam の内側でだけ使い（`effect/process` は subprocess provider の中、`effect/rpc` は S8 の transport の中）、minor の更新で壊れたときに直す場所を 1 パッケージに限る。`effect/ai` は使わない。その `LanguageModel` は unstable であるうえ、生の chunk と adapter 所有の replay 状態をログに残す [LLM seam](#llm-seam) の契約より高い抽象で、ログから request と response を再構成できることを fudo が保証できなくなるからである。
 
 デプロイによって変わる値は、plugin の config として YAML から変更できる形にする。`DEFAULT_*` 定数を plugin に埋め込まない。プロトコル定数とセキュリティ上の不変条件は固定する。
 
@@ -140,15 +154,15 @@ type SessionEvent = { [K in keyof SessionEventMap]: {
 
 LLM seam の Definition は `llm/llm`（`ContentBlock`、`StreamChunk`、`LlmFailure`、`LlmAdapter`）、Provider は `llm/llm-openai`、Consumer は agent loop と S4 の compaction である。
 
-`StreamChunk` は dsh と同じ閉じた union で、`block-start`、`text-delta`、`reasoning-delta`、`tool-call-delta`、`block-end`、`usage`、`finish` の 7 種である。switch は `assertNever` で閉じる。
+`StreamChunk` は dsh と同じ閉じた union で、`block-start`、`text-delta`、`reasoning-delta`、`tool-call-delta`、`block-end`、`usage`、`finish` の 7 種である。switch は `assertNever` で閉じる。adapter の `stream(request)` は `Stream.Stream<StreamChunk, LlmFailure>` を返す。
 
 adapter は次の契約を守る。
 
 1. `usage` は `finish` より前に出し、`finish` の後には何も出さない
 2. tool の引数は生の JSON 文字列のまま流す
-3. 失敗は `stream()` からの throw か `finish{kind:'error'}` のどちらかで返し、どちらも `LlmFailure` に正規化する
-4. 1 回の adapter 呼び出しは provider への 1 回の試行とし、SDK の retry を無効にする（OpenAI SDK は `maxRetries: 0`）。SDK の内部で retry すると、失敗した試行が `assistant/attempt` に残らない
-5. 応答の無い時間を transport で打ち切る（`streamIdleTimeoutMs`、config で変更でき、既定 5 分）
+3. 失敗は stream のエラーチャネルか `finish{kind:'error'}` のどちらかで返し、どちらも `LlmFailure` に正規化する
+4. 1 回の adapter 呼び出しは provider への 1 回の試行とし、adapter の内部で retry しない。adapter は provider の SDK を使わず `HttpClient` で直接呼ぶ。内部で retry すると、失敗した試行が `assistant/attempt` に残らない
+5. 応答の無い時間を transport で打ち切る（`streamIdleTimeoutMs`、config で変更でき、既定 5 分）。打ち切りは `TIMEOUT`、呼び出し元による interrupt は `ABORTED` として区別する
 6. content の無い完了は `EMPTY_RESPONSE` として、retry できるエラーにする
 7. コンテキスト長の超過は `CONTEXT_WINDOW_EXCEEDED` に正規化する。consumer は provider の文面ではなく `code` で分岐する
 
@@ -165,7 +179,7 @@ interface LlmCapabilities {
 
 Ollama Cloud の OpenAI 互換 API は `tool_choice` を受け付けない。`toolChoice: false` の adapter では、ツールの強制や禁止をプロンプトと `tools/pre-execute` で担う。loop とプラグインは capabilities を見て振る舞いを分け、特定の provider の機能を前提にしない。
 
-route は `provider/model` 形式の文字列（例: `ollama-cloud/qwen3-coder:480b`）で指定する。provider ごとの `baseURL`、API キーの環境変数名、capabilities、retry policy は bundle の YAML に置く。retry は `llm-retry` プラグインが `agent/request-error` waterfall で担い、`retryableCodes` と backoff に従って `{ kind: 'retry' }` を返す。
+route は `provider/model` 形式の文字列（例: `ollama-cloud/qwen3-coder:480b`）で指定する。provider ごとの `baseURL`、API キーの環境変数名、capabilities、retry policy は bundle の YAML に置く。retry は `llm-retry` プラグインが `agent/request-error` waterfall で担い、`retryableCodes` と backoff（`Schedule` で表す）に従って `{ kind: 'retry' }` を返す。
 
 ### Tool registry と実行 pipeline
 
@@ -173,9 +187,9 @@ route は `provider/model` 形式の文字列（例: `ollama-cloud/qwen3-coder:4
 interface ToolDefinition<A, V> {
   name: string
   description: string
-  parameters: z.ZodType<A>
-  output: { schema: z.ZodType<V>; render(args: A, value: V): ContentBlock[] }
-  execute(args: A, exec: ToolRunContext): Promise<V>  // exec.signal に従う
+  parameters: Schema.Schema<A>
+  output: { schema: Schema.Schema<V>; render(args: A, value: V): ContentBlock[] }
+  execute(args: A, exec: ToolRunContext): Effect.Effect<V, ToolError>
   isConcurrencySafe?(args: A): boolean
   timeoutMs?: number
   finalizeContent?(exec: ToolExecution, result: ToolExecutionResult): ContentBlock[] | undefined
@@ -184,14 +198,14 @@ interface ToolDefinition<A, V> {
 }
 ```
 
-`schemas()` は `name`、`description`、`parameters` だけを allowlist で取り出して model に渡す。tool 本体は正規の JSON 値を返し、`output.render` がそれを model 向けの content に変換する。S6 の workflow（PTC）は、コードから tool を呼んで構造化された値を受け取るので、この分離を前提にする。`presentCall` と `presentResult` は引数と結果だけに依存する純粋関数で、live 描画と replay で同じ結果を返す。
+`schemas()` は `name`、`description`、`parameters` だけを allowlist で取り出して model に渡す。tool 本体は正規の JSON 値を返し、`output.render` がそれを model 向けの content に変換する。S6 の workflow（PTC）は、コードから tool を呼んで構造化された値を受け取るので、この分離を前提にする。`presentCall` と `presentResult` は引数と結果だけに依存する純粋関数で、live 描画と replay で同じ結果を返す。キャンセルは `execute` の Fiber への interrupt として届くので、`ToolRunContext` は `AbortSignal` を持たない。tool が起動した子 Fiber と subprocess は、Scope によって interrupt と同時に後始末される。
 
 1 回の tool call は次の順に処理する。
 
 ```
 tool/call（ログ）
   → tools/pre-execute  waterfall   allow / deny / ask
-      ask → ctx.approval（S2）→ allowed-once 以外は deny
+      ask → approval service（S2）→ allowed-once 以外は deny
   → monotonic guards               deny か abstain だけを返す
   → tools/execute      waterfall   timeout・計測などの around 処理
       → execute() 本体
@@ -203,7 +217,7 @@ tool/result（ログ）
 
 waterfall は `prepend` で順序が変わるので、後から登録したプラグインが policy を迂回できる。どの組み合わせでも破られてはならない拒否（plan-mode での書き込み禁止など）は monotonic guard に置く。
 
-pipeline の途中で起きた例外は `isError` の結果に正規化し、model にエラーとして返す。連続する `isConcurrencySafe` の call は並列に実行し、結果は call の順にログへ記録する。ToolRestriction は scope（Agent）ごとに継承したツールを絞り込むフィルタで、plan-mode（S5）と subagent（S6）が使う。
+pipeline の途中で起きた失敗と defect は `isError` の結果に正規化し、model にエラーとして返す。連続する `isConcurrencySafe` の call は並列に実行し、結果は call の順にログへ記録する。ToolRestriction は scope（Agent）ごとに継承したツールを絞り込むフィルタで、plan-mode（S5）と subagent（S6）が使う。
 
 ### Agent と agent loop
 
@@ -214,14 +228,14 @@ interface Agent {
   readonly options: AgentOptions   // route、model、reasoning effort など
   readonly inbox: Inbox            // nextTurn と nextStep の 2 キュー。永続化する
   readonly status: AgentStatus     // idle | running | cancelling | disposed
-  readonly ctx: Context            // Agent scope。dispose で配下の登録を巻き戻す
-  followup(m: UserMessage): void   // 次の turn に積む
-  steer(m: UserMessage): void      // 次の step 境界で取り込む
-  inject(m: UserMessage): void     // Agent を起こさず、次の request に同梱する
-  cancel(cause: AgentCancelCause): void
-  whenIdle(): Promise<void>
+  readonly scope: Scope.Scope      // Agent に限定した登録の寿命。閉じると配下の登録が外れる
+  followup(m: UserMessage): Effect.Effect<void>  // 次の turn に積む
+  steer(m: UserMessage): Effect.Effect<void>     // 次の step 境界で取り込む
+  inject(m: UserMessage): Effect.Effect<void>    // Agent を起こさず、次の request に同梱する
+  cancel(cause: AgentCancelCause): Effect.Effect<void>
+  whenIdle: Effect.Effect<void>
 }
-ctx.agents.create({ seed?, options, preset?, meta? })
+agents.create({ seed?, options, preset?, meta? })
 ```
 
 `followup`、`steer`、`inject` は、UI からの入力、jobs の完了通知、AGENTS.md の追加読み込みにそれぞれ対応する。
@@ -248,23 +262,23 @@ turn/end
 
 agent loop は次の不変条件を守る。
 
-1. すべての `tool/call` に対応する `tool/result` を記録する。step が失敗またはキャンセルされたら、欠けた分を合成したエラー結果で埋める。埋めないと、次の request で provider が応答の無い tool call を理由に要求を拒否する
-2. キャンセルの原因を `AgentCancelCause`（`user`、`shutdown`、`parent-cancelled` など）で表し、`turn/end.reason` に記録する
+1. すべての `tool/call` に対応する `tool/result` を記録する。step が失敗またはキャンセルされたら、欠けた分を合成したエラー結果で埋める。埋める処理は `Effect.onExit` に置き、interrupt でも実行されるようにする。埋めないと、次の request で provider が応答の無い tool call を理由に要求を拒否する
+2. `cancel(cause)` は turn の Fiber を interrupt する。原因は `AgentCancelCause`（`user`、`shutdown`、`parent-cancelled` など）で表し、`turn/end.reason` に記録する
 3. retry は確定済みの request を再送し、prompt の組み立てと `agent/pre-step` をやり直さない
 4. `agent/created` は serial で await してから最初の作業に入り、失敗したら初期化を巻き戻す
 
-S6 はこれらの拡張点を使う。subagent は親が `ctx.agents.create()` で子を作り、子の `agent.ctx` に ToolRestriction を登録する。子の approval は親の answerer に委譲するか `never` に固定する。fork は `seed` に turn 境界までのイベント列を渡す。goal は `agent/turn-stopping` で継続を指示する。jobs は Agent の外の service とし、完了を `inject` で通知する。
+S6 はこれらの拡張点を使う。subagent は親が `agents.create()` で子を作り、子の `agent.scope` に結びつけて ToolRestriction を登録する。親が cancel されると、子の turn の Fiber も interrupt される。子の approval は親の answerer に委譲するか `never` に固定する。fork は `seed` に turn 境界までのイベント列を渡す。goal は `agent/turn-stopping` で継続を指示する。jobs は Agent の外の service とし、完了を `inject` で通知する。
 
 ### System prompt
 
 ```ts
 interface PromptSection {
-  name: string          // 重複登録は throw する
+  name: string          // 重複登録は失敗する
   order: number         // 昇順に連結し、同順位は name の code-unit 順
   text: string | ((c: AssembleContext) => string)  // {{var}} は後段で補間する
   complete?: boolean    // この section だけで prompt 全体を置き換える
 }
-ctx.systemPrompt.section(s)  // disposer を返す。agent.ctx から登録するとその Agent だけに効く
+systemPrompt.section(s, { agent? })  // Effect<void, never, Scope>。agent を指定するとその Agent だけに効く
 ```
 
 tool schema は、登録済みのツールのうち scope の ToolRestriction を通ったものから作る。
@@ -277,8 +291,8 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 
 | 失敗 | 担当 | 保証 |
 |---|---|---|
-| plugin の config や依存の不備 | loader | 起動を失敗させ、途中までの disposer を逆順に呼ぶ |
-| tool 本体と pipeline の例外 | tool registry | `isError` の結果にして model に返し、loop は続ける |
+| plugin の config や依存の不備 | loader | 起動を失敗させ、構築済みの Layer を逆順に解放する |
+| tool 本体と pipeline の失敗・defect | tool registry | `isError` の結果にして model に返し、loop は続ける |
 | approval の answerer の不在・例外 | approval（S2） | `unavailable` を返す。呼び出し側は拒否する |
 | sandbox backend の不在 | sandbox（S2） | `SANDBOX_UNAVAILABLE` で失敗する。制限なしでの実行に切り替えない |
 | LLM の失敗 | adapter と agent loop | `LlmFailure` に正規化し、retry するか `turn/end{ reason: 'error' }` で閉じる |
@@ -287,7 +301,7 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 
 ログの append に失敗した Agent を止めるのは、記録されない状態で作業を続けると、model に見えたものとログが食い違うからである。observer の例外を隔離するのは、observer がログの下流にあり、その失敗がログの正しさに影響しないからである。
 
-失敗は `code` を持つ判別 union で表し、consumer は文面ではなく `code` で分岐する。ユーザーへの報告は、起きたことと次に取る行動を一文ずつ書く。
+失敗は Effect のエラーチャネルに `_tag` か `code` を持つ判別 union として流し、consumer は文面ではなく `_tag` か `code` で分岐する。想定外の例外（defect）は、担当の境界で上の表の保証に従って変換する。ユーザーへの報告は、起きたことと次に取る行動を一文ずつ書く。
 
 ### Headless CLI
 
@@ -316,11 +330,14 @@ mock は LLM の境界だけに置き、その下流は実物を使う。
 
 ## 未確認の事項
 
-次の三点は Ollama Cloud のドキュメントに記載が無く、S1 の実装の初めに API キーで録画して確定する。録画は adapter の単体テストの fixture にする。
+次の四点は Ollama Cloud のドキュメントに記載が無く、S1 の実装の初めに API キーで録画して確定する。録画は adapter の単体テストの fixture にする。
 
 - reasoning の delta が `reasoning` と `reasoning_content` のどちらのフィールドで届くか
 - 並列の tool call の delta がどう分割されて届くか
 - `stream_options.include_usage` を指定したとき、usage がどの chunk に付くか
+- `Schema.toJsonSchemaDocument()` が出力する draft 2020-12 の JSON Schema を、Ollama Cloud の tools パラメータがそのまま受け付けるか
+
+`@effect/platform-bun` の安定度は、依存に加えるときに型定義の `@stability` で確かめる。
 
 ## S1 の完了条件
 
@@ -328,5 +345,5 @@ mock は LLM の境界だけに置き、その下流は実物を使う。
 2. そのセッションを `--resume` で再開した 2 turn 目が、ログから再構成した history の上で動く
 3. tool の例外、LLM の retry、SIGINT による cancel のそれぞれで、`tool/call` と `tool/result` が対になり、`turn/end.reason` が正しく記録される
 4. 1 から 3 が replay snapshot として API キーなしで再生できる
-5. [未確認の事項](#未確認の事項)の三点を録画で確定し、adapter のテストに反映する
-6. `--dump-config` が最終的なツリーを表示し、存在しない service を `inject` する行があると起動が失敗する
+5. [未確認の事項](#未確認の事項)の四点を録画で確定し、adapter のテストに反映する
+6. `--dump-config` が最終的なツリーを表示し、存在しない service を `requires` に持つ行があると起動が失敗する
