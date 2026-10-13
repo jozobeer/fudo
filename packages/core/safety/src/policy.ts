@@ -17,8 +17,8 @@ export type PolicyDecision =
   | { readonly kind: 'deny'; readonly reason: string }
 
 const PRESETS: Readonly<Record<PermissionPreset, ReadonlyArray<NeededCapability>>> = {
-  'read-only': ['read', 'network'],
-  'workspace-write': ['read', 'network', 'write'],
+  'read-only': ['read'],
+  'workspace-write': ['read', 'write'],
   full: ['read', 'network', 'write', 'exec'],
 }
 

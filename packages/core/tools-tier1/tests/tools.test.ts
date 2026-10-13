@@ -8,7 +8,7 @@ describe('tier1Tools', () => {
     const ask = await Effect.runPromise(makeAsk())
     const tools = tier1Tools(ask)
 
-    expect(tools.map((tool) => tool.name)).toEqual(['todo_write', 'ask_user'])
-    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], []])
+    expect(tools.map((tool) => tool.name)).toEqual(['todo_write', 'ask_user', 'web_fetch'])
+    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], [], ['network']])
   })
 })
