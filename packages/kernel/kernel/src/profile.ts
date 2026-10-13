@@ -28,28 +28,23 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const mergeConfig = (base: unknown, patch: unknown): unknown =>
   isRecord(base) && isRecord(patch) ? { ...base, ...patch } : patch
 
+const overlayRow = (existing: PluginRow | undefined, row: PluginRow): PluginRow =>
+  existing === undefined
+    ? row
+    : {
+        ...existing,
+        ...row,
+        config:
+          row.config === undefined ? existing.config : mergeConfig(existing.config, row.config),
+      }
+
 /** Overlays layers by row id. A later layer wins; new ids keep their first-seen order. */
 export function mergeRows(
   layers: ReadonlyArray<ReadonlyArray<PluginRow>>,
 ): ReadonlyArray<PluginRow> {
   const merged = new Map<string, PluginRow>()
   for (const layer of layers) {
-    for (const row of layer) {
-      const existing = merged.get(row.id)
-      merged.set(
-        row.id,
-        existing === undefined
-          ? row
-          : {
-              ...existing,
-              ...row,
-              config:
-                row.config === undefined
-                  ? existing.config
-                  : mergeConfig(existing.config, row.config),
-            },
-      )
-    }
+    for (const row of layer) merged.set(row.id, overlayRow(merged.get(row.id), row))
   }
   return [...merged.values()]
 }

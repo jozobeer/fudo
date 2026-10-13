@@ -53,6 +53,39 @@ const toUsage = (usage: OpenAiUsage | null | undefined): LlmUsage | undefined =>
   }
 }
 
+type BlockKind = 'reasoning' | 'text'
+
+interface BlockSpec {
+  readonly index: number
+  readonly make: (text: string) => StreamChunk
+}
+
+/** How one open text block maps to its index and delta chunk. */
+const BLOCKS: Readonly<Record<BlockKind, BlockSpec>> = {
+  reasoning: {
+    index: REASONING_INDEX,
+    make: (text) => ({ type: 'reasoning-delta', index: REASONING_INDEX, text }),
+  },
+  text: {
+    index: TEXT_INDEX,
+    make: (text) => ({ type: 'text-delta', index: TEXT_INDEX, text }),
+  },
+}
+
+const payloadOf = (line: string): string | undefined =>
+  line.startsWith('data:') ? line.slice('data:'.length).trim() : undefined
+
+const parseChunk = (payload: string): OpenAiChunk | undefined => {
+  try {
+    return JSON.parse(payload) as OpenAiChunk
+  } catch {
+    return undefined
+  }
+}
+
+const hasText = (value: string | null | undefined): value is string =>
+  typeof value === 'string' && value !== ''
+
 /**
  * Decodes the OpenAI-compatible SSE stream into the fudo chunk vocabulary.
  *
@@ -66,69 +99,79 @@ export class OpenAiStreamDecoder {
   private pendingFinish: FinishKind | undefined = undefined
 
   push(line: string): ReadonlyArray<StreamChunk> {
-    if (!line.startsWith('data:')) return []
-    const payload = line.slice('data:'.length).trim()
-    if (payload === '[DONE]') {
-      const finish = this.pendingFinish
-      this.pendingFinish = undefined
-      return finish === undefined ? [] : [{ type: 'finish', kind: finish }]
-    }
+    const payload = payloadOf(line)
+    if (payload === undefined) return []
+    if (payload === '[DONE]') return this.flushFinish()
+    const parsed = parseChunk(payload)
+    return parsed === undefined ? [] : this.decode(parsed)
+  }
 
-    let parsed: OpenAiChunk
-    try {
-      parsed = JSON.parse(payload) as OpenAiChunk
-    } catch {
-      return []
-    }
-
+  private decode(parsed: OpenAiChunk): ReadonlyArray<StreamChunk> {
     const chunks: Array<StreamChunk> = []
     const usage = toUsage(parsed.usage)
-    if (usage !== undefined) {
-      chunks.push({ type: 'usage', usage })
-      if (this.pendingFinish !== undefined) {
-        chunks.push({ type: 'finish', kind: this.pendingFinish })
-        this.pendingFinish = undefined
-      }
-    }
-
+    if (usage !== undefined) chunks.push(...this.takeUsage(usage))
     const choice = parsed.choices?.[0]
-    const delta = choice?.delta
-    if (delta !== undefined) {
-      const reasoning = delta.reasoning
-      if (typeof reasoning === 'string' && reasoning !== '') {
-        if (this.openBlock !== 'reasoning') {
-          chunks.push({ type: 'block-start', index: REASONING_INDEX, blockType: 'reasoning' })
-          this.openBlock = 'reasoning'
-        }
-        chunks.push({ type: 'reasoning-delta', index: REASONING_INDEX, text: reasoning })
-      }
-      const text = delta.content
-      if (typeof text === 'string' && text !== '') {
-        if (this.openBlock !== 'text') {
-          chunks.push({ type: 'block-start', index: TEXT_INDEX, blockType: 'text' })
-          this.openBlock = 'text'
-        }
-        chunks.push({ type: 'text-delta', index: TEXT_INDEX, text })
-      }
-      for (const call of delta.tool_calls ?? []) {
-        this.openBlock = undefined
-        chunks.push({
-          type: 'tool-call-delta',
-          index: TOOL_INDEX_BASE + (call.index ?? 0),
-          id: call.id ?? '',
-          ...(call.function?.name === undefined ? {} : { name: call.function.name }),
-          argumentsDelta: call.function?.arguments ?? '',
-        })
-      }
-    }
-
+    if (choice?.delta !== undefined) chunks.push(...this.takeDelta(choice.delta))
     const reason = choice?.finish_reason
     if (reason !== undefined && reason !== null) {
-      if (usage !== undefined) chunks.push({ type: 'finish', kind: finishKindOf(reason) })
-      else this.pendingFinish = finishKindOf(reason)
+      chunks.push(...this.takeFinish(reason, usage !== undefined))
     }
-
     return chunks
+  }
+
+  /** Usage wins the order: a held finish follows it, not the other way around. */
+  private takeUsage(usage: LlmUsage): Array<StreamChunk> {
+    const chunks: Array<StreamChunk> = [{ type: 'usage', usage }]
+    if (this.pendingFinish !== undefined) {
+      chunks.push({ type: 'finish', kind: this.pendingFinish })
+      this.pendingFinish = undefined
+    }
+    return chunks
+  }
+
+  private takeDelta(delta: OpenAiDelta): Array<StreamChunk> {
+    const chunks: Array<StreamChunk> = []
+    if (hasText(delta.reasoning)) chunks.push(...this.emitDelta('reasoning', delta.reasoning))
+    if (hasText(delta.content)) chunks.push(...this.emitDelta('text', delta.content))
+    for (const call of delta.tool_calls ?? []) chunks.push(...this.takeToolCall(call))
+    return chunks
+  }
+
+  private emitDelta(kind: BlockKind, text: string): Array<StreamChunk> {
+    const chunks: Array<StreamChunk> = []
+    if (this.openBlock !== kind) {
+      this.openBlock = kind
+      chunks.push({ type: 'block-start', index: BLOCKS[kind].index, blockType: kind })
+    }
+    chunks.push(BLOCKS[kind].make(text))
+    return chunks
+  }
+
+  private takeToolCall(call: OpenAiToolCallDelta): Array<StreamChunk> {
+    this.openBlock = undefined
+    const name = call.function?.name
+    return [
+      {
+        type: 'tool-call-delta',
+        index: TOOL_INDEX_BASE + (call.index ?? 0),
+        id: call.id ?? '',
+        ...(name === undefined ? {} : { name }),
+        argumentsDelta: call.function?.arguments ?? '',
+      },
+    ]
+  }
+
+  private takeFinish(reason: string, usageSettled: boolean): Array<StreamChunk> {
+    const kind = finishKindOf(reason)
+    if (usageSettled) return [{ type: 'finish', kind }]
+    this.pendingFinish = kind
+    return []
+  }
+
+  private flushFinish(): Array<StreamChunk> {
+    const finish = this.pendingFinish
+    this.pendingFinish = undefined
+    return finish === undefined ? [] : [{ type: 'finish', kind: finish }]
   }
 }
 

@@ -56,21 +56,17 @@ const topologicalOrder = (
   )
 }
 
-/**
- * Merges the profile layers and builds one layer in dependency order.
- *
- * Fails before building anything when a row names an unknown plugin, two rows
- * provide the same service, a required service has no provider, the providers
- * form a cycle, or a config does not match its plugin schema. A failure while
- * the returned layer is built releases the already-built plugins in reverse.
- */
-export function loadProfile(
-  options: LoadProfileOptions,
-): Effect.Effect<Layer.Layer<any, PluginError, never>, PluginError> {
-  return Effect.gen(function* () {
-    const pluginsByName = new Map<string, Plugin<any, any, any>>()
-    for (const plugin of options.plugins) {
-      if (pluginsByName.has(plugin.name)) {
+const toNonEmpty = <A>(values: ReadonlyArray<A>): [A, ...Array<A>] => values as [A, ...Array<A>]
+
+type PluginMap = ReadonlyMap<string, Plugin<any, any, any>>
+
+const pluginMap = (
+  plugins: ReadonlyArray<Plugin<any, any, any>>,
+): Effect.Effect<PluginMap, PluginError> =>
+  Effect.gen(function* () {
+    const byName = new Map<string, Plugin<any, any, any>>()
+    for (const plugin of plugins) {
+      if (byName.has(plugin.name)) {
         return yield* Effect.fail(
           new PluginError({
             code: 'duplicate-plugin',
@@ -79,13 +75,17 @@ export function loadProfile(
           }),
         )
       }
-      pluginsByName.set(plugin.name, plugin)
+      byName.set(plugin.name, plugin)
     }
+    return byName
+  })
 
-    const rows = mergeRows(options.layers)
-    const enabled = rows.filter((row) => row.disabled !== true)
-
-    for (const row of enabled) {
+const requireKnownPlugins = (
+  rows: ReadonlyArray<PluginRow>,
+  pluginsByName: PluginMap,
+): Effect.Effect<void, PluginError> =>
+  Effect.gen(function* () {
+    for (const row of rows) {
       if (!pluginsByName.has(row.name)) {
         return yield* Effect.fail(
           new PluginError({
@@ -96,9 +96,15 @@ export function loadProfile(
         )
       }
     }
+  })
 
+const providerIndex = (
+  rows: ReadonlyArray<PluginRow>,
+  pluginsByName: PluginMap,
+): Effect.Effect<ReadonlyMap<string, PluginRow>, PluginError> =>
+  Effect.gen(function* () {
     const providerByService = new Map<string, PluginRow>()
-    for (const row of enabled) {
+    for (const row of rows) {
       const plugin = pluginsByName.get(row.name)!
       for (const service of plugin.provides) {
         const existing = providerByService.get(service.key)
@@ -115,9 +121,17 @@ export function loadProfile(
         providerByService.set(service.key, row)
       }
     }
+    return providerByService
+  })
 
+const requireProviders = (
+  rows: ReadonlyArray<PluginRow>,
+  pluginsByName: PluginMap,
+  providerByService: ReadonlyMap<string, PluginRow>,
+): Effect.Effect<ReadonlyMap<string, ReadonlyArray<string>>, PluginError> =>
+  Effect.gen(function* () {
     const dependencies = new Map<string, ReadonlyArray<string>>()
-    for (const row of enabled) {
+    for (const row of rows) {
       const plugin = pluginsByName.get(row.name)!
       const providers = new Set<string>()
       for (const service of plugin.requires) {
@@ -136,22 +150,34 @@ export function loadProfile(
       }
       dependencies.set(row.id, [...providers])
     }
+    return dependencies
+  })
 
-    const ordered = yield* topologicalOrder(enabled, dependencies)
+const decodeConfig = (
+  row: PluginRow,
+  plugin: Plugin<any, any, any>,
+): Effect.Effect<any, PluginError, never> =>
+  Schema.decodeUnknownEffect(plugin.config)(row.config ?? {}).pipe(
+    Effect.mapError(
+      (issue) =>
+        new PluginError({
+          code: 'config',
+          message: `config of ${row.id} is invalid: ${issue.message}`,
+          pluginId: row.id,
+        }),
+    ),
+  ) as Effect.Effect<any, PluginError, never>
 
+const buildLayers = (
+  ordered: ReadonlyArray<PluginRow>,
+  pluginsByName: PluginMap,
+  dependencies: ReadonlyMap<string, ReadonlyArray<string>>,
+): Effect.Effect<ReadonlyMap<string, Layer.Layer<any, any, any>>, PluginError> =>
+  Effect.gen(function* () {
     const built = new Map<string, Layer.Layer<any, any, any>>()
     for (const row of ordered) {
       const plugin = pluginsByName.get(row.name)!
-      const config = yield* Schema.decodeUnknownEffect(plugin.config)(row.config ?? {}).pipe(
-        Effect.mapError(
-          (issue) =>
-            new PluginError({
-              code: 'config',
-              message: `config of ${row.id} is invalid: ${issue.message}`,
-              pluginId: row.id,
-            }),
-        ),
-      ) as Effect.Effect<any, PluginError, never>
+      const config = yield* decodeConfig(row, plugin)
       const layer = plugin.layer(config) as Layer.Layer<any, any, any>
       const deps = (dependencies.get(row.id) ?? []).map((id) => built.get(id)!)
       built.set(
@@ -159,11 +185,37 @@ export function loadProfile(
         deps.length === 0 ? layer : Layer.provide(layer, Layer.mergeAll(...toNonEmpty(deps))),
       )
     }
+    return built
+  })
 
-    const layers = [...built.values()]
-    const final = layers.length === 0 ? Layer.empty : Layer.mergeAll(...toNonEmpty(layers))
-    return final as Layer.Layer<any, PluginError, never>
+const mergeLayers = (
+  layers: ReadonlyArray<Layer.Layer<any, any, any>>,
+): Layer.Layer<any, any, any> =>
+  (layers.length === 0 ? Layer.empty : Layer.mergeAll(...toNonEmpty(layers))) as Layer.Layer<
+    any,
+    any,
+    any
+  >
+
+/**
+ * Merges the profile layers and builds one layer in dependency order.
+ *
+ * Fails before building anything when a row names an unknown plugin, two rows
+ * provide the same service, a required service has no provider, the providers
+ * form a cycle, or a config does not match its plugin schema. A failure while
+ * the returned layer is built releases the already-built plugins in reverse.
+ */
+export function loadProfile(
+  options: LoadProfileOptions,
+): Effect.Effect<Layer.Layer<any, PluginError, never>, PluginError> {
+  return Effect.gen(function* () {
+    const pluginsByName = yield* pluginMap(options.plugins)
+    const enabled = mergeRows(options.layers).filter((row) => row.disabled !== true)
+    yield* requireKnownPlugins(enabled, pluginsByName)
+    const providerByService = yield* providerIndex(enabled, pluginsByName)
+    const dependencies = yield* requireProviders(enabled, pluginsByName, providerByService)
+    const ordered = yield* topologicalOrder(enabled, dependencies)
+    const built = yield* buildLayers(ordered, pluginsByName, dependencies)
+    return mergeLayers([...built.values()]) as Layer.Layer<any, PluginError, never>
   })
 }
-
-const toNonEmpty = <A>(values: ReadonlyArray<A>): [A, ...Array<A>] => values as [A, ...Array<A>]

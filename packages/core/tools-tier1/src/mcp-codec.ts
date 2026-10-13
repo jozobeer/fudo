@@ -25,6 +25,24 @@ export const encodeRequest = (id: number, method: string, params?: unknown): str
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+interface McpEnvelope {
+  readonly id: number
+  readonly error: unknown
+  readonly result: unknown
+}
+
+const asEnvelope = (value: unknown): McpEnvelope | undefined =>
+  isRecord(value) && value.jsonrpc === '2.0' && typeof value.id === 'number'
+    ? { id: value.id, error: value.error, result: value.result }
+    : undefined
+
+const asError = (
+  value: unknown,
+): { readonly code: number; readonly message: string } | undefined =>
+  isRecord(value)
+    ? { code: Number(value.code ?? 0), message: String(value.message ?? '') }
+    : undefined
+
 /** A response line, or nothing when the line is a notification or is malformed. */
 export const decodeResponse = (line: string): McpResponse | undefined => {
   const text = line.trim()
@@ -35,15 +53,12 @@ export const decodeResponse = (line: string): McpResponse | undefined => {
   } catch {
     return undefined
   }
-  if (!isRecord(parsed)) return undefined
-  if (parsed.jsonrpc !== '2.0') return undefined
-  if (typeof parsed.id !== 'number') return undefined
-  const error = isRecord(parsed.error)
-    ? { code: Number(parsed.error.code ?? 0), message: String(parsed.error.message ?? '') }
-    : undefined
+  const envelope = asEnvelope(parsed)
+  if (envelope === undefined) return undefined
+  const error = asError(envelope.error)
   return error === undefined
-    ? { jsonrpc: '2.0', id: parsed.id, result: parsed.result }
-    : { jsonrpc: '2.0', id: parsed.id, error }
+    ? { jsonrpc: '2.0', id: envelope.id, result: envelope.result }
+    : { jsonrpc: '2.0', id: envelope.id, error }
 }
 
 /** The MCP handshake and the two calls v1 uses. */

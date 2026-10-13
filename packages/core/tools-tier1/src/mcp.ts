@@ -14,6 +14,37 @@ export interface McpClientShape {
   readonly close: () => Effect.Effect<void>
 }
 
+/** Splits decoded text into lines, holding the tail that has no newline yet. */
+const takeLines = (buffered: string, decoded: string): { lines: Array<string>; rest: string } => {
+  const lines: Array<string> = []
+  let rest = buffered + decoded
+  let index = rest.indexOf('\n')
+  while (index >= 0) {
+    lines.push(rest.slice(0, index))
+    rest = rest.slice(index + 1)
+    index = rest.indexOf('\n')
+  }
+  return { lines, rest }
+}
+
+/** Reads a byte stream as newline-delimited text until it ends. */
+const readLines = async (
+  stream: ReadableStream<Uint8Array>,
+  onLine: (line: string) => void,
+): Promise<void> => {
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  let rest = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) return
+    if (value === undefined) continue
+    const taken = takeLines(rest, decoder.decode(value))
+    rest = taken.rest
+    for (const line of taken.lines) onLine(line)
+  }
+}
+
 /**
  * Starts one MCP server over stdio and talks JSON-RPC to it, one request at a
  * time. v1 only needs the handshake, the tool list, and tool calls.
@@ -32,32 +63,15 @@ export const startMcpServer = (
       })
       const pending = new Map<number, (response: McpResponse) => void>()
       let counter = 0
-      const decoder = new TextDecoder()
-      let buffer = ''
 
-      void (async () => {
-        const reader = server.stdout.getReader()
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          if (value === undefined) continue
-          buffer += decoder.decode(value)
-          let index = buffer.indexOf('\n')
-          while (index >= 0) {
-            const line = buffer.slice(0, index)
-            buffer = buffer.slice(index + 1)
-            const response = decodeResponse(line)
-            if (response !== undefined) {
-              const resolve = pending.get(response.id)
-              if (resolve !== undefined) {
-                pending.delete(response.id)
-                resolve(response)
-              }
-            }
-            index = buffer.indexOf('\n')
-          }
-        }
-      })()
+      void readLines(server.stdout, (line) => {
+        const response = decodeResponse(line)
+        if (response === undefined) return
+        const resolve = pending.get(response.id)
+        if (resolve === undefined) return
+        pending.delete(response.id)
+        resolve(response)
+      })
 
       return {
         request: (method, params) =>

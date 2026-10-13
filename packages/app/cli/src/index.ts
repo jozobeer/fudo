@@ -1,19 +1,21 @@
 export * from './args.ts'
 export * from './bin.ts'
-import { Agents, type Agent } from '@fudo/agent'
+import { Agents, type Agent, type AgentOptions, type AgentsShape } from '@fudo/agent'
 import {
   Hooks,
   loadProfile,
   mergeRows,
   parseProfile,
   renderConfig,
+  type HookRegistry,
   type Plugin,
+  type PluginError,
   type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
 import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
 import { ToolError } from '@fudo/tools'
-import { Tools } from '@fudo/tools'
+import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import {
   jobTools,
@@ -22,6 +24,8 @@ import {
   McpServers,
   startMcpServer,
   makeWebSearchTool,
+  type JobsShape,
+  type McpServerConfig,
   type SearchHost,
   makeSubagentTool,
   makeWorkingDirectoryTool,
@@ -36,8 +40,11 @@ import {
   installAsk,
   installPlanMode,
   Policy,
-  type AskRequested,
   type ApprovalRequested,
+  type ApprovalShape,
+  type AskRequested,
+  type AskShape,
+  type PolicyShape,
 } from '@fudo/safety'
 import { Cause, Context, Effect, Layer, Stream } from 'effect'
 
@@ -119,23 +126,256 @@ const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
 
 const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
 
+/** The rows the command runs with: profiles first, then settings, then patches. */
+const profileRows = (
+  options: CommandOptions,
+): Effect.Effect<ReadonlyArray<PluginRow>, PluginError> =>
+  Effect.gen(function* () {
+    const layers: Array<ReadonlyArray<PluginRow>> = []
+    for (const text of options.profiles) {
+      layers.push((yield* parseProfile(text)).plugins)
+    }
+    if (options.extraRows !== undefined) layers.push(options.extraRows)
+    for (const text of options.patches ?? []) {
+      layers.push((yield* parseProfile(text)).plugins)
+    }
+    return mergeRows(layers)
+  })
+
+const hasRow = (rows: ReadonlyArray<PluginRow>, name: string): boolean =>
+  rows.some((row) => row.name === name)
+
+/** Streams assistant text unless the caller asked for JSON session events. */
+const installOutput = (hooks: HookRegistry, options: CommandOptions) =>
+  Effect.gen(function* () {
+    if (options.json === true) {
+      yield* hooks.on('session/event', (event) => {
+        options.stdout(JSON.stringify(event) + '\n')
+      })
+      return
+    }
+    yield* hooks.on('agent/assistant-stream', (timed) => {
+      if (timed.chunk.type === 'text-delta' && timed.chunk.text !== '')
+        options.stdout(timed.chunk.text)
+    })
+  })
+
+/** MCP servers bring their own tools; the caller owns their processes. */
+const installMcpServers = (tools: ToolRegistry, servers: ReadonlyArray<McpServerConfig>) =>
+  Effect.gen(function* () {
+    for (const server of servers) {
+      const client = yield* startMcpServer({ command: server.command })
+      for (const tool of yield* mcpTools(client, server.prefix ?? 'mcp__')) {
+        yield* tools.register(tool)
+      }
+    }
+  })
+
+const installTier0 = (tools: ToolRegistry, tier0: ReadonlyArray<ToolDefinition<any, any>>) =>
+  Effect.gen(function* () {
+    for (const tool of tier0) yield* tools.register(tool)
+  })
+
+/** Tier 1 tools ask the user; their questions and answers join the log. */
+const installTier1 = (
+  tools: ToolRegistry,
+  holder: AskShape,
+  agents: AgentsShape,
+  options: CommandOptions,
+  agent: Agent,
+  route: string,
+) =>
+  Effect.gen(function* () {
+    const answer = options.answer
+    const ask = installAsk(
+      answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
+      agent.session,
+    )
+    const jobs = yield* makeJobs()
+    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs)) {
+      yield* tools.register(tool)
+    }
+  })
+
+const tier1ToolList = (
+  ask: AskShape,
+  options: CommandOptions,
+  agent: Agent,
+  route: string,
+  agents: AgentsShape,
+  jobs: JobsShape,
+) => {
+  const list = [...tier1Tools(ask, options.skills ?? [])]
+  if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
+  for (const tool of jobTools(jobs)) list.push(tool)
+  list.push(
+    makeWorkingDirectoryTool({
+      root: options.cwd,
+      change: (cwd) =>
+        agent.session.append('session/cwd/changed', { cwd }).pipe(
+          Effect.mapError(
+            () =>
+              new ToolError({
+                code: 'execution',
+                message: 'cannot record the working directory',
+              }),
+          ),
+        ),
+    }),
+  )
+  if (options.subagents === true) {
+    list.push(
+      makeSubagentTool({
+        agents,
+        route,
+        parentEvents: () => agent.session.events(),
+      }),
+    )
+  }
+  return list
+}
+
+/** Approval is enforced only when the profile chose a safety row. */
+const installSafety = (
+  agent: Agent,
+  approve: CommandOptions['approve'],
+  hooks: HookRegistry,
+  policy: PolicyShape,
+  approval: ApprovalShape,
+) =>
+  installApproval(agent.session, approve ?? denyApproval).pipe(
+    Effect.provideService(Hooks, hooks),
+    Effect.provideService(Policy, policy),
+    Effect.provideService(Approval, approval),
+  )
+
+const createAgent = (
+  agents: AgentsShape,
+  options: CommandOptions,
+  route: string,
+  spillBytes: number | undefined,
+) =>
+  Effect.gen(function* () {
+    const agentOptions: AgentOptions = {
+      route,
+      ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
+    }
+    return options.resume === undefined
+      ? yield* agents.create({ cwd: options.cwd, options: agentOptions })
+      : yield* agents.create({ cwd: options.cwd, resume: options.resume, options: agentOptions })
+  })
+
+const serveLines = (agent: Agent, options: CommandOptions, lines: Stream.Stream<string>) =>
+  Effect.gen(function* () {
+    yield* Stream.runForEach(lines, (line) =>
+      line.trim() === ''
+        ? Effect.void
+        : Effect.gen(function* () {
+            yield* agent.followup({ text: line, source: 'user' })
+            yield* agent.whenIdle
+          }),
+    )
+    const failure = turnFailure(agent)
+    if (failure !== undefined) {
+      options.stderr('fudo: a turn failed: ' + failure + '\n')
+      return 1
+    }
+    return 0
+  })
+
+const serveTask = (agent: Agent, options: CommandOptions, task: string) =>
+  Effect.gen(function* () {
+    yield* agent.followup({ text: task, source: 'user' })
+    let cancelled = false
+    if (options.interrupt !== undefined) {
+      const interrupt = options.interrupt
+      yield* Effect.forkScoped(
+        Effect.gen(function* () {
+          yield* interrupt
+          cancelled = true
+          yield* agent.cancel('user')
+        }),
+      )
+    }
+    yield* agent.whenIdle
+    const failure = turnFailure(agent)
+    if (failure !== undefined) {
+      options.stderr('fudo: the turn failed: ' + failure + '\n')
+      return 1
+    }
+    return cancelled ? 130 : 0
+  })
+
+const serveAgent = (agent: Agent, options: CommandOptions) => {
+  if (options.task !== undefined) return serveTask(agent, options, options.task)
+  const lines = options.lines
+  if (lines === undefined) {
+    options.stderr('nothing to do: pass a task or run on a terminal')
+    return Effect.succeed(2)
+  }
+  return serveLines(agent, options, lines)
+}
+
+/** The scoped body that owns the built layer and serves one agent run. */
+const runSession = (
+  options: CommandOptions,
+  rows: ReadonlyArray<PluginRow>,
+  route: string,
+  spillBytes: number | undefined,
+  layer: Layer.Layer<any, PluginError, never>,
+) =>
+  Effect.gen(function* () {
+    const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer))
+    const hooks = Context.get(context, Hooks)
+    yield* installOutput(hooks, options)
+
+    // Workspace instructions join the prompt before the first turn.
+    yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
+
+    if (hasRow(rows, '@fudo/mcp')) {
+      yield* installMcpServers(Context.get(context, Tools), Context.get(context, McpServers))
+    }
+
+    // Plan mode hides every tool that could change the workspace.
+    if (rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
+      yield* installPlanMode(Context.get(context, Tools))
+    }
+
+    const agent = yield* createAgent(Context.get(context, Agents), options, route, spillBytes)
+
+    // Tools come from the profile's tier rows.
+    if (hasRow(rows, '@fudo/tools-tier0')) {
+      yield* installTier0(Context.get(context, Tools), Context.get(context, Tier0Tools))
+    }
+    if (hasRow(rows, '@fudo/tools-tier1')) {
+      yield* installTier1(
+        Context.get(context, Tools),
+        Context.get(context, Ask),
+        Context.get(context, Agents),
+        options,
+        agent,
+        route,
+      )
+    }
+    if (hasRow(rows, '@fudo/safety')) {
+      yield* installSafety(
+        agent,
+        options.approve,
+        hooks,
+        Context.get(context, Policy),
+        Context.get(context, Approval),
+      )
+    }
+    return yield* serveAgent(agent, options)
+  })
+
 /**
  * Runs one `fudo` command over a profile: build the layer, start the agent,
  * wait for the turn, and return the process exit code (0 completed, 1 error).
  */
 export function runCommand(options: CommandOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
-    const documents: Array<{ readonly plugins: ReadonlyArray<import('@fudo/kernel').PluginRow> }> =
-      []
-    for (const text of options.profiles) {
-      documents.push(yield* parseProfile(text))
-    }
-    const layers: Array<ReadonlyArray<PluginRow>> = documents.map((document) => document.plugins)
-    if (options.extraRows !== undefined) layers.push(options.extraRows)
-    for (const text of options.patches ?? []) {
-      layers.push((yield* parseProfile(text)).plugins)
-    }
-    const rows = mergeRows(layers)
+    const rows = yield* profileRows(options)
     const route = options.route !== '' ? options.route : routeFromRows(rows)
     const spillBytes = spillBytesOf(rows)
 
@@ -145,159 +385,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     }
 
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
-    return yield* Effect.scoped(
-      Effect.gen(function* () {
-        const context = yield* Layer.build(
-          Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer),
-        )
-        const hooks = Context.get(context, Hooks)
-        if (options.json === true) {
-          yield* hooks.on('session/event', (event) => {
-            options.stdout(JSON.stringify(event) + '\n')
-          })
-        } else {
-          yield* hooks.on('agent/assistant-stream', (timed) => {
-            if (timed.chunk.type === 'text-delta' && timed.chunk.text !== '')
-              options.stdout(timed.chunk.text)
-          })
-        }
-
-        // Workspace instructions join the prompt before the first turn.
-        yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
-
-        // MCP servers bring their own tools; the caller owns their processes.
-        if (rows.some((row) => row.name === '@fudo/mcp')) {
-          const registry = Context.get(context, Tools)
-          for (const server of Context.get(context, McpServers)) {
-            const client = yield* startMcpServer({ command: server.command })
-            for (const tool of yield* mcpTools(client, server.prefix ?? 'mcp__')) {
-              yield* registry.register(tool)
-            }
-          }
-        }
-
-        // Plan mode hides every tool that could change the workspace.
-        if (rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
-          yield* installPlanMode(Context.get(context, Tools))
-        }
-
-        const agents = Context.get(context, Agents)
-        const agent: Agent =
-          options.resume === undefined
-            ? yield* agents.create({
-                cwd: options.cwd,
-                options: {
-                  route,
-                  ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
-                },
-              })
-            : yield* agents.create({
-                cwd: options.cwd,
-                resume: options.resume,
-                options: {
-                  route,
-                  ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
-                },
-              })
-
-        // Tools come from the profile's tier rows.
-        if (rows.some((row) => row.name === '@fudo/tools-tier0')) {
-          const registry = Context.get(context, Tools)
-          for (const tool of Context.get(context, Tier0Tools)) yield* registry.register(tool)
-        }
-
-        // Tier 1 tools ask the user; their questions and answers join the log.
-        if (rows.some((row) => row.name === '@fudo/tools-tier1')) {
-          const registry = Context.get(context, Tools)
-          const holder = Context.get(context, Ask)
-          const answer = options.answer
-          const ask = installAsk(
-            answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
-            agent.session,
-          )
-          const list = [...tier1Tools(ask, options.skills ?? [])]
-          if (options.search !== undefined) {
-            list.push(makeWebSearchTool(options.search))
-          }
-          const jobs = yield* makeJobs()
-          for (const tool of jobTools(jobs)) list.push(tool)
-          list.push(
-            makeWorkingDirectoryTool({
-              root: options.cwd,
-              change: (cwd) =>
-                agent.session.append('session/cwd/changed', { cwd }).pipe(
-                  Effect.mapError(
-                    () =>
-                      new ToolError({
-                        code: 'execution',
-                        message: 'cannot record the working directory',
-                      }),
-                  ),
-                ),
-            }),
-          )
-          if (options.subagents === true) {
-            list.push(
-              makeSubagentTool({
-                agents: Context.get(context, Agents),
-                route,
-                parentEvents: () => agent.session.events(),
-              }),
-            )
-          }
-          for (const tool of list) yield* registry.register(tool)
-        }
-
-        // Approval is enforced only when the profile chose a safety row.
-        if (rows.some((row) => row.name === '@fudo/safety')) {
-          yield* installApproval(agent.session, options.approve ?? denyApproval).pipe(
-            Effect.provideService(Hooks, hooks),
-            Effect.provideService(Policy, Context.get(context, Policy)),
-            Effect.provideService(Approval, Context.get(context, Approval)),
-          )
-        }
-        if (options.task === undefined) {
-          const lines = options.lines
-          if (lines === undefined) {
-            options.stderr('nothing to do: pass a task or run on a terminal')
-            return 2
-          }
-          yield* Stream.runForEach(lines, (line) =>
-            line.trim() === ''
-              ? Effect.void
-              : Effect.gen(function* () {
-                  yield* agent.followup({ text: line, source: 'user' })
-                  yield* agent.whenIdle
-                }),
-          )
-          const replFailure = turnFailure(agent)
-          if (replFailure !== undefined) {
-            options.stderr('fudo: a turn failed: ' + replFailure + '\n')
-            return 1
-          }
-          return 0
-        }
-        yield* agent.followup({ text: options.task, source: 'user' })
-        let cancelled = false
-        if (options.interrupt !== undefined) {
-          const interrupt = options.interrupt
-          yield* Effect.forkScoped(
-            Effect.gen(function* () {
-              yield* interrupt
-              cancelled = true
-              yield* agent.cancel('user')
-            }),
-          )
-        }
-        yield* agent.whenIdle
-        const failure = turnFailure(agent)
-        if (failure !== undefined) {
-          options.stderr('fudo: the turn failed: ' + failure + '\n')
-          return 1
-        }
-        return cancelled ? 130 : 0
-      }),
-    )
+    return yield* Effect.scoped(runSession(options, rows, route, spillBytes, layer))
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {

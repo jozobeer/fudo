@@ -20,6 +20,36 @@ export interface GrepValue {
   readonly truncated: boolean
 }
 
+/** One file's matching lines, in order. */
+const matchesIn = (file: string, text: string, expression: RegExp): ReadonlyArray<GrepMatch> => {
+  const matches: Array<GrepMatch> = []
+  const lines = text.split('\n')
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? ''
+    if (expression.test(line)) matches.push({ file, line: index + 1, text: line })
+  }
+  return matches
+}
+
+/** Stops one match past the limit, which is all the caller needs to cut it off. */
+const findMatches = async (
+  args: GrepArgs,
+  cwd: string,
+  expression: RegExp,
+  limit: number,
+): Promise<Array<GrepMatch>> => {
+  const matches: Array<GrepMatch> = []
+  const glob = new Bun.Glob(args.include ?? '**/*')
+  for await (const file of glob.scan({ cwd, dot: false })) {
+    const text = await Bun.file(cwd + '/' + file)
+      .text()
+      .catch(() => '')
+    matches.push(...matchesIn(file, text, expression))
+    if (matches.length > limit) break
+  }
+  return matches
+}
+
 /** Searches workspace files line by line with a regular expression. */
 export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
   name: 'grep',
@@ -52,23 +82,7 @@ export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
       })
       const limit = args.limit ?? 200
       const found = yield* Effect.tryPromise({
-        try: async () => {
-          const glob = new Bun.Glob(args.include ?? '**/*')
-          const matches: Array<GrepMatch> = []
-          for await (const file of glob.scan({ cwd: context.cwd, dot: false })) {
-            const path = context.cwd + '/' + file
-            const text = await Bun.file(path)
-              .text()
-              .catch(() => '')
-            const lines = text.split('\n')
-            for (let index = 0; index < lines.length; index += 1) {
-              const line = lines[index] ?? ''
-              if (expression.test(line)) matches.push({ file, line: index + 1, text: line })
-              if (matches.length > limit) return matches
-            }
-          }
-          return matches
-        },
+        try: () => findMatches(args, context.cwd, expression, limit),
         catch: () => new ToolError({ code: 'execution', message: 'cannot search the workspace' }),
       })
       return { matches: found.slice(0, limit), truncated: found.length > limit }

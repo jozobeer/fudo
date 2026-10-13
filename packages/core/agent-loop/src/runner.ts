@@ -9,6 +9,7 @@ import {
   type ContentBlock,
   type StreamChunk,
   type TimedStreamChunk,
+  type ToolSchema,
 } from '@fudo/llm'
 import {
   compactMessages,
@@ -23,7 +24,7 @@ import { applySpill, type SpillOptions } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
 import { tmpdir } from 'node:os'
-import { groupCalls } from './batch.ts'
+import { groupCalls, type CallBatch } from './batch.ts'
 import type { AgentRequest } from './hooks.ts'
 
 export class AgentLoop extends Context.Service<AgentLoop, AgentRunner>()('fudo/AgentLoop') {}
@@ -33,6 +34,12 @@ type ToolCall = Extract<ContentBlock, { type: 'tool-call' }>
 type StepOutcome =
   | { readonly ok: true; readonly content: ReadonlyArray<ContentBlock> }
   | { readonly ok: false; readonly failure: LlmFailure }
+
+/** The prompt as the system-prompt service hands it to one step. */
+interface PromptBuild {
+  readonly system: string
+  readonly tools: ReadonlyArray<ToolSchema>
+}
 
 /** The newest messages stay intact; older output is shortened before every request. */
 const COMPACT_MESSAGES: CompactOptions = { keepLast: 12, maxBytes: 32_000 }
@@ -136,39 +143,38 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         )
       })
 
-    const requestStep = (
+    /** Appends the settled system prompt and the input that started the step. */
+    const recordInput = (
       agent: Agent,
+      build: { readonly system: string },
       input: ReadonlyArray<UserMessage>,
-    ): Effect.Effect<StepOutcome> =>
+    ): Effect.Effect<void> =>
       Effect.gen(function* () {
-        const build = yield* promptService
-          .build({ variables: {} })
-          .pipe(Effect.provideService(Tools, tools), Effect.orDie)
-        if (input.length > 0) {
-          yield* append(agent, 'system/message', { text: build.system })
-          for (const message of input) {
-            yield* append(agent, 'user/message', { text: message.text, source: message.source })
-          }
+        if (input.length === 0) return
+        yield* append(agent, 'system/message', { text: build.system })
+        for (const message of input) {
+          yield* append(agent, 'user/message', { text: message.text, source: message.source })
         }
-        const route = splitRoute(agent.options.route)
-        const base: AgentRequest = {
-          provider: route.provider,
-          model: route.model,
-          params:
-            agent.options.reasoningEffort === undefined
-              ? {}
-              : { reasoningEffort: agent.options.reasoningEffort },
-          messages: compactMessages(deriveMessages(agent.session.events()), COMPACT_MESSAGES)
-            .messages,
-          tools: build.tools,
-        }
-        const request = (yield* hooks.waterfall('agent/request', base)) ?? base
-        yield* append(agent, 'request/header', {
-          provider: request.provider,
-          model: request.model,
-          params: request.params,
-        })
+      })
 
+    const requestOf = (agent: Agent, build: PromptBuild): AgentRequest => {
+      const route = splitRoute(agent.options.route)
+      return {
+        provider: route.provider,
+        model: route.model,
+        params:
+          agent.options.reasoningEffort === undefined
+            ? {}
+            : { reasoningEffort: agent.options.reasoningEffort },
+        messages: compactMessages(deriveMessages(agent.session.events()), COMPACT_MESSAGES)
+          .messages,
+        tools: build.tools,
+      }
+    }
+
+    /** Sends the settled request until a hook says to stop retrying. */
+    const streamUntilSettled = (agent: Agent, request: AgentRequest): Effect.Effect<StepOutcome> =>
+      Effect.gen(function* () {
         while (true) {
           const outcome = yield* streamStep(agent, request)
           if (outcome.ok) return outcome
@@ -178,62 +184,106 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         }
       })
 
+    const requestStep = (
+      agent: Agent,
+      input: ReadonlyArray<UserMessage>,
+    ): Effect.Effect<StepOutcome> =>
+      Effect.gen(function* () {
+        const build = yield* promptService
+          .build({ variables: {} })
+          .pipe(Effect.provideService(Tools, tools), Effect.orDie)
+        yield* recordInput(agent, build, input)
+        const base = requestOf(agent, build)
+        const request = (yield* hooks.waterfall('agent/request', base)) ?? base
+        yield* append(agent, 'request/header', {
+          provider: request.provider,
+          model: request.model,
+          params: request.params,
+        })
+        return yield* streamUntilSettled(agent, request)
+      })
+
+    const runOne = (
+      agent: Agent,
+      call: ToolCall,
+      pending: Map<string, ToolCall>,
+    ): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const outcome = yield* tools.call({
+          callId: call.id,
+          tool: call.name,
+          arguments: call.arguments,
+          context: {
+            sessionId: agent.id,
+            cwd: cwdOf(agent.session.events(), agent.session.header),
+            callId: call.id,
+          },
+        })
+        const shown = yield* applySpill(outcome, call.id, spillOf(agent))
+        yield* append(agent, 'tool/result', {
+          callId: call.id,
+          isError: shown.isError,
+          content: shown.content,
+        })
+        pending.delete(call.id)
+      })
+
+    const declareBatch = (
+      agent: Agent,
+      batch: CallBatch<ToolCall>,
+      pending: Map<string, ToolCall>,
+    ): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        for (const call of batch.calls) {
+          yield* append(agent, 'tool/call', {
+            callId: call.id,
+            name: call.name,
+            arguments: call.arguments,
+          })
+          pending.set(call.id, call)
+        }
+      })
+
+    const runBatch = (
+      agent: Agent,
+      batch: CallBatch<ToolCall>,
+      pending: Map<string, ToolCall>,
+    ): Effect.Effect<void> => {
+      const run = (call: ToolCall) => runOne(agent, call, pending)
+      return batch.parallel
+        ? Effect.forEach(batch.calls, run, { concurrency: 'unbounded' })
+        : Effect.forEach(batch.calls, run, { discard: true })
+    }
+
+    const failPending = (
+      agent: Agent,
+      pending: ReadonlyMap<string, ToolCall>,
+    ): Effect.Effect<void> =>
+      Effect.forEach(
+        [...pending.values()],
+        (call) =>
+          append(agent, 'tool/result', {
+            callId: call.id,
+            isError: true,
+            content: [{ type: 'text' as const, text: `tool ${call.name} did not finish` }],
+          }).pipe(Effect.catchCause(() => Effect.void)),
+        { discard: true },
+      )
+
     const executeCalls = (agent: Agent, calls: ReadonlyArray<ToolCall>): Effect.Effect<void> =>
       Effect.gen(function* () {
         const pending = new Map<string, ToolCall>()
         yield* Effect.onExit(
           Effect.gen(function* () {
-            const runOne = (call: ToolCall) =>
-              Effect.gen(function* () {
-                const outcome = yield* tools.call({
-                  callId: call.id,
-                  tool: call.name,
-                  arguments: call.arguments,
-                  context: {
-                    sessionId: agent.id,
-                    cwd: cwdOf(agent.session.events(), agent.session.header),
-                    callId: call.id,
-                  },
-                })
-                const shown = yield* applySpill(outcome, call.id, spillOf(agent))
-                yield* append(agent, 'tool/result', {
-                  callId: call.id,
-                  isError: shown.isError,
-                  content: shown.content,
-                })
-                pending.delete(call.id)
-              })
-
             const batches = groupCalls(calls, (call) =>
               tools.isConcurrencySafe(call.name, call.arguments),
             )
             for (const batch of batches) {
-              for (const call of batch.calls) {
-                yield* append(agent, 'tool/call', {
-                  callId: call.id,
-                  name: call.name,
-                  arguments: call.arguments,
-                })
-                pending.set(call.id, call)
-              }
-              if (batch.parallel) {
-                yield* Effect.forEach(batch.calls, runOne, { concurrency: 'unbounded' })
-              } else {
-                for (const call of batch.calls) yield* runOne(call)
-              }
+              yield* declareBatch(agent, batch, pending)
+              yield* runBatch(agent, batch, pending)
             }
           }),
-          () =>
-            Effect.forEach(
-              [...pending.values()],
-              (call) =>
-                append(agent, 'tool/result', {
-                  callId: call.id,
-                  isError: true,
-                  content: [{ type: 'text' as const, text: `tool ${call.name} did not finish` }],
-                }).pipe(Effect.catchCause(() => Effect.void)),
-              { discard: true },
-            ),
+          () => failPending(agent, pending),
         )
       })
 

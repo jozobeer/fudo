@@ -15,48 +15,76 @@ export interface ParsedArgs {
   readonly errors: ReadonlyArray<string>
 }
 
-const VALUE_FLAGS = new Set(['--profile', '--patch', '--resume', '--model', '--config'])
+interface FlagSpec {
+  readonly kind: 'boolean' | 'value'
+}
+
+const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
+  ['--dump-config', { kind: 'boolean' }],
+  ['--json', { kind: 'boolean' }],
+  ['--help', { kind: 'boolean' }],
+  ['--profile', { kind: 'value' }],
+  ['--patch', { kind: 'value' }],
+  ['--resume', { kind: 'value' }],
+  ['--model', { kind: 'value' }],
+  ['--config', { kind: 'value' }],
+])
+
+interface ScannedArgs {
+  values: Map<string, Array<string>>
+  words: Array<string>
+  errors: Array<string>
+}
+
+/** Applies one argument; returns how many further arguments it consumed. */
+const scanOne = (argv: ReadonlyArray<string>, index: number, out: ScannedArgs): number => {
+  const argument = argv[index] ?? ''
+  if (!argument.startsWith('--')) {
+    out.words.push(argument)
+    return 0
+  }
+  const spec = FLAGS.get(argument)
+  if (spec === undefined) {
+    out.errors.push(`unknown option ${argument}`)
+    return 0
+  }
+  if (spec.kind === 'boolean') {
+    out.values.set(argument, ['true'])
+    return 0
+  }
+  const value = argv[index + 1]
+  if (value === undefined) {
+    out.errors.push(`${argument} needs a value`)
+    return 0
+  }
+  out.values.set(argument, [...(out.values.get(argument) ?? []), value])
+  return 1
+}
+
+const scan = (argv: ReadonlyArray<string>): ScannedArgs => {
+  const out: ScannedArgs = { values: new Map(), words: [], errors: [] }
+  let index = 0
+  while (index < argv.length) index += 1 + scanOne(argv, index, out)
+  return out
+}
+
+const first = (values: ReadonlyMap<string, Array<string>>, flag: string): string | undefined =>
+  values.get(flag)?.[0]
 
 /** Parses `fudo` arguments. Positional words join into the one-shot task. */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
-  const values = new Map<string, Array<string>>()
-  const words: Array<string> = []
-  const errors: Array<string> = []
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index] ?? ''
-    if (argument.startsWith('--')) {
-      if (argument === '--dump-config' || argument === '--json' || argument === '--help') {
-        values.set(argument, ['true'])
-        continue
-      }
-      if (!VALUE_FLAGS.has(argument)) {
-        errors.push(`unknown option ${argument}`)
-        continue
-      }
-      const value = argv[index + 1]
-      if (value === undefined) {
-        errors.push(`${argument} needs a value`)
-        continue
-      }
-      values.set(argument, [...(values.get(argument) ?? []), value])
-      index += 1
-      continue
-    }
-    words.push(argument)
-  }
-
-  const single = (flag: string): string | undefined => values.get(flag)?.[0]
+  const { values, words, errors } = scan(argv)
   return {
-    profile: single('--profile') ?? 'headless',
-    profileFlag: single('--profile'),
+    profile: first(values, '--profile') ?? 'headless',
+    profileFlag: first(values, '--profile'),
     patches: values.get('--patch') ?? [],
     task: words.length === 0 ? undefined : words.join(' '),
-    resume: single('--resume'),
-    model: single('--model') ?? '',
-    modelFlag: single('--model'),
+    resume: first(values, '--resume'),
+    model: first(values, '--model') ?? '',
+    modelFlag: first(values, '--model'),
     dumpConfig: values.has('--dump-config'),
     json: values.has('--json'),
-    config: single('--config'),
+    config: first(values, '--config'),
     help: values.has('--help'),
     errors,
   }

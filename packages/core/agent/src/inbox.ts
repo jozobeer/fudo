@@ -11,26 +11,28 @@ export interface InboxState {
 const sameMessage = (left: UserMessage, right: UserMessage): boolean =>
   left.text === right.text && left.source === right.source
 
+type PendingByTarget = Record<InboxTarget, Array<UserMessage>>
+
+const noPending = (): PendingByTarget => ({ 'next-turn': [], 'next-step': [] })
+
+/** Forgets one occurrence, so a repeated text still has to be claimed twice. */
+const claimOne = (messages: Array<UserMessage>, message: UserMessage): void => {
+  const index = messages.findIndex((candidate) => sameMessage(candidate, message))
+  if (index >= 0) messages.splice(index, 1)
+}
+
 /**
  * Folds `agent/inbox/queued` and `agent/inbox/claimed` into the still-pending
  * input. Live agents and restored logs use the same fold.
  */
 export function projectInbox(events: ReadonlyArray<SessionEvent>): InboxState {
-  const nextTurn: Array<UserMessage> = []
-  const nextStep: Array<UserMessage> = []
+  const pending = noPending()
   for (const event of events) {
-    if (event.type === 'agent/inbox/queued') {
-      const target = event.data.target === 'next-turn' ? nextTurn : nextStep
-      target.push(event.data.message)
-      continue
-    }
-    if (event.type === 'agent/inbox/claimed') {
-      const target = event.data.target === 'next-turn' ? nextTurn : nextStep
-      const index = target.findIndex((message) => sameMessage(message, event.data.message))
-      if (index >= 0) target.splice(index, 1)
-    }
+    if (event.type === 'agent/inbox/queued') pending[event.data.target].push(event.data.message)
+    else if (event.type === 'agent/inbox/claimed')
+      claimOne(pending[event.data.target], event.data.message)
   }
-  return { nextTurn, nextStep }
+  return { nextTurn: pending['next-turn'], nextStep: pending['next-step'] }
 }
 
 export interface Inbox {

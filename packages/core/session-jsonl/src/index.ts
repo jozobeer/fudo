@@ -60,19 +60,25 @@ const decodeEvents = (
       const event = yield* decodeSessionEvent(yield* parseLine(id, index + 1, line), schemas)
       if (event !== undefined) events.push(event)
     }
-    const first = events[0]
-    if (first === undefined || first.type !== 'session/header') {
-      return yield* Effect.fail(
-        persistenceError(`session ${id} does not start with session/header`),
-      )
-    }
-    if (first.data.formatVersion !== SESSION_FORMAT_VERSION) {
-      return yield* Effect.fail(
-        persistenceError(`session ${id} has unsupported formatVersion ${first.data.formatVersion}`),
-      )
-    }
-    return events
+    return yield* requireCurrentHeader(id, events)
   })
+
+/** The log must open with a header of the format this build knows. */
+const requireCurrentHeader = (
+  id: SessionId,
+  events: ReadonlyArray<SessionEvent>,
+): Effect.Effect<ReadonlyArray<SessionEvent>, SessionError> => {
+  const first = events[0]
+  if (first === undefined || first.type !== 'session/header') {
+    return Effect.fail(persistenceError(`session ${id} does not start with session/header`))
+  }
+  if (first.data.formatVersion !== SESSION_FORMAT_VERSION) {
+    return Effect.fail(
+      persistenceError(`session ${id} has unsupported formatVersion ${first.data.formatVersion}`),
+    )
+  }
+  return Effect.succeed(events)
+}
 
 const readHeader = (
   id: SessionId,

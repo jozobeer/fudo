@@ -20,18 +20,11 @@ const toMessage = (event: SessionEvent): ReadonlyArray<RequestMessage> => {
       return [{ role: 'assistant', content: event.data.content }]
     case 'tool/result':
       return [{ role: 'tool', toolCallId: event.data.callId, content: event.data.content }]
-    case 'session/header':
-    case 'turn/start':
-    case 'turn/end':
-    case 'step/start':
-    case 'step/end':
-    case 'request/header':
-    case 'assistant/attempt':
-    case 'tool/call':
+    // A default is honest here: plugins add event types by declaration merging, and
+    // those do not reach the model unless a projection puts them there.
+    default:
       return []
   }
-  // Events that plugins add do not reach the model unless a projection puts them there.
-  return []
 }
 
 /** Folds an event log into the model history. The log is the only source. */

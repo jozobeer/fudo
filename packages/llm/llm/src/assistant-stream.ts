@@ -165,40 +165,59 @@ export function expandAssistantStream(
   return chunks
 }
 
+type TextDelta = Extract<StreamChunk, { type: 'text-delta' }>
+type ReasoningDelta = Extract<StreamChunk, { type: 'reasoning-delta' }>
+type ToolCallDelta = Extract<StreamChunk, { type: 'tool-call-delta' }>
+
+const extendText = (
+  previous: MutableRecord | undefined,
+  chunk: TextDelta,
+  time: number,
+): boolean => {
+  if (previous?.type !== 'text-chunks' || previous.index !== chunk.index) return false
+  extend(previous, time, chunk.text)
+  return true
+}
+
+const extendReasoning = (
+  previous: MutableRecord | undefined,
+  chunk: ReasoningDelta,
+  time: number,
+): boolean => {
+  if (previous?.type !== 'reasoning-chunks' || previous.index !== chunk.index) return false
+  extend(previous, time, chunk.text)
+  return true
+}
+
+const extendToolCall = (
+  previous: MutableRecord | undefined,
+  chunk: ToolCallDelta,
+  time: number,
+): boolean => {
+  if (
+    previous?.type !== 'tool-call-chunks' ||
+    previous.index !== chunk.index ||
+    previous.id !== chunk.id ||
+    previous.name !== chunk.name
+  ) {
+    return false
+  }
+  previous.dt.push(time - previous.lastTime)
+  previous.args.push(chunk.argumentsDelta)
+  previous.lastTime = time
+  return true
+}
+
+/** True when the chunk joined the previous record instead of starting a new one. */
 const continueRun = (
   previous: MutableRecord | undefined,
   time: number,
   chunk: StreamChunk,
 ): boolean => {
-  if (previous === undefined) return false
-  switch (chunk.type) {
-    case 'text-delta':
-      if (previous.type !== 'text-chunks' || previous.index !== chunk.index) return false
-      extend(previous, time, chunk.text)
-      return true
-    case 'reasoning-delta':
-      if (previous.type !== 'reasoning-chunks' || previous.index !== chunk.index) return false
-      extend(previous, time, chunk.text)
-      return true
-    case 'tool-call-delta':
-      if (
-        previous.type !== 'tool-call-chunks' ||
-        previous.index !== chunk.index ||
-        previous.id !== chunk.id ||
-        previous.name !== chunk.name
-      ) {
-        return false
-      }
-      previous.dt.push(time - previous.lastTime)
-      previous.args.push(chunk.argumentsDelta)
-      previous.lastTime = time
-      return true
-    case 'block-start':
-    case 'block-end':
-    case 'usage':
-    case 'finish':
-      return false
-  }
+  if (chunk.type === 'text-delta') return extendText(previous, chunk, time)
+  if (chunk.type === 'reasoning-delta') return extendReasoning(previous, chunk, time)
+  if (chunk.type === 'tool-call-delta') return extendToolCall(previous, chunk, time)
+  return false
 }
 
 const extend = (run: DeltaRun, time: number, text: string): void => {

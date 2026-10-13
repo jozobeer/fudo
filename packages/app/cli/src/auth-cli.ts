@@ -1,5 +1,16 @@
 import { runAuth } from './auth.ts'
 
+type EditKey = 'submit' | 'interrupt' | 'backspace'
+
+/** Terminal keys that end or edit the hidden line; anything else is text. */
+const EDIT_KEYS: Readonly<Record<string, EditKey | undefined>> = {
+  '\r': 'submit',
+  '\n': 'submit',
+  '\u0003': 'interrupt',
+  '\u007f': 'backspace',
+  '\b': 'backspace',
+}
+
 /** Reads one secret: hidden on a terminal, all of stdin when piped. */
 export const readHiddenLine = async (prompt: string): Promise<string> => {
   const input = process.stdin
@@ -24,19 +35,16 @@ export const readHiddenLine = async (prompt: string): Promise<string> => {
     }
     const onData = (chunk: string) => {
       for (const char of chunk) {
-        if (char === '\r' || char === '\n') {
+        const key = EDIT_KEYS[char]
+        if (key === 'submit') {
           finish(value)
           return
         }
-        if (char === '\u0003') {
+        if (key === 'interrupt') {
           process.stderr.write('\n')
           process.exit(130)
         }
-        if (char === '\u007f' || char === '\b') {
-          value = value.slice(0, -1)
-          continue
-        }
-        value += char
+        value = key === 'backspace' ? value.slice(0, -1) : value + char
       }
     }
     input.on('data', onData)
