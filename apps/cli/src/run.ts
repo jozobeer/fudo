@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Deferred, Effect, Stream } from 'effect'
 import { main, type MainIo } from './bin.ts'
 import { runAuthAtStart } from './auth-cli.ts'
