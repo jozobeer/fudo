@@ -2,9 +2,11 @@ import { agentPlugin } from '@fudo/agent'
 import { agentLoopPlugin } from '@fudo/agent-loop'
 import { kernelPlugin, type Plugin } from '@fudo/kernel'
 import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
+import { safetyPlugin } from '@fudo/safety'
 import { sessionPlugin } from '@fudo/session'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { systemPromptPlugin } from '@fudo/system-prompt'
+import { tier0Plugin } from '@fudo/tools-tier0'
 import { toolsPlugin } from '@fudo/tools'
 import { Deferred, Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -14,9 +16,9 @@ import { tmpdir } from 'node:os'
 import { runCommand } from '../src/index.ts'
 
 /**
- * Acceptance for S8: a real Chrome drives a real fudo web server, with only the
- * model stubbed. It types a message, waits for the reply, and saves a
- * screenshot. Run it with `bun run tests/web-acceptance.ts`.
+ * Acceptance for S8: a real Chrome types a message, answers the approval prompt
+ * the page draws, and receives the reply. Only the model is stubbed. Run it
+ * with `bun run tests/web-acceptance.ts`.
  */
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
@@ -25,13 +27,23 @@ const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'finish', kind: 'stop' },
 ]
 
+const callBash: ReadonlyArray<StreamChunk> = [
+  {
+    type: 'block-end',
+    index: 0,
+    block: { type: 'tool-call', id: 'c1', name: 'bash', arguments: '{"command":"echo ran"}' },
+  },
+  { type: 'finish', kind: 'tool-calls' },
+]
+
 const stubLlm: Plugin<{}, Llm, never> = {
   name: 'stub-llm',
   config: Schema.Struct({}),
   provides: [Llm],
   requires: [],
-  layer: () =>
-    Layer.succeed(Llm, {
+  layer: () => {
+    let call = 0
+    return Layer.succeed(Llm, {
       name: 'stub',
       capabilities: {
         toolChoice: false,
@@ -39,8 +51,14 @@ const stubLlm: Plugin<{}, Llm, never> = {
         images: 'none',
         promptCacheControl: false,
       },
-      stream: () => Stream.fromIterable(textTurn('the browser reached the model')),
-    } satisfies LlmAdapter),
+      stream: () => {
+        const scripts = [callBash, textTurn('approved and done')]
+        const script = scripts[call] ?? []
+        call += 1
+        return Stream.fromIterable(script)
+      },
+    } satisfies LlmAdapter)
+  },
 }
 
 const profile = (root: string): string =>
@@ -59,6 +77,12 @@ const profile = (root: string): string =>
     "    name: '@fudo/tools'",
     '  - id: system-prompt',
     "    name: '@fudo/system-prompt'",
+    '  - id: safety',
+    "    name: '@fudo/safety'",
+    '    config:',
+    '      preset: workspace-write',
+    '  - id: tier0',
+    "    name: '@fudo/tools-tier0'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
@@ -73,6 +97,8 @@ const plugins: ReadonlyArray<Plugin<any, any, any>> = [
   sessionPlugin,
   toolsPlugin,
   systemPromptPlugin,
+  safetyPlugin,
+  tier0Plugin,
   stubLlm,
   agentPlugin,
   agentLoopPlugin,
@@ -171,8 +197,10 @@ const saveScreenshot = async (client: Cdp): Promise<void> => {
   if (data !== undefined) await Bun.write(evidence, Buffer.from(data, 'base64'))
 }
 
-const SUBMIT =
-  "(() => { const input = document.getElementById('input'); input.value = 'ping'; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('composer').requestSubmit(); return true })()"
+const type = (value: string): string =>
+  "(() => { const input = document.getElementById('input'); input.value = " +
+  JSON.stringify(value) +
+  "; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('composer').requestSubmit(); return true })()"
 
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = Bun.spawn(
@@ -193,13 +221,17 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     const client = await connectCdp(await pageTargetOf(port, url))
     cdp = client
     await client.send('Runtime.enable')
-
     const read = (): Promise<unknown> => client.evaluate('document.body.innerText')
+
     if ((await waitFor(read, 'ready')) === undefined) {
       throw new Error('the page never reported ready')
     }
-    await client.evaluate(SUBMIT)
-    const answer = await waitFor(read, 'the browser reached the model')
+    await client.evaluate(type('run the command'))
+    if ((await waitFor(read, 'approve bash')) === undefined) {
+      throw new Error('the approval never reached the page')
+    }
+    await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
+    const answer = await waitFor(read, 'approved and done')
     if (answer === undefined) throw new Error('the reply never reached the page')
     await saveScreenshot(client)
     return { passed: true, answer }

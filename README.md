@@ -46,10 +46,29 @@ model: ollama-cloud/deepseek-v4.1-flash
 ### 動かす
 
 ```sh
+fudo                                     # 端末 UI（TTY が要る）
 fudo "Reply with the single word pong"   # 1 turn 走らせて終わる
 fudo --json "..."                        # セッションイベントを JSON 行で出す
+fudo --resume <sessionId>                # 過去のログを端末 UI に描く
 fudo --dump-config                       # 読み込んだプロファイルを表示する
 ```
+
+パイプから入力すると行単位の batch mode になる。TTY が無いところで端末 UI を強制するには `--tui` を付ける。
+
+#### 端末 UI
+
+会話・tool の呼び出しと結果・承認・質問を 1 画面に描く。↑/↓ は入力履歴、Ctrl-C は実行中の turn の cancel（idle なら終了）、Ctrl-D は終了。承認が要る tool は `⚠ approve <tool>? [y/n]` と出るので y / n で答える。`ask_user` の質問には入力をそのまま Enter で答える。
+
+#### Web UI
+
+ブラウザ側を先に束ねる。初回と `apps/web/client/` を変えたときに走らせる。
+
+```sh
+bun run build:web     # apps/web/dist に束ねる
+fudo web              # http://127.0.0.1:<port>/ を stderr に出す（--port で固定）
+```
+
+同じセッションを複数タブで購読できる。承認は Allow / Deny、質問は入力して Enter。サーバは 127.0.0.1 にだけ bind し、認証は無い。
 
 セッションログは既定で `~/.fudo/sessions/<id>/session.v1.jsonl` に残る。設定ファイルのパスは `--config` で差し替えられる。
 
