@@ -57,9 +57,9 @@ describe('session plugin through the loader', () => {
           plugins: [hooksPlugin, providerPlugin, sessionPlugin],
           layers: [
             [
+              { id: 'session', name: '@fudo/session', config: {} },
               { id: 'hooks', name: 'hooks', config: {} },
               { id: 'provider', name: 'provider', config: {} },
-              { id: 'session', name: '@fudo/session', config: {} },
             ],
           ],
         })
