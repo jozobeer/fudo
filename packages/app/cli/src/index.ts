@@ -14,7 +14,7 @@ import type { SessionId } from '@fudo/session'
 import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
 import { Tools } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
-import { tier1Tools } from '@fudo/tools-tier1'
+import { makeSubagentTool, tier1Tools } from '@fudo/tools-tier1'
 import {
   Approval,
   Ask,
@@ -46,6 +46,8 @@ export interface CommandOptions {
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
   /** Directories searched by the skill tool, in order. */
   readonly skills?: ReadonlyArray<string>
+  /** Lets the model run tasks in child agents. */
+  readonly subagents?: boolean
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -147,7 +149,11 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
             agent.session,
           )
-          for (const tool of tier1Tools(ask, options.skills ?? [])) yield* registry.register(tool)
+          const list = [...tier1Tools(ask, options.skills ?? [])]
+          if (options.subagents === true) {
+            list.push(makeSubagentTool(Context.get(context, Agents), route))
+          }
+          for (const tool of list) yield* registry.register(tool)
         }
 
         // Approval is enforced only when the profile chose a safety row.
