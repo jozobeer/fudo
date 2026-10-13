@@ -1,5 +1,6 @@
 import type { Emit } from '@fudo/kernel'
 import type { AssistantStreamRecord, ContentBlock, LlmFailureData, LlmUsage } from '@fudo/llm'
+import type { Session } from './session.ts'
 
 export type SessionSeq = number
 export type SessionId = string
@@ -84,7 +85,7 @@ export type SessionEvent = {
 
 declare module '@fudo/kernel/hook' {
   interface HookMap {
-    'session/event': Emit<(event: SessionEvent) => void>
+    'session/event': Emit<(event: SessionEvent, session: Session) => void>
   }
 }
 

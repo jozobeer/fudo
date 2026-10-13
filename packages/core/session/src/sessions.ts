@@ -39,13 +39,22 @@ export function sessionsService(
     const hooks = yield* Hooks
     const now = options?.now ?? Date.now
 
+    // The listener needs the session to tell its events from a child agent's.
     const attach = (opened: OpenedSession): Effect.Effect<Session, SessionError> =>
-      makeSession({
-        id: opened.id,
-        events: opened.events,
-        sink: opened.sink,
-        now,
-        notify: (event) => hooks.emit('session/event', event),
+      Effect.gen(function* () {
+        const holder: { session?: Session } = {}
+        const session = yield* makeSession({
+          id: opened.id,
+          events: opened.events,
+          sink: opened.sink,
+          now,
+          notify: (event) =>
+            holder.session === undefined
+              ? Effect.void
+              : hooks.emit('session/event', event, holder.session),
+        })
+        holder.session = session
+        return session
       })
 
     return {

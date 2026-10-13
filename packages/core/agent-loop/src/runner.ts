@@ -109,7 +109,7 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
             const timed: TimedStreamChunk = { time: Date.now(), chunk }
             stream.push(timed)
             assembler.push(chunk)
-            yield* hooks.emit('agent/assistant-stream', timed)
+            yield* hooks.emit('agent/assistant-stream', timed, agent)
           })
 
         return yield* Stream.runForEach(llm.stream(request), collect).pipe(

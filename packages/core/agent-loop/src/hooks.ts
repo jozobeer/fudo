@@ -28,7 +28,7 @@ declare module '@fudo/kernel/hook' {
     'agent/pre-step': Waterfall<(input: PreStepInput) => Effect.Effect<PreStepDecision>>
     'agent/request': Waterfall<(request: AgentRequest) => Effect.Effect<AgentRequest>>
     'agent/request-error': Waterfall<(failure: LlmFailure) => Effect.Effect<RequestErrorDecision>>
-    'agent/assistant-stream': Emit<(chunk: TimedStreamChunk) => void>
+    'agent/assistant-stream': Emit<(chunk: TimedStreamChunk, agent: Agent) => void>
     'agent/turn-stopping': Serial<(agent: Agent) => Effect.Effect<void>>
   }
 }
