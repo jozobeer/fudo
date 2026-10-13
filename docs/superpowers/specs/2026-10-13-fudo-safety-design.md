@@ -27,3 +27,16 @@
 1. 上記 1〜5 を決めて、この文書を更新する（決定と理由を残す）。
 2. seam の型と pipeline への差し込みを、S1 の拡張点（hook と PreExecuteDecision）だけで書けるか確認する。足りなければ S1 側の拡張点を先に足す。
 3. 承認・sandbox の拒否・escalation を、replay とスタブで再現できるテストとして先に書く。
+
+## 決定（2026-10-13）
+
+1. **承認はイベントにする。** 要求と回答を session に残るイベント（safety/approval/requested と safety/approval/answered）として書き、pre-execute hook は Deferred を作って要求を書き、回答を待つ。CLI は端末から、UI はイベント越しに同じ形で答える。待っている間も turn は開いたままにし（turn/end を出さない）、ツール呼び出しの直後に待ちが入る。これで S7・S8 が同じプロトコルで承認を扱える。
+2. **sandbox は「包む」だけの seam にする。** サービス Sandbox を @fudo/safety に置き、wrap(command) が実行すべき argv を返す（例: sandbox-exec -p <profile> -- <argv>）。実行そのものはツール側（bash）が担う。provider は none（素通し）と seatbelt（macOS）。
+3. **sandbox の失敗はツールのエラーにする。** 未対応 OS やプロファイル不正は wrap の時点で SandboxError として返し、tool/result の isError で見せる。起動時に落とさない。素通しへ落とすかは policy が決める。
+4. **preset と escalation を分ける。** preset は policy の名前（read-only / workspace-write / full）。escalation は preset の外で実行したいという承認要求であり、理由付きでイベントに残す。1 回の呼び出しにつき 1 段だけ上げる（連鎖させない）。
+5. **policy は専用の行に置く。** profile に @fudo/safety の行を足し、config に preset を書く。ツールごとの細かい規則は、ツール定義が宣言する必要種別（read / write / exec / network）から導く。規則の列挙を YAML に持たない。
+
+## S1 に足す拡張点
+
+- ToolDefinition に必要種別（read / write / exec / network）を宣言する欄を足す。S1 のツールはまだ無いので、S3 のツールを書くときに埋める。
+- 承認待ちの間に turn がどう見えるかは、上記 1 のとおり「turn は開いたまま」で確定。イベント語彙の追加は上記 2 種のみ。
