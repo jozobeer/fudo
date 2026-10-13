@@ -1,0 +1,82 @@
+import { Effect, Schema } from 'effect'
+import { PluginError } from './errors.ts'
+
+export const PluginRowSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  config: Schema.optional(Schema.Unknown),
+  disabled: Schema.optional(Schema.Boolean),
+})
+
+/** One plugin line of a profile. The row id is the merge key across layers. */
+export type PluginRow = (typeof PluginRowSchema)['Type']
+
+/** A named list of plugin rows loaded from one YAML document. */
+export interface Profile {
+  readonly name: string
+  readonly plugins: ReadonlyArray<PluginRow>
+}
+
+export const ProfileSchema = Schema.Struct({
+  name: Schema.String,
+  plugins: Schema.Array(PluginRowSchema),
+})
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const mergeConfig = (base: unknown, patch: unknown): unknown =>
+  isRecord(base) && isRecord(patch) ? { ...base, ...patch } : patch
+
+/** Overlays layers by row id. A later layer wins; new ids keep their first-seen order. */
+export function mergeRows(
+  layers: ReadonlyArray<ReadonlyArray<PluginRow>>,
+): ReadonlyArray<PluginRow> {
+  const merged = new Map<string, PluginRow>()
+  for (const layer of layers) {
+    for (const row of layer) {
+      const existing = merged.get(row.id)
+      merged.set(
+        row.id,
+        existing === undefined
+          ? row
+          : {
+              ...existing,
+              ...row,
+              config:
+                row.config === undefined
+                  ? existing.config
+                  : mergeConfig(existing.config, row.config),
+            },
+      )
+    }
+  }
+  return [...merged.values()]
+}
+
+const configError = (message: string): PluginError => new PluginError({ code: 'config', message })
+
+/** Parses one YAML profile document. */
+export function parseProfile(text: string): Effect.Effect<Profile, PluginError> {
+  return Effect.gen(function* () {
+    const raw = yield* Effect.try({
+      try: () => Bun.YAML.parse(text) as unknown,
+      catch: (cause) => configError(`profile is not valid YAML: ${String(cause)}`),
+    })
+    return yield* Schema.decodeUnknownEffect(ProfileSchema)(raw).pipe(
+      Effect.mapError((issue) =>
+        configError(`profile does not match the profile schema: ${issue.message}`),
+      ),
+    )
+  })
+}
+
+/** Renders the effective rows for `--dump-config`. */
+export function renderConfig(rows: ReadonlyArray<PluginRow>): string {
+  const lines = rows.map((row) => {
+    const config = row.config === undefined ? '' : ` config=${JSON.stringify(row.config)}`
+    const disabled = row.disabled === true ? ' disabled' : ''
+    return `  - id=${row.id} name=${row.name}${config}${disabled}`
+  })
+  return ['plugins:', ...lines].join('\n') + '\n'
+}
