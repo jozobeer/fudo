@@ -12,6 +12,8 @@ export interface ParsedArgs {
   readonly modelFlag: string | undefined
   readonly dumpConfig: boolean
   readonly json: boolean
+  /** Forces the terminal UI even when stdin is not a terminal. */
+  readonly tui: boolean
   readonly config: string | undefined
   readonly help: boolean
   readonly errors: ReadonlyArray<string>
@@ -24,6 +26,7 @@ interface FlagSpec {
 const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--dump-config', { kind: 'boolean' }],
   ['--json', { kind: 'boolean' }],
+  ['--tui', { kind: 'boolean' }],
   ['--help', { kind: 'boolean' }],
   ['--profile', { kind: 'value' }],
   ['--patch', { kind: 'value' }],
@@ -88,6 +91,7 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     modelFlag: first(values, '--model'),
     dumpConfig: values.has('--dump-config'),
     json: values.has('--json'),
+    tui: values.has('--tui'),
     config: first(values, '--config'),
     help: values.has('--help'),
     errors,

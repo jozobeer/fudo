@@ -46,7 +46,9 @@ import {
   type AskShape,
   type PolicyShape,
 } from '@fudo/safety'
-import { Cause, Context, Effect, Layer, Stream } from 'effect'
+import { runTui, type TuiIo } from '@fudo/tui'
+import { makeUiHost, type UiHost } from '@fudo/ui-host'
+import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -55,10 +57,12 @@ export interface CommandOptions {
   readonly extraRows?: ReadonlyArray<PluginRow>
   readonly patches?: ReadonlyArray<string>
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
-  /** One-shot task. Without it the command has nothing to run (the REPL lands later). */
+  /** One-shot task. */
   readonly task?: string
-  /** Lines of a REPL session; when absent the command has nothing to run. */
+  /** Lines of a batch session, used when stdin is not a terminal. */
   readonly lines?: Stream.Stream<string>
+  /** When present, the command serves the interactive terminal UI. */
+  readonly tui?: TuiIo
   /** Completes to request a \`user\` cancellation, as SIGINT does. */
   readonly interrupt?: Effect.Effect<void>
   /** Answers an approval request; the default denies, so nothing hangs unanswered. */
@@ -187,9 +191,9 @@ const installTier1 = (
   options: CommandOptions,
   agent: Agent,
   route: string,
+  answer: CommandOptions['answer'],
 ) =>
   Effect.gen(function* () {
-    const answer = options.answer
     const ask = installAsk(
       answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
       agent.session,
@@ -309,13 +313,15 @@ const serveTask = (agent: Agent, options: CommandOptions, task: string) =>
     return cancelled ? 130 : 0
   })
 
-/** What one run serves: a one-shot task or the lines of a REPL. */
+/** What one run serves: a task, a batch of lines, or the terminal UI. */
 type Work =
   | { readonly kind: 'task'; readonly task: string }
   | { readonly kind: 'lines'; readonly lines: Stream.Stream<string> }
+  | { readonly kind: 'tui'; readonly io: TuiIo }
 
 const workOf = (options: CommandOptions): Work | undefined => {
   if (options.task !== undefined) return { kind: 'task', task: options.task }
+  if (options.tui !== undefined) return { kind: 'tui', io: options.tui }
   if (options.lines !== undefined) return { kind: 'lines', lines: options.lines }
   return undefined
 }
@@ -323,7 +329,73 @@ const workOf = (options: CommandOptions): Work | undefined => {
 const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
   work.kind === 'task'
     ? serveTask(agent, options, work.task)
-    : serveLines(agent, options, work.lines)
+    : work.kind === 'lines'
+      ? serveLines(agent, options, work.lines)
+      : Effect.succeed(0)
+
+/** Everything the profile's rows install on one running agent. */
+interface ProfileWiring {
+  readonly rows: ReadonlyArray<PluginRow>
+  readonly options: CommandOptions
+  readonly route: string
+  readonly agent: Agent
+  readonly answer: CommandOptions['answer']
+  readonly approve: CommandOptions['approve']
+  readonly hooks: HookRegistry
+  /** Read only inside a branch: an absent row means the service was never built. */
+  readonly context: Context.Context<any>
+}
+
+/** Tiers and guards come from the profile's rows. */
+const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolError, Scope.Scope> =>
+  Effect.gen(function* () {
+    const tools = Context.get(wiring.context, Tools)
+    if (hasRow(wiring.rows, '@fudo/tools-tier0')) {
+      yield* installTier0(tools, Context.get(wiring.context, Tier0Tools))
+    }
+    if (hasRow(wiring.rows, '@fudo/tools-tier1')) {
+      yield* installTier1(
+        tools,
+        Context.get(wiring.context, Ask),
+        Context.get(wiring.context, Agents),
+        wiring.options,
+        wiring.agent,
+        wiring.route,
+        wiring.answer,
+      )
+    }
+    // Plan mode hides every tool that could change the workspace.
+    if (wiring.rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
+      yield* installPlanMode(tools)
+    }
+    if (hasRow(wiring.rows, '@fudo/safety')) {
+      yield* installSafety(
+        wiring.agent,
+        wiring.approve,
+        wiring.hooks,
+        Context.get(wiring.context, Policy),
+        Context.get(wiring.context, Approval),
+      )
+    }
+  })
+
+const uiHostOf = (
+  work: Work,
+  agent: Agent,
+  hooks: HookRegistry,
+): Effect.Effect<UiHost | undefined, never, Scope.Scope> =>
+  work.kind === 'tui'
+    ? makeUiHost({ session: agent.session, agent, hooks })
+    : Effect.succeed(undefined)
+
+/** A UI answers approvals and questions through its host; a caller through its own hook. */
+const answerersOf = (
+  ui: UiHost | undefined,
+  options: CommandOptions,
+): Pick<ProfileWiring, 'answer' | 'approve'> => ({
+  answer: ui === undefined ? options.answer : ui.answerAsk,
+  approve: ui === undefined ? options.approve : ui.answerApproval,
+})
 
 /** The scoped body that owns the built layer and serves one agent run. */
 const runSession = (
@@ -337,7 +409,8 @@ const runSession = (
   Effect.gen(function* () {
     const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer))
     const hooks = Context.get(context, Hooks)
-    yield* installOutput(hooks, options)
+    // The TUI owns the screen; only the non-interactive paths stream text out.
+    if (work.kind !== 'tui') yield* installOutput(hooks, options)
 
     // Workspace instructions join the prompt before the first turn.
     yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
@@ -346,35 +419,24 @@ const runSession = (
       yield* installMcpServers(Context.get(context, Tools), Context.get(context, McpServers))
     }
 
-    // Plan mode hides every tool that could change the workspace.
-    if (rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
-      yield* installPlanMode(Context.get(context, Tools))
-    }
-
     const agent = yield* createAgent(Context.get(context, Agents), options, route, spillBytes)
+    const ui = yield* uiHostOf(work, agent, hooks)
 
-    // Tools come from the profile's tier rows.
-    if (hasRow(rows, '@fudo/tools-tier0')) {
-      yield* installTier0(Context.get(context, Tools), Context.get(context, Tier0Tools))
-    }
-    if (hasRow(rows, '@fudo/tools-tier1')) {
-      yield* installTier1(
-        Context.get(context, Tools),
-        Context.get(context, Ask),
-        Context.get(context, Agents),
-        options,
-        agent,
-        route,
-      )
-    }
-    if (hasRow(rows, '@fudo/safety')) {
-      yield* installSafety(
-        agent,
-        options.approve,
-        hooks,
-        Context.get(context, Policy),
-        Context.get(context, Approval),
-      )
+    yield* installFromProfile({
+      rows,
+      options,
+      route,
+      agent,
+      hooks,
+      ...answerersOf(ui, options),
+      context,
+    })
+
+    if (ui !== undefined && work.kind === 'tui') {
+      return yield* runTui(ui, work.io, {
+        title: 'fudo · ' + route + ' · ' + agent.id.slice(0, 8),
+        ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
+      })
     }
     return yield* serveAgent(agent, options, work)
   })

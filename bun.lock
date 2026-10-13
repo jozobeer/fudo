@@ -31,6 +31,16 @@
         "@fudo/tools": "workspace:*",
         "@fudo/tools-tier0": "workspace:*",
         "@fudo/tools-tier1": "workspace:*",
+        "@fudo/tui": "workspace:*",
+        "@fudo/ui-host": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
+    "apps/tui": {
+      "name": "@fudo/tui",
+      "dependencies": {
+        "@fudo/ui-protocol": "workspace:*",
+        "@fudo/ui-view": "workspace:*",
         "effect": "4.0.3",
       },
     },
@@ -232,6 +242,8 @@
     "@fudo/tools-tier0": ["@fudo/tools-tier0@workspace:packages/core/tools-tier0"],
 
     "@fudo/tools-tier1": ["@fudo/tools-tier1@workspace:packages/core/tools-tier1"],
+
+    "@fudo/tui": ["@fudo/tui@workspace:apps/tui"],
 
     "@fudo/ui-host": ["@fudo/ui-host@workspace:packages/ui/host"],
 

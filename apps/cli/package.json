@@ -21,6 +21,8 @@
     "@fudo/tools": "workspace:*",
     "@fudo/tools-tier0": "workspace:*",
     "@fudo/tools-tier1": "workspace:*",
+    "@fudo/tui": "workspace:*",
+    "@fudo/ui-host": "workspace:*",
     "effect": "4.0.3"
   }
 }

@@ -83,7 +83,10 @@ export interface UiHost {
 }
 
 /** Runs one command against a host; the transports share this mapping. */
-export const runCommand = (host: UiHost, command: UiCommand): Effect.Effect<void, SessionError> => {
+export const sendCommand = (
+  host: UiHost,
+  command: UiCommand,
+): Effect.Effect<void, SessionError> => {
   switch (command.kind) {
     case 'submit':
       return host.submit(command.text)

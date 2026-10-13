@@ -4,6 +4,8 @@ import type { Session } from '@fudo/session'
 import type { UiEvent, UiHost } from '@fudo/ui-protocol'
 import { Deferred, Effect, Queue, Stream, type Scope } from 'effect'
 
+export type { UiHost } from '@fudo/ui-protocol'
+
 export interface MakeUiHostOptions {
   readonly session: Session
   readonly agent: Agent

@@ -1,12 +1,16 @@
 #!/usr/bin/env bun
+import { processTuiIo, type TuiIo } from '@fudo/tui'
 import { Deferred, Effect, Stream } from 'effect'
+import { parseArgs } from './args.ts'
 import { main, type MainIo } from './bin.ts'
 import { runAuthAtStart } from './auth-cli.ts'
 
 export interface ProcessIo extends MainIo {
-  /** True when the process owns a terminal; piped input becomes REPL lines. */
+  /** True when the process owns a terminal; piped input becomes batch lines. */
   readonly isTty: boolean
   readonly readStdin: () => Promise<string>
+  /** The terminal the interactive UI draws on; tests provide their own. */
+  readonly tui?: TuiIo
 }
 
 /** Lines of piped input: the trailing empty line after the final newline is dropped. */
@@ -15,24 +19,35 @@ export const linesOf = (text: string): ReadonlyArray<string> => {
   return parts.length > 0 && parts[parts.length - 1] === '' ? parts.slice(0, -1) : parts
 }
 
-/** Wires the entry point to a process: piped stdin becomes REPL lines. */
+const readBatch = (io: ProcessIo): Effect.Effect<string> =>
+  Effect.match(
+    Effect.tryPromise({
+      try: () => io.readStdin(),
+      catch: (cause) => new Error('cannot read stdin: ' + String(cause)),
+    }),
+    { onFailure: () => '', onSuccess: (value) => value },
+  )
+
+/** The fields a terminal run adds to the command; missing ones stay absent. */
+const ioFields = (io: ProcessIo, interactive: boolean, text: string): Partial<MainIo> => ({
+  tty: io.isTty,
+  ...(io.interrupt === undefined ? {} : { interrupt: io.interrupt }),
+  ...(io.tui === undefined ? {} : { tui: io.tui }),
+  ...(interactive && text === '' ? {} : { lines: Stream.fromIterable(linesOf(text)) }),
+})
+
+/** Wires the entry point to a process: a terminal becomes the UI, pipes become lines. */
 export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effect<number> {
   return Effect.gen(function* () {
-    const text = io.isTty
-      ? ''
-      : yield* Effect.match(
-          Effect.tryPromise({
-            try: () => io.readStdin(),
-            catch: (cause) => new Error('cannot read stdin: ' + String(cause)),
-          }),
-          { onFailure: () => '', onSuccess: (value) => value },
-        )
+    // A forced TUI owns stdin; the bytes are keys, not batch lines.
+    const forcedTui = io.tui !== undefined && parseArgs(argv).tui
+    const interactive = io.isTty || forcedTui
+    const text = interactive ? '' : yield* readBatch(io)
     return yield* main(argv, {
       stdout: io.stdout,
       stderr: io.stderr,
       cwd: io.cwd,
-      ...(io.interrupt === undefined ? {} : { interrupt: io.interrupt }),
-      ...(io.isTty && text === '' ? {} : { lines: Stream.fromIterable(linesOf(text)) }),
+      ...ioFields(io, interactive, text),
     })
   })
 }
@@ -53,6 +68,8 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
     isTty: process.stdin.isTTY === true,
     readStdin: () => readChunks(process.stdin),
     interrupt: interruptOnSignal(),
+    // The UI is built always; --tui or a terminal decides whether it runs.
+    tui: processTuiIo(),
   })
     .pipe(Effect.runPromise)
     .then((code) => {

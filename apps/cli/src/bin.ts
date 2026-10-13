@@ -10,6 +10,7 @@ import { tier1Plugin } from '@fudo/tools-tier1'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
+import type { TuiIo } from '@fudo/tui'
 import { Effect, Stream } from 'effect'
 import { type SearchHost } from '@fudo/tools-tier1'
 import { parseArgs, type ParsedArgs } from './args.ts'
@@ -40,20 +41,25 @@ export interface MainIo {
   readonly stdout: (text: string) => void
   readonly stderr: (text: string) => void
   readonly cwd: string
-  /** REPL input; the real entry point streams process.stdin. */
+  /** Batch input; the real entry point streams process.stdin when it is not a terminal. */
   readonly lines?: Stream.Stream<string>
+  /** The terminal UI; the real entry point builds one when stdin is a terminal. */
+  readonly tui?: TuiIo
+  /** True when the caller sits on a terminal. */
+  readonly tty?: boolean
   /** Completes to request a user cancellation of the running turn. */
   readonly interrupt?: Effect.Effect<void>
 }
 
 const HELP = `fudo "task"                     one-shot headless run
-fudo                             REPL (later slice)
+fudo                             terminal UI (a terminal is required)
 fudo --profile <name> --patch <file.yml>...
 fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
 fudo --dump-config
 fudo models                      list the models the provider offers
 fudo --resume <sessionId> [task]
 fudo --json "task"
+fudo --tui                       terminal UI even through a pipe
 `
 
 /** Everything the command reads from the environment and files before running. */
@@ -120,15 +126,15 @@ const optional = <K extends keyof CommandOptions>(
 ): Present<K> | Record<never, never> =>
   value === undefined ? {} : ({ [key]: value } as Present<K>)
 
-const taskOrLines = (
+const workSelection = (
   parsed: ParsedArgs,
   io: MainIo,
-): Present<'task'> | Present<'lines'> | Record<never, never> =>
-  parsed.task !== undefined
-    ? { task: parsed.task }
-    : io.lines === undefined
-      ? {}
-      : { lines: io.lines }
+): Present<'task'> | Present<'tui'> | Present<'lines'> | Record<never, never> => {
+  if (parsed.task !== undefined) return { task: parsed.task }
+  const tui = io.tui
+  if (tui !== undefined && !parsed.json && (parsed.tui || io.tty === true)) return { tui }
+  return io.lines === undefined ? {} : { lines: io.lines }
+}
 
 const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): CommandOptions => ({
   profiles: inputs.documents,
@@ -140,7 +146,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   ...optional('extraRows', inputs.settings.plugins),
   ...optional('skills', inputs.settings.skills),
   ...optional('search', inputs.search),
-  ...taskOrLines(parsed, io),
+  ...workSelection(parsed, io),
   ...optional('resume', parsed.resume),
   ...(inputs.patches.length === 0 ? {} : { patches: inputs.patches }),
   ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
