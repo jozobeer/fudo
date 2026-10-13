@@ -1,4 +1,4 @@
-import { Deferred, Effect } from 'effect'
+import { Context, Deferred, Effect, Layer } from 'effect'
 
 export interface ApprovalShape {
   /** Waits for the answer to one request. Callers append the request event themselves. */
@@ -33,3 +33,11 @@ export const makeApproval = (): Effect.Effect<ApprovalShape> =>
   })
 
 export const approvalLayer: Effect.Effect<ApprovalShape> = makeApproval()
+
+/** The approval holder as a service, so a pre-execute bridge can reach it. */
+export class Approval extends Context.Service<Approval, ApprovalShape>()('fudo/Approval') {}
+
+export const approvalServiceLayer: Layer.Layer<Approval, never> = Layer.effect(
+  Approval,
+  makeApproval(),
+)
