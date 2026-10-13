@@ -93,6 +93,7 @@
     "packages/llm/llm-openai": {
       "name": "@fudo/llm-openai",
       "dependencies": {
+        "@fudo/kernel": "workspace:*",
         "@fudo/llm": "workspace:*",
         "effect": "4.0.3",
       },
