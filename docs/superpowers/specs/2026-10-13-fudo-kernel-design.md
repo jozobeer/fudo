@@ -25,7 +25,7 @@ v1 は、dsh の base bundle と同等のツールセットを日常のコーデ
 | S4 Tier 1 | compaction、spill、tool call timeout、`todo_write`、AGENTS.md の読み込み |
 | S5 Tier 2 | skill、web（search と fetch）、MCP、ask-user、plan-mode、`read_image` |
 | S6 Tier 3 | subagent（fork を含む）、jobs、goal、workflow（PTC）、working-directory |
-| S7 TUI | S1 のイベントを描画する端末 UI |
+| S7 TUI | S1 のイベントを描画する端末 UI。行単位の REPL は S7 までの足場で、S7 で置き換える |
 | S8 Web UI | S1 をローカルサーバー越しに操作するブラウザ UI |
 
 依存は S2 以降から S1 への一方向である。S1 は、S2 から S6 の機能を agent loop の変更なしに載せられる拡張点を揃える。S7 と S8 は v1 の後に作る。
