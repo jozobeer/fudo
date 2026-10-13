@@ -3,3 +3,4 @@ coverage/
 .env
 .tmp/
 .bun-cache/
+apps/web/dist/
