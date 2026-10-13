@@ -21,6 +21,8 @@ export const webFetchTool: ToolDefinition<WebFetchArgs, WebFetchValue> = {
   description: 'Fetches one http(s) URL and returns its body as text.',
   parameters: Parameters,
   needs: ['network'],
+  // Fetching is read-only; two fetches may run at the same time.
+  isConcurrencySafe: () => true,
   output: {
     schema: Schema.Struct({
       url: Schema.String,
