@@ -1,5 +1,9 @@
+import {
+  registerSessionEventSchemas,
+  type SessionEventSchemaMap,
+  type UserMessageSource,
+} from '@fudo/session'
 import { Schema } from 'effect'
-import type { SessionEventSchemaMap, UserMessageSource } from '@fudo/session'
 
 /** Which boundary picks up a queued message. */
 export type InboxTarget = 'next-turn' | 'next-step'
@@ -32,3 +36,7 @@ export const inboxEventSchemas: SessionEventSchemaMap = new Map<string, Schema.S
   ['agent/inbox/queued', InboxEventDataSchema],
   ['agent/inbox/claimed', InboxEventDataSchema],
 ])
+
+// Logs written here stay readable by every provider, not only by callers that
+// pass the map explicitly.
+registerSessionEventSchemas(inboxEventSchemas)

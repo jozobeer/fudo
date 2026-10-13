@@ -24,7 +24,7 @@ const TurnEndReasonSchema: Schema.Schema<TurnEndReason> = Schema.Union([
  * packages add event types to `SessionEventMap` by declaration merging and
  * supply their matching schemas where they construct a decoder.
  */
-export const SessionEventSchemas: SessionEventSchemaMap = new Map<string, Schema.Schema<unknown>>([
+const catalog = new Map<string, Schema.Schema<unknown>>([
   [
     'session/header',
     Schema.Struct({ formatVersion: Schema.Int, createdAt: Schema.Number, cwd: Schema.String }),
@@ -82,6 +82,18 @@ export const SessionEventSchemas: SessionEventSchemaMap = new Map<string, Schema
     }),
   ],
 ])
+
+/** The catalog every decoder starts from. */
+export const SessionEventSchemas: SessionEventSchemaMap = catalog
+/**
+ * Adds event schemas to the catalog every decoder starts from. A package that
+ * extends \`SessionEventMap\` calls this once at module load so logs written by
+ * that package stay readable without wiring the map through every provider.
+ */
+export function registerSessionEventSchemas(schemas: SessionEventSchemaMap): void {
+  for (const [type, schema] of schemas) catalog.set(type, schema)
+}
+
 /** Merges event schema maps; a later map wins on the same event type. */
 export function extendSessionEventSchemas(
   ...maps: ReadonlyArray<SessionEventSchemaMap>
