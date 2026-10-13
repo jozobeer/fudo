@@ -25,3 +25,4 @@ export const tier0Tools = (
   grepTool,
   makeBashTool(sandbox),
 ]
+export * from './plugin.ts'
