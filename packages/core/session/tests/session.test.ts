@@ -1,7 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { Effect } from 'effect'
+import { Effect, Logger } from 'effect'
 import { SessionError, makeSession, type SessionEvent, type SessionSink } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
+
+/** Collects Effect log output so an expected defect is asserted instead of printed. */
+const recordLogs = () => {
+  const messages: Array<string> = []
+  const logger = Logger.make(({ message }) => {
+    messages.push(String(message))
+  })
+  return { messages, layer: Logger.layer([logger]) }
+}
 
 interface Collected {
   readonly written: Array<SessionEvent>
@@ -97,6 +106,7 @@ describe('makeSession', () => {
 
   test('an observer failure does not fail the append', async () => {
     const collected = collect()
+    const logs = recordLogs()
     const session = await Effect.runPromise(
       makeSession({
         id: 's-4',
@@ -108,10 +118,13 @@ describe('makeSession', () => {
     )
 
     await Effect.runPromise(
-      session.append('user/message', { text: 'still stored', source: 'user' }),
+      session
+        .append('user/message', { text: 'still stored', source: 'user' })
+        .pipe(Effect.provide(logs.layer)),
     )
 
     expect(collected.written).toHaveLength(1)
+    expect(logs.messages.join('\n')).toContain('session/event observer failed')
   })
 
   test('flush delegates to the sink', async () => {

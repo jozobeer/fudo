@@ -1,7 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { Deferred, Effect, Exit, Scope } from 'effect'
+import { Deferred, Effect, Exit, Logger, Scope } from 'effect'
 import type { Bail, Emit, Parallel, Serial, Waterfall } from '../src/index.ts'
 import { Hooks, HooksLive, makeHooks } from '../src/index.ts'
+
+/** Collects Effect log output so an expected defect is asserted instead of printed. */
+const recordLogs = () => {
+  const messages: Array<string> = []
+  const logger = Logger.make(({ message }) => {
+    messages.push(String(message))
+  })
+  return { messages, layer: Logger.layer([logger]) }
+}
 
 declare module '../src/hook.ts' {
   interface HookMap {
@@ -67,6 +76,7 @@ describe('emit', () => {
     const hooks = makeHooks()
     const seen: string[] = []
     const value = crypto.randomUUID()
+    const logs = recordLogs()
 
     await Effect.runPromise(
       Effect.scoped(
@@ -79,10 +89,11 @@ describe('emit', () => {
           })
           yield* hooks.emit('test/emit', value)
         }),
-      ),
+      ).pipe(Effect.provide(logs.layer)),
     )
 
     expect(seen).toEqual([value])
+    expect(logs.messages.join('\n')).toContain('hook listener failed')
   })
 })
 
