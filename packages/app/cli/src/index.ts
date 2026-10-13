@@ -20,6 +20,8 @@ export interface CommandOptions {
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
   /** One-shot task. Without it the command has nothing to run (the REPL lands later). */
   readonly task?: string
+  /** Completes to request a \`user\` cancellation, as SIGINT does. */
+  readonly interrupt?: Effect.Effect<void>
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -97,8 +99,19 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
           return 2
         }
         yield* agent.followup({ text: options.task, source: 'user' })
+        let cancelled = false
+        if (options.interrupt !== undefined) {
+          const interrupt = options.interrupt
+          yield* Effect.forkScoped(
+            Effect.gen(function* () {
+              yield* interrupt
+              cancelled = true
+              yield* agent.cancel('user')
+            }),
+          )
+        }
         yield* agent.whenIdle
-        return 0
+        return cancelled ? 130 : 0
       }),
     )
   }).pipe(
