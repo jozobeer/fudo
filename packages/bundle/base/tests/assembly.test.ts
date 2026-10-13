@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { kernelPlugin, loadProfile, parseProfile } from '@fudo/kernel'
 import { Sessions, sessionPlugin } from '@fudo/session'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
@@ -9,8 +9,11 @@ import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { Agents, agentPlugin } from '@fudo/agent'
 import { agentLoopPlugin } from '@fudo/agent-loop'
 import { Context, Effect, Layer } from 'effect'
+import { rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { loadBundledProfile } from '../src/index.ts'
 
+const tempRoot = join(import.meta.dir, '.tmp')
 const plugins = [
   kernelPlugin,
   sessionJsonlPlugin,
@@ -22,13 +25,21 @@ const plugins = [
   agentLoopPlugin,
 ]
 
+afterAll(async () => {
+  await rm(tempRoot, { recursive: true, force: true })
+})
+
 describe('bundled profile assembly', () => {
   test('resolves every S1 row into one layer and starts an agent', async () => {
     const profile = await Effect.runPromise(parseProfile(await loadBundledProfile()))
+    const root = join(tempRoot, crypto.randomUUID())
+    const rows = profile.plugins.map((row) =>
+      row.id === 'session-jsonl' ? { ...row, config: { root } } : row,
+    )
 
     const built = await Effect.runPromise(
       Effect.gen(function* () {
-        const layer = yield* loadProfile({ plugins, layers: [profile.plugins] })
+        const layer = yield* loadProfile({ plugins, layers: [rows] })
         const context = yield* Layer.build(layer)
         const agents = Context.get(context, Agents)
         const agent = yield* agents.create({
@@ -36,7 +47,7 @@ describe('bundled profile assembly', () => {
           options: { route: 'ollama-cloud/kimi-k2.7-code' },
         })
         return {
-          rows: profile.plugins.length,
+          rows: rows.length,
           listed: agents.list().length,
           status: agent.status,
           sessions: Context.get(context, Sessions) !== undefined,
