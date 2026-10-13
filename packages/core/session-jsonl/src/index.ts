@@ -14,6 +14,7 @@ import {
 import { Effect } from 'effect'
 import type { Dirent } from 'node:fs'
 import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export interface JsonlSessionsOptions {
@@ -101,8 +102,14 @@ const sinkFor = (path: string, id: SessionId): SessionSink => ({
 })
 
 /** Stores each session as one JSONL file under `root/<id>/session.v1.jsonl`. */
+export const expandHome = (root: string): string => {
+  if (root === '~') return homedir()
+  return root.startsWith('~/') ? join(homedir(), root.slice(2)) : root
+}
+
 export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence {
-  const directoryOf = (id: SessionId): string => join(options.root, id)
+  const root = expandHome(options.root)
+  const directoryOf = (id: SessionId): string => join(root, id)
   const fileOf = (id: SessionId): string => join(directoryOf(id), FILE_NAME)
 
   const readText = (id: SessionId): Effect.Effect<string, SessionError> =>
@@ -145,11 +152,9 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
   const list = (): Effect.Effect<ReadonlyArray<SessionSummary>, SessionError> =>
     Effect.gen(function* () {
       const entries = yield* Effect.tryPromise({
-        try: () => readdir(options.root, { withFileTypes: true }),
+        try: () => readdir(root, { withFileTypes: true }),
         catch: (cause) =>
-          isMissing(cause)
-            ? notFound(options.root)
-            : persistenceError('cannot list sessions', cause),
+          isMissing(cause) ? notFound(root) : persistenceError('cannot list sessions', cause),
       }).pipe(
         Effect.matchEffect({
           onFailure: (error) =>
