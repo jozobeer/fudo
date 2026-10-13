@@ -1,6 +1,6 @@
 import { agentPlugin } from '@fudo/agent'
 import { agentLoopPlugin } from '@fudo/agent-loop'
-import { loadBundledProfile } from '@fudo/bundle-base'
+import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
 import { kernelPlugin, type Plugin } from '@fudo/kernel'
 import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { sessionPlugin } from '@fudo/session'
@@ -55,6 +55,10 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       try: () => loadBundledProfile(),
       catch: (cause) => new Error(`cannot read the bundled profile: ${String(cause)}`),
     })
+    const profileLayer = yield* Effect.tryPromise({
+      try: () => loadBundledProfileNamed(parsed.profile),
+      catch: (cause) => new Error('cannot read profile ' + parsed.profile + ': ' + String(cause)),
+    })
     const patches: Array<string> = []
     for (const path of parsed.patches) {
       patches.push(
@@ -65,7 +69,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       )
     }
     const options: CommandOptions = {
-      profiles: [base],
+      profiles: [base, profileLayer],
       plugins: bundledPlugins,
       cwd: io.cwd,
       route: parsed.model,
