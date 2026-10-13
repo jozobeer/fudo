@@ -1,0 +1,23 @@
+name: base
+plugins:
+  - id: kernel
+    name: '@fudo/kernel'
+  - id: sessions
+    name: '@fudo/session'
+  - id: session-jsonl
+    name: '@fudo/session-jsonl'
+    config:
+      root: ~/.fudo/sessions
+  - id: tools
+    name: '@fudo/tools'
+  - id: system-prompt
+    name: '@fudo/system-prompt'
+  - id: llm
+    name: '@fudo/llm-openai'
+    config:
+      baseUrl: https://ollama.com/v1
+      apiKeyEnv: OLLAMA_API_KEY
+  - id: agent
+    name: '@fudo/agent'
+  - id: agent-loop
+    name: '@fudo/agent-loop'

@@ -11,6 +11,13 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/bundle/base": {
+      "name": "@fudo/bundle-base",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/agent": {
       "name": "@fudo/agent",
       "dependencies": {
@@ -93,6 +100,8 @@
     "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
 
     "@fudo/agent-loop": ["@fudo/agent-loop@workspace:packages/core/agent-loop"],
+
+    "@fudo/bundle-base": ["@fudo/bundle-base@workspace:packages/bundle/base"],
 
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
