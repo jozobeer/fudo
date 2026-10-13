@@ -12,6 +12,7 @@ import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
 import { Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
+import { configPaths, loadSecrets } from './config.ts'
 import { loadEnvFrom } from './env-file.ts'
 import { searchFromEnv } from './search-env.ts'
 import { runCommand, type CommandOptions } from './index.ts'
@@ -62,8 +63,10 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
     return Effect.succeed(2)
   }
   return Effect.gen(function* () {
-    // The nearest .env fills what the environment does not define.
+    // The nearest .env fills what the environment does not define; the
+    // secrets file is separate so it can stay unreadable.
     loadEnvFrom(io.cwd)
+    loadSecrets(configPaths().secrets, process.env, io.stderr)
     const search = searchFromEnv(process.env)
     const base = yield* Effect.tryPromise({
       try: () => loadBundledProfile(),
