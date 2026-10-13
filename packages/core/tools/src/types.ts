@@ -88,6 +88,8 @@ export interface ToolRestriction {
 export interface ToolDefinition<A, V> {
   readonly name: string
   readonly description: string
+  /** What this tool needs from the sandbox; the S2 policy reads it. */
+  readonly needs?: ReadonlyArray<ToolNeeds>
   readonly parameters: Schema.Schema<A>
   readonly output: {
     readonly schema: Schema.Schema<V>
@@ -103,3 +105,6 @@ export interface ToolDefinition<A, V> {
   readonly presentCall?: (args: A) => ToolCallView
   readonly presentResult?: (args: A, result: ToolResultView) => ToolResultView
 }
+
+/** Capabilities a tool declares so the safety policy can judge it. */
+export type ToolNeeds = 'read' | 'write' | 'exec' | 'network'
