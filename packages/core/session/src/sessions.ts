@@ -1,12 +1,19 @@
 import { Hooks } from '@fudo/kernel'
 import { Context, Effect, Layer } from 'effect'
 import { SessionError } from './errors.ts'
-import { SESSION_FORMAT_VERSION, type SessionHeader, type SessionId } from './events.ts'
+import {
+  SESSION_FORMAT_VERSION,
+  type SessionHeader,
+  type SessionId,
+  type SessionEvent,
+} from './events.ts'
 import type { OpenedSession, SessionPersistence, SessionSummary } from './persistence.ts'
 import { makeSession, type Session } from './session.ts'
 import { SessionPersistenceService } from './service.ts'
 
 export interface CreateSessionOptions {
+  /** Events the new session starts from, e.g. a fork of another log. */
+  readonly seed?: ReadonlyArray<SessionEvent>
   readonly cwd: string
 }
 
@@ -50,7 +57,14 @@ export function sessionsService(
             cwd: createOptions.cwd,
           }
           const opened = yield* persistence.create(header)
-          return yield* attach(opened)
+          const seed = createOptions.seed ?? []
+          if (seed.length === 0) return yield* attach(opened)
+          for (const event of seed) {
+            if (event.type === 'session/header') continue
+            yield* opened.sink.append(event)
+          }
+          // Reopen so the session sees the events that were just written.
+          return yield* attach(yield* persistence.open(opened.id))
         }),
       open: (id: SessionId) =>
         Effect.gen(function* () {
