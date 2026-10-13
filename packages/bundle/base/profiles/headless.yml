@@ -1,0 +1,3 @@
+name: headless
+# One-shot runs: the CLI turns the positional task into a single turn.
+plugins: []
