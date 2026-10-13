@@ -1,0 +1,23 @@
+{
+  "name": "@fudo/root",
+  "private": true,
+  "workspaces": [
+    "packages/*/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "lint": "oxlint --deny-warnings",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "check": "bun run fmt:check && bun run lint && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "typescript": "7.0.2"
+  }
+}
