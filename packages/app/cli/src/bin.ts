@@ -7,7 +7,7 @@ import { sessionPlugin } from '@fudo/session'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
-import { Effect } from 'effect'
+import { Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
 import { runCommand, type CommandOptions } from './index.ts'
 
@@ -27,6 +27,8 @@ export interface MainIo {
   readonly stdout: (text: string) => void
   readonly stderr: (text: string) => void
   readonly cwd: string
+  /** REPL input; the real entry point streams process.stdin. */
+  readonly lines?: Stream.Stream<string>
 }
 
 const HELP = `fudo "task"                     one-shot headless run
@@ -69,7 +71,11 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       route: parsed.model,
       stdout: io.stdout,
       stderr: io.stderr,
-      ...(parsed.task === undefined ? {} : { task: parsed.task }),
+      ...(parsed.task === undefined
+        ? io.lines === undefined
+          ? {}
+          : { lines: io.lines }
+        : { task: parsed.task }),
       ...(parsed.resume === undefined ? {} : { resume: parsed.resume }),
       ...(patches.length === 0 ? {} : { patches }),
       ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
