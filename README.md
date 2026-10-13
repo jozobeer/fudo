@@ -6,6 +6,7 @@
 
 ```sh
 mise install   # Bun を mise.toml の版で入れる
+cp .env.example .env   # API キーを書く。mise と Bun の両方が読み込む
 bun install
 bun run check  # fmt:check → lint → typecheck → test
 ```
