@@ -22,6 +22,7 @@ import {
   askServiceLayer,
   installApproval,
   installAsk,
+  installPlanMode,
   Policy,
   type AskRequested,
   type ApprovalRequested,
@@ -57,6 +58,8 @@ export interface CommandOptions {
 }
 
 /** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
+const planModeOf = (config: unknown): boolean => isRecord(config) && config.planMode === true
+
 const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -113,6 +116,11 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
 
         // Workspace instructions join the prompt before the first turn.
         yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
+
+        // Plan mode hides every tool that could change the workspace.
+        if (rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
+          yield* installPlanMode(Context.get(context, Tools))
+        }
 
         const agents = Context.get(context, Agents)
         const agent: Agent =
