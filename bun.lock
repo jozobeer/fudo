@@ -11,6 +11,13 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/core/agent": {
+      "name": "@fudo/agent",
+      "dependencies": {
+        "@fudo/session": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/scope": {
       "name": "@fudo/scope",
       "dependencies": {
@@ -63,6 +70,8 @@
     },
   },
   "packages": {
+    "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
+
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
     "@fudo/llm": ["@fudo/llm@workspace:packages/llm/llm"],
