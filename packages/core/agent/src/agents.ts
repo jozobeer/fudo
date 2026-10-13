@@ -83,7 +83,8 @@ export function agentsLayer(runner: AgentRunner): Layer.Layer<Agents, never, Ses
 
         disposeAll: () =>
           Effect.gen(function* () {
-            for (const id of [...registered.keys()]) yield* dispose(id)
+            // Snapshot: dispose removes entries from the map being iterated.
+            for (const id of registered.keys().toArray()) yield* dispose(id)
           }),
       }
     }),
