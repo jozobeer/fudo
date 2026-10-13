@@ -1,6 +1,6 @@
 # fudo 設計: 全体構成と S1 Kernel
 
-fudo は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis に依存せず、一人で全体を把握できる規模に保つ。この文書は全体の分割と、最初のサブプロジェクト S1 の設計を定める。
+fudo は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis に依存せず、一人で全体を把握できる規模に保つ。
 
 ## 目的と前提
 
@@ -10,7 +10,7 @@ fudo を dsh のプラグインとして作らず独自に作る理由は三つ�
 - 最初のモデル接続先: Ollama Cloud の OpenAI 互換 API（`https://ollama.com/v1`、`Authorization: Bearer $OLLAMA_API_KEY`）。Anthropic adapter は S1 の後に追加する
 - 開発環境: macOS。sandbox backend は最終的に macOS・Linux・Windows に対応するが、v1 では macOS だけを実装する
 
-未決の事項は dsh に準拠する。dsh から外す・簡略化するものは、理由とともにこの文書に書く。
+未決の事項は dsh に準拠する。
 
 ## 全体の分割
 
@@ -321,8 +321,6 @@ mock は LLM の境界だけに置き、その下流は実物を使う。
 - reasoning の delta が `reasoning` と `reasoning_content` のどちらのフィールドで届くか
 - 並列の tool call の delta がどう分割されて届くか
 - `stream_options.include_usage` を指定したとき、usage がどの chunk に付くか
-
-Bun の coverage がファイル単位の閾値を持つかも未確認である。
 
 ## S1 の完了条件
 
