@@ -46,8 +46,10 @@ import {
   type AskShape,
   type PolicyShape,
 } from '@fudo/safety'
+import { join } from 'node:path'
 import { runTui, type TuiIo } from '@fudo/tui'
 import { makeUiHost, type UiHost } from '@fudo/ui-host'
+import { defaultStaticRoot, serveWeb } from '@fudo/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 
 export interface CommandOptions {
@@ -63,6 +65,8 @@ export interface CommandOptions {
   readonly lines?: Stream.Stream<string>
   /** When present, the command serves the interactive terminal UI. */
   readonly tui?: TuiIo
+  /** When present, the command serves the browser UI on that port (0 picks one). */
+  readonly web?: { readonly port: number }
   /** Completes to request a \`user\` cancellation, as SIGINT does. */
   readonly interrupt?: Effect.Effect<void>
   /** Answers an approval request; the default denies, so nothing hangs unanswered. */
@@ -313,14 +317,16 @@ const serveTask = (agent: Agent, options: CommandOptions, task: string) =>
     return cancelled ? 130 : 0
   })
 
-/** What one run serves: a task, a batch of lines, or the terminal UI. */
+/** What one run serves: a task, a batch of lines, or one of the UIs. */
 type Work =
   | { readonly kind: 'task'; readonly task: string }
   | { readonly kind: 'lines'; readonly lines: Stream.Stream<string> }
   | { readonly kind: 'tui'; readonly io: TuiIo }
+  | { readonly kind: 'web'; readonly port: number }
 
 const workOf = (options: CommandOptions): Work | undefined => {
   if (options.task !== undefined) return { kind: 'task', task: options.task }
+  if (options.web !== undefined) return { kind: 'web', port: options.web.port }
   if (options.tui !== undefined) return { kind: 'tui', io: options.tui }
   if (options.lines !== undefined) return { kind: 'lines', lines: options.lines }
   return undefined
@@ -379,14 +385,55 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
     }
   })
 
+/** A UI runs the session itself instead of streaming into the caller's terminal. */
+const ownsTheScreen = (work: Work): boolean => work.kind === 'tui' || work.kind === 'web'
+
 const uiHostOf = (
   work: Work,
   agent: Agent,
   hooks: HookRegistry,
 ): Effect.Effect<UiHost | undefined, never, Scope.Scope> =>
-  work.kind === 'tui'
+  ownsTheScreen(work)
     ? makeUiHost({ session: agent.session, agent, hooks })
     : Effect.succeed(undefined)
+
+/** Starts the browser UI; it runs until interrupted. */
+const serveWebUi = (options: CommandOptions, ui: UiHost, port: number): Effect.Effect<number> =>
+  Effect.gen(function* () {
+    const index = Bun.file(join(defaultStaticRoot, 'index.html'))
+    if (!(yield* Effect.promise(() => index.exists()))) {
+      options.stderr('fudo web: the browser app is not built: run bun run build:web\n')
+      return 1
+    }
+    return yield* serveWeb({
+      host: ui,
+      port,
+      staticRoot: defaultStaticRoot,
+      onReady: (url) => {
+        options.stderr('fudo web: ' + url + '\n')
+      },
+      ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
+    })
+  })
+
+/** The UI a work kind asks for, when the caller supplied one. */
+const serveUi = (
+  options: CommandOptions,
+  ui: UiHost | undefined,
+  work: Work,
+  route: string,
+  agent: Agent,
+): Effect.Effect<number> | undefined => {
+  if (ui === undefined) return undefined
+  if (work.kind === 'tui') {
+    return runTui(ui, work.io, {
+      title: 'fudo · ' + route + ' · ' + agent.id.slice(0, 8),
+      ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
+    })
+  }
+  if (work.kind === 'web') return serveWebUi(options, ui, work.port)
+  return undefined
+}
 
 /** A UI answers approvals and questions through its host; a caller through its own hook. */
 const answerersOf = (
@@ -409,8 +456,8 @@ const runSession = (
   Effect.gen(function* () {
     const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer))
     const hooks = Context.get(context, Hooks)
-    // The TUI owns the screen; only the non-interactive paths stream text out.
-    if (work.kind !== 'tui') yield* installOutput(hooks, options)
+    // A UI owns the screen; only the non-interactive paths stream text out.
+    if (!ownsTheScreen(work)) yield* installOutput(hooks, options)
 
     // Workspace instructions join the prompt before the first turn.
     yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
@@ -432,12 +479,8 @@ const runSession = (
       context,
     })
 
-    if (ui !== undefined && work.kind === 'tui') {
-      return yield* runTui(ui, work.io, {
-        title: 'fudo · ' + route + ' · ' + agent.id.slice(0, 8),
-        ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
-      })
-    }
+    const served = serveUi(options, ui, work, route, agent)
+    if (served !== undefined) return yield* served
     return yield* serveAgent(agent, options, work)
   })
 

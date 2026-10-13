@@ -1,0 +1,14 @@
+{
+  "name": "@fudo/web",
+  "private": true,
+  "type": "module",
+  "exports": "./src/server/index.ts",
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "dependencies": {
+    "@fudo/ui-protocol": "workspace:*",
+    "@fudo/ui-view": "workspace:*",
+    "effect": "4.0.3"
+  }
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fudo</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header id="status"></header>
+    <main id="conversation"></main>
+    <footer>
+      <form id="composer">
+        <textarea
+          id="input"
+          rows="2"
+          placeholder="Message fudo… (Enter sends, Shift+Enter adds a line)"
+        ></textarea>
+        <div class="actions">
+          <button id="send" type="submit">Send</button>
+          <button id="cancel" type="button">Stop</button>
+        </div>
+      </form>
+    </footer>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

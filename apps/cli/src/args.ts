@@ -6,6 +6,10 @@ export interface ParsedArgs {
   readonly task: string | undefined
   /** `fudo models`: list what the provider offers instead of running. */
   readonly models: boolean
+  /** `fudo web`: serve the browser UI instead of running a turn. */
+  readonly web: boolean
+  /** Port for `fudo web`; 0 asks the system for a free one. */
+  readonly port: number
   readonly resume: string | undefined
   readonly model: string
   /** The raw --model, so a settings file can be overridden. */
@@ -33,6 +37,7 @@ const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--resume', { kind: 'value' }],
   ['--model', { kind: 'value' }],
   ['--config', { kind: 'value' }],
+  ['--port', { kind: 'value' }],
 ])
 
 interface ScannedArgs {
@@ -76,16 +81,30 @@ const scan = (argv: ReadonlyArray<string>): ScannedArgs => {
 const first = (values: ReadonlyMap<string, Array<string>>, flag: string): string | undefined =>
   values.get(flag)?.[0]
 
+const portOf = (raw: string | undefined, errors: Array<string>): number => {
+  if (raw === undefined) return 0
+  const port = Number(raw)
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    errors.push('--port needs a whole number between 0 and 65535')
+    return 0
+  }
+  return port
+}
+
 /** Parses `fudo` arguments. Positional words join into the one-shot task. */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   const { values, words, errors } = scan(argv)
   const models = words.length === 1 && words[0] === 'models'
+  const web = words.length === 1 && words[0] === 'web'
+  const port = portOf(first(values, '--port'), errors)
   return {
     profile: first(values, '--profile') ?? 'headless',
     profileFlag: first(values, '--profile'),
     patches: values.get('--patch') ?? [],
-    task: words.length === 0 || models ? undefined : words.join(' '),
+    task: words.length === 0 || models || web ? undefined : words.join(' '),
     models,
+    web,
+    port,
     resume: first(values, '--resume'),
     model: first(values, '--model') ?? '',
     modelFlag: first(values, '--model'),

@@ -23,6 +23,7 @@
     "@fudo/tools-tier1": "workspace:*",
     "@fudo/tui": "workspace:*",
     "@fudo/ui-host": "workspace:*",
+    "@fudo/web": "workspace:*",
     "effect": "4.0.3"
   }
 }

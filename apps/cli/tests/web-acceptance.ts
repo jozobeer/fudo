@@ -1,0 +1,263 @@
+import { agentPlugin } from '@fudo/agent'
+import { agentLoopPlugin } from '@fudo/agent-loop'
+import { kernelPlugin, type Plugin } from '@fudo/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
+import { sessionPlugin } from '@fudo/session'
+import { sessionJsonlPlugin } from '@fudo/session-jsonl'
+import { systemPromptPlugin } from '@fudo/system-prompt'
+import { toolsPlugin } from '@fudo/tools'
+import { Deferred, Effect, Layer, Schema, Stream } from 'effect'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { tmpdir } from 'node:os'
+import { runCommand } from '../src/index.ts'
+
+/**
+ * Acceptance for S8: a real Chrome drives a real fudo web server, with only the
+ * model stubbed. It types a message, waits for the reply, and saves a
+ * screenshot. Run it with `bun run tests/web-acceptance.ts`.
+ */
+
+const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
+  { type: 'text-delta', index: 0, text },
+  { type: 'block-end', index: 0, block: { type: 'text', text } },
+  { type: 'finish', kind: 'stop' },
+]
+
+const stubLlm: Plugin<{}, Llm, never> = {
+  name: 'stub-llm',
+  config: Schema.Struct({}),
+  provides: [Llm],
+  requires: [],
+  layer: () =>
+    Layer.succeed(Llm, {
+      name: 'stub',
+      capabilities: {
+        toolChoice: false,
+        reasoningEffort: null,
+        images: 'none',
+        promptCacheControl: false,
+      },
+      stream: () => Stream.fromIterable(textTurn('the browser reached the model')),
+    } satisfies LlmAdapter),
+}
+
+const profile = (root: string): string =>
+  [
+    'name: test',
+    'plugins:',
+    '  - id: kernel',
+    "    name: '@fudo/kernel'",
+    '  - id: sessions',
+    "    name: '@fudo/session'",
+    '  - id: session-jsonl',
+    "    name: '@fudo/session-jsonl'",
+    '    config:',
+    '      root: ' + root,
+    '  - id: tools',
+    "    name: '@fudo/tools'",
+    '  - id: system-prompt',
+    "    name: '@fudo/system-prompt'",
+    '  - id: llm',
+    '    name: stub-llm',
+    '  - id: agent',
+    "    name: '@fudo/agent'",
+    '  - id: agent-loop',
+    "    name: '@fudo/agent-loop'",
+  ].join('\n')
+
+const plugins: ReadonlyArray<Plugin<any, any, any>> = [
+  kernelPlugin,
+  sessionJsonlPlugin,
+  sessionPlugin,
+  toolsPlugin,
+  systemPromptPlugin,
+  stubLlm,
+  agentPlugin,
+  agentLoopPlugin,
+]
+
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
+const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const evidence = join(repoRoot, '.tmp/web-evidence.png')
+
+interface Cdp {
+  readonly send: (method: string, params?: Record<string, unknown>) => Promise<unknown>
+  readonly evaluate: (expression: string) => Promise<unknown>
+  readonly close: () => void
+}
+
+const connectCdp = async (wsUrl: string): Promise<Cdp> => {
+  const socket = new WebSocket(wsUrl)
+  let nextId = 0
+  const pending = new Map<number, (value: unknown) => void>()
+  socket.addEventListener('message', (event) => {
+    const message = JSON.parse(String(event.data)) as { id?: number }
+    if (message.id === undefined) return
+    pending.get(message.id)?.(message)
+    pending.delete(message.id)
+  })
+  await new Promise<void>((resolve, reject) => {
+    socket.addEventListener('open', () => resolve())
+    socket.addEventListener('error', () => reject(new Error('cannot attach to the page')))
+  })
+  const send = (method: string, params: Record<string, unknown> = {}): Promise<unknown> =>
+    new Promise((resolve) => {
+      const id = nextId
+      nextId += 1
+      pending.set(id, resolve)
+      socket.send(JSON.stringify({ id, method, params }))
+    })
+  const evaluate = async (expression: string): Promise<unknown> => {
+    const response = (await send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    })) as { result?: { result?: { value?: unknown } } }
+    return response.result?.result?.value
+  }
+  return { send, evaluate, close: () => socket.close() }
+}
+
+const waitFor = async (
+  read: () => Promise<unknown>,
+  wanted: string,
+  attempts = 60,
+): Promise<string | undefined> => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await Bun.sleep(250)
+    const value = await read()
+    if (typeof value === 'string' && value.includes(wanted)) return value
+  }
+  return undefined
+}
+
+interface BrowserOutcome {
+  readonly passed: boolean
+  readonly answer: string
+}
+
+/** The debug port Chrome selected, once it has written it down. */
+const debugPort = async (profileDir: string): Promise<string> => {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await Bun.sleep(250)
+    const file = Bun.file(join(profileDir, 'DevToolsActivePort'))
+    if (!(await file.exists())) continue
+    const port = (await file.text()).split('\n')[0] ?? ''
+    if (port !== '') return port
+  }
+  throw new Error('chrome never wrote DevToolsActivePort')
+}
+
+/** The page target Chrome opened for us, never an extension or a browser UI. */
+const pageTargetOf = async (port: string, url: string): Promise<string> => {
+  const response = await fetch('http://127.0.0.1:' + port + '/json/list')
+  const targets = (await response.json()) as ReadonlyArray<{
+    type: string
+    url: string
+    webSocketDebuggerUrl: string
+  }>
+  const page = targets.find((target) => target.type === 'page' && target.url.startsWith(url))
+  if (page === undefined) throw new Error('chrome never opened the page')
+  return page.webSocketDebuggerUrl
+}
+
+const saveScreenshot = async (client: Cdp): Promise<void> => {
+  const shot = (await client.send('Page.captureScreenshot', { format: 'png' })) as {
+    result?: { data?: string }
+  }
+  const data = shot.result?.data
+  if (data !== undefined) await Bun.write(evidence, Buffer.from(data, 'base64'))
+}
+
+const SUBMIT =
+  "(() => { const input = document.getElementById('input'); input.value = 'ping'; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('composer').requestSubmit(); return true })()"
+
+const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
+  const browser = Bun.spawn(
+    [
+      chrome,
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-gpu',
+      '--remote-debugging-port=0',
+      '--user-data-dir=' + profileDir,
+      url + '/',
+    ],
+    { stdout: 'ignore', stderr: 'ignore' },
+  )
+  let cdp: Cdp | undefined
+  try {
+    const port = await debugPort(profileDir)
+    const client = await connectCdp(await pageTargetOf(port, url))
+    cdp = client
+    await client.send('Runtime.enable')
+
+    const read = (): Promise<unknown> => client.evaluate('document.body.innerText')
+    if ((await waitFor(read, 'ready')) === undefined) {
+      throw new Error('the page never reported ready')
+    }
+    await client.evaluate(SUBMIT)
+    const answer = await waitFor(read, 'the browser reached the model')
+    if (answer === undefined) throw new Error('the reply never reached the page')
+    await saveScreenshot(client)
+    return { passed: true, answer }
+  } finally {
+    cdp?.close()
+    browser.kill()
+  }
+}
+
+const main = async (): Promise<number> => {
+  const root = await mkdtemp(join(tmpdir(), 'fudo-web-accept-'))
+  const workspace = await mkdtemp(join(tmpdir(), 'fudo-web-accept-ws-'))
+  const profileDir = join(repoRoot, '.tmp/chrome-cdp')
+  await rm(profileDir, { recursive: true, force: true })
+
+  const outcome = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const ready = yield* Deferred.make<string>()
+        const stop = yield* Deferred.make<void>()
+        yield* Effect.forkScoped(
+          runCommand({
+            profiles: [profile(root)],
+            plugins,
+            cwd: workspace,
+            route: 'stub/model',
+            web: { port: 0 },
+            stdout: () => undefined,
+            stderr: (text) => {
+              const match = /http:\/\/127\.0\.0\.1:\d+\//.exec(text)
+              if (match !== null) void Effect.runSync(Deferred.succeed(ready, match[0]))
+            },
+            interrupt: Deferred.await(stop),
+          }),
+        )
+        const url = (yield* Deferred.await(ready)).replace(/\/$/, '')
+        console.log('server', url)
+        const result = yield* Effect.promise(() => driveBrowser(url, profileDir))
+        yield* Deferred.succeed(stop, undefined)
+        return result
+      }),
+    ),
+  )
+
+  await rm(root, { recursive: true, force: true })
+  await rm(workspace, { recursive: true, force: true })
+  if (outcome.passed) {
+    console.log(
+      'page:',
+      outcome.answer
+        .split('\n')
+        .filter((line) => line !== '')
+        .join(' | '),
+    )
+    console.log('screenshot:', evidence)
+  }
+  console.log(outcome.passed ? 'ACCEPTANCE PASS' : 'ACCEPTANCE FAIL')
+  return outcome.passed ? 0 : 1
+}
+
+process.exitCode = await main()

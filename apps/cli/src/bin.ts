@@ -57,6 +57,7 @@ fudo --profile <name> --patch <file.yml>...
 fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
 fudo --dump-config
 fudo models                      list the models the provider offers
+fudo web [--port N]              browser UI over a local server
 fudo --resume <sessionId> [task]
 fudo --json "task"
 fudo --tui                       terminal UI even through a pipe
@@ -129,8 +130,9 @@ const optional = <K extends keyof CommandOptions>(
 const workSelection = (
   parsed: ParsedArgs,
   io: MainIo,
-): Present<'task'> | Present<'tui'> | Present<'lines'> | Record<never, never> => {
+): Present<'task'> | Present<'tui'> | Present<'web'> | Present<'lines'> | Record<never, never> => {
   if (parsed.task !== undefined) return { task: parsed.task }
+  if (parsed.web) return { web: { port: parsed.port } }
   const tui = io.tui
   if (tui !== undefined && !parsed.json && (parsed.tui || io.tty === true)) return { tui }
   return io.lines === undefined ? {} : { lines: io.lines }

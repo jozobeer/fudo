@@ -33,11 +33,20 @@
         "@fudo/tools-tier1": "workspace:*",
         "@fudo/tui": "workspace:*",
         "@fudo/ui-host": "workspace:*",
+        "@fudo/web": "workspace:*",
         "effect": "4.0.3",
       },
     },
     "apps/tui": {
       "name": "@fudo/tui",
+      "dependencies": {
+        "@fudo/ui-protocol": "workspace:*",
+        "@fudo/ui-view": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
+    "apps/web": {
+      "name": "@fudo/web",
       "dependencies": {
         "@fudo/ui-protocol": "workspace:*",
         "@fudo/ui-view": "workspace:*",
@@ -250,6 +259,8 @@
     "@fudo/ui-protocol": ["@fudo/ui-protocol@workspace:packages/ui/protocol"],
 
     "@fudo/ui-view": ["@fudo/ui-view@workspace:packages/ui/view"],
+
+    "@fudo/web": ["@fudo/web@workspace:apps/web"],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.72.0", "", { "os": "android", "cpu": "arm" }, "sha512-u4U1uaDOVBuorGNC/07NLm48nECHOiJJka002YGML16Md2DRvf38RGBt01lH60EOGvNlFVmbLoksQedNBoZHKw=="],
 
