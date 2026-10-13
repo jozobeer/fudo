@@ -53,6 +53,15 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       try: () => loadBundledProfile(),
       catch: (cause) => new Error(`cannot read the bundled profile: ${String(cause)}`),
     })
+    const patches: Array<string> = []
+    for (const path of parsed.patches) {
+      patches.push(
+        yield* Effect.tryPromise({
+          try: () => Bun.file(path).text(),
+          catch: (cause) => new Error(`cannot read patch ${path}: ${String(cause)}`),
+        }),
+      )
+    }
     const options: CommandOptions = {
       profiles: [base],
       plugins: bundledPlugins,
@@ -62,7 +71,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       stderr: io.stderr,
       ...(parsed.task === undefined ? {} : { task: parsed.task }),
       ...(parsed.resume === undefined ? {} : { resume: parsed.resume }),
-      ...(parsed.patches.length === 0 ? {} : { patches: [] }),
+      ...(patches.length === 0 ? {} : { patches }),
       ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
       ...(parsed.json ? { json: true } : {}),
     }

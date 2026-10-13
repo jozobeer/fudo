@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
+import { mkdir, rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { parseArgs } from '../src/args.ts'
 import { main } from '../src/bin.ts'
 
@@ -54,5 +56,35 @@ describe('main', () => {
     expect(code).toBe(0)
     expect(out.join('')).toContain('id=agent-loop')
     expect(out.join('')).toContain('config={"baseUrl":"https://ollama.com/v1"')
+  })
+
+  test('--patch overlays one row by id', async () => {
+    const dir = join(import.meta.dir, '.tmp')
+    await mkdir(dir, { recursive: true })
+    const path = join(dir, `patch-${crypto.randomUUID()}.yml`)
+    await Bun.write(
+      path,
+      [
+        'name: patch',
+        'plugins:',
+        '  - id: llm',
+        "    name: '@fudo/llm-openai'",
+        '    config:',
+        '      baseUrl: http://127.0.0.1:11434/v1',
+      ].join('\n'),
+    )
+
+    const out: Array<string> = []
+    const code = await Effect.runPromise(
+      main(['--dump-config', '--patch', path], {
+        stdout: (text) => out.push(text),
+        stderr: () => undefined,
+        cwd: '/work',
+      }),
+    )
+    await rm(path, { force: true })
+
+    expect(code).toBe(0)
+    expect(out.join('')).toContain('"baseUrl":"http://127.0.0.1:11434/v1"')
   })
 })
