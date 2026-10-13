@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { interruptOnSignal, linesOf, runFudo } from '../src/run.ts'
+import { interruptOnSignal, linesOf, readChunks, runFudo } from '../src/run.ts'
 
 const patchWithRoot = async (dir: string): Promise<string> => {
   const path = join(dir, 'sessions.yml')
@@ -93,5 +93,15 @@ describe('runFudo', () => {
     )
 
     expect(code).toBe(0)
+  })
+
+  test('a chunk source reads to a single text', async () => {
+    async function* chunks(): AsyncGenerator<Uint8Array | string> {
+      yield 'a\n'
+      yield new TextEncoder().encode('b\n')
+      yield 'c'
+    }
+
+    expect(await readChunks(chunks())).toBe('a\nb\nc')
   })
 })

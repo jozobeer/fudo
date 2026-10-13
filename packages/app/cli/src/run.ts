@@ -30,7 +30,7 @@ export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effe
       stderr: io.stderr,
       cwd: io.cwd,
       ...(io.interrupt === undefined ? {} : { interrupt: io.interrupt }),
-      ...(io.isTty ? {} : { lines: Stream.fromIterable(linesOf(text)) }),
+      ...(io.isTty && text === '' ? {} : { lines: Stream.fromIterable(linesOf(text)) }),
     })
   })
 }
@@ -42,7 +42,7 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
     stderr: (text) => process.stderr.write(text),
     cwd: process.cwd(),
     isTty: process.stdin.isTTY === true,
-    readStdin: () => Bun.stdin.text(),
+    readStdin: () => readChunks(process.stdin),
     interrupt: interruptOnSignal(),
   })
     .pipe(Effect.runPromise)
@@ -65,4 +65,14 @@ export function interruptOnSignal(): Effect.Effect<void> {
     })
     return yield* Deferred.await(signal)
   })
+}
+
+/** Reads a chunk source to its end as UTF-8 text; a TTY ends at Ctrl-D. */
+export async function readChunks(chunks: AsyncIterable<Uint8Array | string>): Promise<string> {
+  const decoder = new TextDecoder()
+  let text = ''
+  for await (const chunk of chunks) {
+    text += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })
+  }
+  return text
 }
