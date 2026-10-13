@@ -1,0 +1,10 @@
+{
+  "name": "@fudo/session-jsonl",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/session": "workspace:*",
+    "effect": "4.0.3"
+  }
+}
