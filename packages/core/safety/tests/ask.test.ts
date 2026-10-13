@@ -1,7 +1,8 @@
 import { decodeSessionEvent } from '@fudo/session'
+import type { Session, SessionEvent, SessionHeader, SessionId } from '@fudo/session'
 import { Deferred, Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { Ask, askServiceLayer, askEventSchemas } from '../src/index.ts'
+import { Ask, askEventSchemas, askServiceLayer, installAsk, makeAsk } from '../src/index.ts'
 
 describe('ask', () => {
   test('an answer releases the waiting question', async () => {
@@ -12,7 +13,7 @@ describe('ask', () => {
           const seen = yield* Deferred.make<string>()
           yield* Effect.forkScoped(
             Effect.gen(function* () {
-              const answer = yield* ask.ask('q1')
+              const answer = yield* ask.ask({ id: 'q1', question: 'which?', options: [] })
               yield* Deferred.succeed(seen, answer)
             }),
           )
@@ -54,5 +55,44 @@ describe('ask', () => {
     )
 
     expect(event?.type).toBe('interaction/ask/requested')
+  })
+})
+
+describe('installAsk', () => {
+  test('records the question and the answer', async () => {
+    const events: Array<SessionEvent> = []
+    const session = {
+      id: 's1' as SessionId,
+      header: { formatVersion: 1, createdAt: 0, cwd: '/tmp' } as SessionHeader,
+      events: () => [...events],
+      append: (type: string, data: unknown) =>
+        Effect.sync(() => {
+          events.push({ seq: events.length + 1, time: 0, type, data } as SessionEvent)
+        }),
+      flush: () => Effect.void,
+      derive: () => [],
+    } as unknown as Session
+
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const ask = installAsk(yield* makeAsk(), session)
+          const seen = yield* Deferred.make<string>()
+          yield* Effect.forkScoped(
+            Effect.gen(function* () {
+              const answer = yield* ask.ask({ id: 'q9', question: 'pick', options: ['a'] })
+              yield* Deferred.succeed(seen, answer)
+            }),
+          )
+          yield* Effect.sleep('5 millis')
+          yield* ask.answer('q9', 'a')
+          const answer = yield* Deferred.await(seen)
+          return { answer, types: events.map((event) => event.type) }
+        }),
+      ),
+    )
+
+    expect(observed.answer).toBe('a')
+    expect(observed.types).toEqual(['interaction/ask/requested', 'interaction/ask/answered'])
   })
 })

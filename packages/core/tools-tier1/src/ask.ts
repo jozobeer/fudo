@@ -29,7 +29,11 @@ export const makeAskUserTool = (ask: AskShape): ToolDefinition<AskArgs, AskValue
   },
   execute: (args, context) =>
     Effect.gen(function* () {
-      const answer = yield* ask.ask(context.callId)
+      const answer = yield* ask.ask({
+        id: context.callId,
+        question: args.question,
+        options: args.options ?? [],
+      })
       return { id: context.callId, question: args.question, answer }
     }),
 })
