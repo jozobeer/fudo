@@ -96,6 +96,9 @@ export function makeTools(hooks: HookRegistry, spill: SpillOptions = {}): ToolRe
     call: (request) => {
       const tool = registered.get(request.tool)
       if (tool === undefined) return Effect.succeed(errorResult(`unknown tool: ${request.tool}`))
+      if (!allowed(request.tool)) {
+        return Effect.succeed(errorResult('tool not allowed here: ' + request.tool))
+      }
       return executeTool(hooks, tool, request, [...guards], spill)
     },
 
