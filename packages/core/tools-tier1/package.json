@@ -6,6 +6,7 @@
   "dependencies": {
     "@fudo/agent": "workspace:*",
     "@fudo/kernel": "workspace:*",
+    "@fudo/llm": "workspace:*",
     "@fudo/safety": "workspace:*",
     "@fudo/session": "workspace:*",
     "@fudo/tools": "workspace:*",
