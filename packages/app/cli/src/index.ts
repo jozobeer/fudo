@@ -8,6 +8,7 @@ import {
   parseProfile,
   renderConfig,
   type Plugin,
+  type PluginRow,
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
 import { Cause, Context, Effect, Layer } from 'effect'
@@ -31,6 +32,19 @@ export interface CommandOptions {
 }
 
 /** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/** A profile may carry the route on a row's config, as model: provider/model. */
+const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
+  for (const row of rows) {
+    if (isRecord(row.config) && typeof row.config.model === 'string' && row.config.model !== '') {
+      return row.config.model
+    }
+  }
+  return ''
+}
+
 const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
 
 /**
@@ -45,6 +59,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
       documents.push(yield* parseProfile(text))
     }
     const rows = mergeRows(documents.map((document) => document.plugins))
+    const route = options.route !== '' ? options.route : routeFromRows(rows)
 
     if (options.dumpConfig === true) {
       options.stdout(renderConfig(rows))
@@ -70,11 +85,11 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
         const agents = Context.get(context, Agents)
         const agent: Agent =
           options.resume === undefined
-            ? yield* agents.create({ cwd: options.cwd, options: { route: options.route } })
+            ? yield* agents.create({ cwd: options.cwd, options: { route } })
             : yield* agents.create({
                 cwd: options.cwd,
                 resume: options.resume,
-                options: { route: options.route },
+                options: { route },
               })
 
         if (options.task === undefined) {
