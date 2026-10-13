@@ -1,6 +1,7 @@
 export * from './errors.ts'
 export * from './hook.ts'
 export * from './hooks.ts'
+export * from './kernel-plugin.ts'
 export * from './loader.ts'
 export * from './plugin.ts'
 export * from './profile.ts'
