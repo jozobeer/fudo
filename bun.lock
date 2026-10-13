@@ -17,9 +17,17 @@
         "effect": "4.0.3",
       },
     },
+    "packages/llm/llm": {
+      "name": "@fudo/llm",
+      "dependencies": {
+        "effect": "4.0.3",
+      },
+    },
   },
   "packages": {
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
+
+    "@fudo/llm": ["@fudo/llm@workspace:packages/llm/llm"],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.72.0", "", { "os": "android", "cpu": "arm" }, "sha512-u4U1uaDOVBuorGNC/07NLm48nECHOiJJka002YGML16Md2DRvf38RGBt01lH60EOGvNlFVmbLoksQedNBoZHKw=="],
 
