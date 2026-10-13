@@ -1,0 +1,12 @@
+{
+  "name": "@fudo/system-prompt",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/kernel": "workspace:*",
+    "@fudo/llm": "workspace:*",
+    "@fudo/tools": "workspace:*",
+    "effect": "4.0.3"
+  }
+}

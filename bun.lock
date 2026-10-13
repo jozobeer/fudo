@@ -26,6 +26,15 @@
         "effect": "4.0.3",
       },
     },
+    "packages/core/system-prompt": {
+      "name": "@fudo/system-prompt",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "@fudo/llm": "workspace:*",
+        "@fudo/tools": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/tools": {
       "name": "@fudo/tools",
       "dependencies": {
@@ -55,6 +64,8 @@
     "@fudo/session": ["@fudo/session@workspace:packages/core/session"],
 
     "@fudo/session-jsonl": ["@fudo/session-jsonl@workspace:packages/core/session-jsonl"],
+
+    "@fudo/system-prompt": ["@fudo/system-prompt@workspace:packages/core/system-prompt"],
 
     "@fudo/tools": ["@fudo/tools@workspace:packages/core/tools"],
 
