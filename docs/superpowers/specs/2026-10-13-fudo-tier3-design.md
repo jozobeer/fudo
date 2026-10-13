@@ -21,6 +21,12 @@
 
 1 は S1 の拡張（イベント 1 種と loop の cwd 解決）で済むため最初にやる。次に 4（並列実行）、3（goal）、2（jobs）、最後に 5（fork）。
 
+## fork の種をどこで入れるか（2026-10-13 の調査）
+
+- makeAgent は「すでに組み立てられた Session」を受け取る（packages/core/agent/src/agent.ts の MakeAgentOptions）。Session には sink が無い（sink は OpenedSession 側の内部）。
+- したがって種を入れる場所は Sessions.create の側。案: Sessions.create({ cwd, seed }) とし、persistence.create で得た OpenedSession の sink に、session/header 以外の種のイベントを順に append してから Session を組み立てる。
+- subagent ツールは forkSeed(親の session.events()) を create に渡す。親の最後の user/message は forkSeed が落とすので、子には自分のタスクだけが残る。
+
 ## 実装の記録
 
 - subagent: packages/core/tools-tier1/src/subagent.ts（makeSubagentTool(agents, route)）。CLI は subagents: true のとき登録する。
