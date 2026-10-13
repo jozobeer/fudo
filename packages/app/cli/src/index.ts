@@ -43,6 +43,8 @@ export interface CommandOptions {
   readonly approve?: (request: ApprovalRequested) => Effect.Effect<boolean>
   /** Answers ask_user questions; without it the question waits for an Ask answer. */
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
+  /** Directories searched by the skill tool, in order. */
+  readonly skills?: ReadonlyArray<string>
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -137,7 +139,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
             agent.session,
           )
-          for (const tool of tier1Tools(ask)) yield* registry.register(tool)
+          for (const tool of tier1Tools(ask, options.skills ?? [])) yield* registry.register(tool)
         }
 
         // Approval is enforced only when the profile chose a safety row.
