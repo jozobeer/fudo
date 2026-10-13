@@ -1,5 +1,6 @@
 import { Hooks, type HookRegistry } from '@fudo/kernel'
 import type { ToolSchema } from '@fudo/llm'
+import type { SpillOptions } from './spill.ts'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import type { Scope } from 'effect'
 import { errorResult, executeTool, tryDecodeArguments } from './pipeline.ts'
@@ -41,7 +42,7 @@ const declarationOf = (tool: AnyTool): ToolSchema => {
 }
 
 /** Builds a tool registry over one hook registry. */
-export function makeTools(hooks: HookRegistry): ToolRegistry {
+export function makeTools(hooks: HookRegistry, spill: SpillOptions = {}): ToolRegistry {
   const registered = new Map<string, AnyTool>()
   const guards = new Set<ToolGuard>()
   const restrictions = new Set<ToolRestriction>()
@@ -95,7 +96,7 @@ export function makeTools(hooks: HookRegistry): ToolRegistry {
     call: (request) => {
       const tool = registered.get(request.tool)
       if (tool === undefined) return Effect.succeed(errorResult(`unknown tool: ${request.tool}`))
-      return executeTool(hooks, tool, request, [...guards])
+      return executeTool(hooks, tool, request, [...guards], spill)
     },
 
     presentCall: (tool, argumentsJson) => {
@@ -117,7 +118,11 @@ export function makeTools(hooks: HookRegistry): ToolRegistry {
 /** Registry of tools and their execution pipeline. */
 export class Tools extends Context.Service<Tools, ToolRegistry>()('fudo/Tools') {}
 
-export const toolsLayer: Layer.Layer<Tools, never, Hooks> = Layer.effect(
-  Tools,
-  Effect.map(Hooks, makeTools),
-)
+/** Tools with the spill settings the caller chose. */
+export const toolsLayerWith = (spill: SpillOptions): Layer.Layer<Tools, never, Hooks> =>
+  Layer.effect(
+    Tools,
+    Effect.map(Hooks, (hooks) => makeTools(hooks, spill)),
+  )
+
+export const toolsLayer: Layer.Layer<Tools, never, Hooks> = toolsLayerWith({})
