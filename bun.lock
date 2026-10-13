@@ -121,6 +121,15 @@
         "effect": "4.0.3",
       },
     },
+    "packages/test-support/replay": {
+      "name": "@fudo/test-support-replay",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "@fudo/llm": "workspace:*",
+        "@fudo/llm-openai": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
   },
   "packages": {
     "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
@@ -144,6 +153,8 @@
     "@fudo/session-jsonl": ["@fudo/session-jsonl@workspace:packages/core/session-jsonl"],
 
     "@fudo/system-prompt": ["@fudo/system-prompt@workspace:packages/core/system-prompt"],
+
+    "@fudo/test-support-replay": ["@fudo/test-support-replay@workspace:packages/test-support/replay"],
 
     "@fudo/tools": ["@fudo/tools@workspace:packages/core/tools"],
 

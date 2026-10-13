@@ -1,0 +1,12 @@
+{
+  "name": "@fudo/test-support-replay",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/kernel": "workspace:*",
+    "@fudo/llm": "workspace:*",
+    "@fudo/llm-openai": "workspace:*",
+    "effect": "4.0.3"
+  }
+}
