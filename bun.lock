@@ -63,6 +63,14 @@
         "effect": "4.0.3",
       },
     },
+    "packages/core/safety": {
+      "name": "@fudo/safety",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/core/scope": {
       "name": "@fudo/scope",
       "dependencies": {
@@ -146,6 +154,8 @@
     "@fudo/llm": ["@fudo/llm@workspace:packages/llm/llm"],
 
     "@fudo/llm-openai": ["@fudo/llm-openai@workspace:packages/llm/llm-openai"],
+
+    "@fudo/safety": ["@fudo/safety@workspace:packages/core/safety"],
 
     "@fudo/scope": ["@fudo/scope@workspace:packages/core/scope"],
 
