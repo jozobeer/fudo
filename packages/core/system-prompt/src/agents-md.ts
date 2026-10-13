@@ -1,5 +1,7 @@
 import { dirname } from 'node:path'
-import { Effect } from 'effect'
+import { Effect, type Scope } from 'effect'
+import type { PromptError, PromptSection } from './types.ts'
+import type { SystemPromptShape } from './system-prompt.ts'
 
 export interface AgentsFile {
   /** Absolute path of the file that was read. */
@@ -32,5 +34,35 @@ export function loadAgentsFiles(cwd: string): Effect.Effect<ReadonlyArray<Agents
       directory = parent
     }
     return found
+  })
+}
+
+/** Sections built from AGENTS.md files sit after the built-in ones. */
+export const AGENTS_MD_ORDER = 900
+
+/**
+ * One section per file. The nearest file (index 0) gets the highest order, so
+ * joining the rendered prompt puts the most specific instructions last.
+ */
+export function agentsMdSections(
+  files: ReadonlyArray<AgentsFile>,
+  order = AGENTS_MD_ORDER,
+): ReadonlyArray<PromptSection> {
+  return files.map((file, index) => ({
+    name: 'agents-md:' + String(index + 1),
+    order: order + (files.length - index),
+    text: 'Instructions from ' + file.path + ':\n' + file.text.trimEnd(),
+  }))
+}
+
+/** Registers every AGENTS.md section on the prompt, nearest file last. */
+export function registerAgentsMd(
+  prompt: SystemPromptShape,
+  cwd: string,
+): Effect.Effect<void, PromptError, Scope.Scope> {
+  return Effect.gen(function* () {
+    for (const section of agentsMdSections(yield* loadAgentsFiles(cwd))) {
+      yield* prompt.section(section)
+    }
   })
 }
