@@ -1,0 +1,95 @@
+import { Agents, type Agent } from '@fudo/agent'
+import {
+  Hooks,
+  loadProfile,
+  mergeRows,
+  parseProfile,
+  renderConfig,
+  type Plugin,
+} from '@fudo/kernel'
+import type { SessionId } from '@fudo/session'
+import { Cause, Context, Effect, Layer } from 'effect'
+
+export interface CommandOptions {
+  /** Profile documents, first layer first (`bundle/base` then the selected profile). */
+  readonly profiles: ReadonlyArray<string>
+  readonly patches?: ReadonlyArray<string>
+  readonly plugins: ReadonlyArray<Plugin<any, any, any>>
+  /** One-shot task. Without it the command has nothing to run (the REPL lands later). */
+  readonly task?: string
+  readonly resume?: SessionId
+  readonly cwd: string
+  /** `provider/model`, taken from the CLI or the profile row. */
+  readonly route: string
+  readonly dumpConfig?: boolean
+  /** Writes session events as JSONL instead of streaming the assistant text. */
+  readonly json?: boolean
+  readonly stdout: (text: string) => void
+  readonly stderr: (text: string) => void
+}
+
+/** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
+const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
+
+/**
+ * Runs one `fudo` command over a profile: build the layer, start the agent,
+ * wait for the turn, and return the process exit code (0 completed, 1 error).
+ */
+export function runCommand(options: CommandOptions): Effect.Effect<number> {
+  return Effect.gen(function* () {
+    const documents: Array<{ readonly plugins: ReadonlyArray<import('@fudo/kernel').PluginRow> }> =
+      []
+    for (const text of [...options.profiles, ...(options.patches ?? [])]) {
+      documents.push(yield* parseProfile(text))
+    }
+    const rows = mergeRows(documents.map((document) => document.plugins))
+
+    if (options.dumpConfig === true) {
+      options.stdout(renderConfig(rows))
+      return 0
+    }
+
+    const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
+    return yield* Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(layer)
+        const hooks = Context.get(context, Hooks)
+        if (options.json === true) {
+          yield* hooks.on('session/event', (event) => {
+            options.stdout(JSON.stringify(event) + '\n')
+          })
+        } else {
+          yield* hooks.on('agent/assistant-stream', (timed) => {
+            if (timed.chunk.type === 'text-delta' && timed.chunk.text !== '')
+              options.stdout(timed.chunk.text)
+          })
+        }
+
+        const agents = Context.get(context, Agents)
+        const agent: Agent =
+          options.resume === undefined
+            ? yield* agents.create({ cwd: options.cwd, options: { route: options.route } })
+            : yield* agents.create({
+                cwd: options.cwd,
+                resume: options.resume,
+                options: { route: options.route },
+              })
+
+        if (options.task === undefined) {
+          options.stderr('nothing to do: pass a task (the REPL lands in a later slice)')
+          return 2
+        }
+        yield* agent.followup({ text: options.task, source: 'user' })
+        yield* agent.whenIdle
+        return 0
+      }),
+    )
+  }).pipe(
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        options.stderr(`fudo: ${Cause.pretty(cause)}\n`)
+        return exitCodeOf(cause)
+      }),
+    ),
+  )
+}

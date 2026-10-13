@@ -11,6 +11,20 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/app/cli": {
+      "name": "@fudo/cli",
+      "dependencies": {
+        "@fudo/agent": "workspace:*",
+        "@fudo/agent-loop": "workspace:*",
+        "@fudo/kernel": "workspace:*",
+        "@fudo/llm": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "@fudo/session-jsonl": "workspace:*",
+        "@fudo/system-prompt": "workspace:*",
+        "@fudo/tools": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/bundle/base": {
       "name": "@fudo/bundle-base",
       "dependencies": {
@@ -112,6 +126,8 @@
     "@fudo/agent-loop": ["@fudo/agent-loop@workspace:packages/core/agent-loop"],
 
     "@fudo/bundle-base": ["@fudo/bundle-base@workspace:packages/bundle/base"],
+
+    "@fudo/cli": ["@fudo/cli@workspace:packages/app/cli"],
 
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
