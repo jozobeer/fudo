@@ -26,6 +26,14 @@
         "effect": "4.0.3",
       },
     },
+    "packages/core/tools": {
+      "name": "@fudo/tools",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "@fudo/llm": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/kernel/kernel": {
       "name": "@fudo/kernel",
       "dependencies": {
@@ -47,6 +55,8 @@
     "@fudo/session": ["@fudo/session@workspace:packages/core/session"],
 
     "@fudo/session-jsonl": ["@fudo/session-jsonl@workspace:packages/core/session-jsonl"],
+
+    "@fudo/tools": ["@fudo/tools@workspace:packages/core/tools"],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.72.0", "", { "os": "android", "cpu": "arm" }, "sha512-u4U1uaDOVBuorGNC/07NLm48nECHOiJJka002YGML16Md2DRvf38RGBt01lH60EOGvNlFVmbLoksQedNBoZHKw=="],
 

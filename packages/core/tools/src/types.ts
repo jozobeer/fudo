@@ -1,0 +1,105 @@
+import { Data } from 'effect'
+import type { Effect, Schema } from 'effect'
+import type { ContentBlock } from '@fudo/llm'
+
+export type ToolErrorCode =
+  | 'invalid-arguments'
+  | 'unknown-tool'
+  | 'denied'
+  | 'duplicate-tool'
+  | 'execution'
+
+/** A tool failure. The pipeline turns every failure into a model-visible error result. */
+export class ToolError extends Data.TaggedError('ToolError')<{
+  readonly code: ToolErrorCode
+  readonly message: string
+}> {}
+
+/** What a tool may use besides its Effect context. Cancel arrives as a Fiber interrupt. */
+export interface ToolRunContext {
+  readonly sessionId: string
+  readonly cwd: string
+  readonly callId: string
+}
+
+/** One call as the policy hooks and guards see it. `args` is already decoded. */
+export interface ToolExecution {
+  readonly callId: string
+  readonly tool: string
+  /** Raw JSON string exactly as the model produced it. */
+  readonly arguments: string
+  readonly args: unknown
+  readonly context: ToolRunContext
+}
+
+/** The settled result of one call. `value` is the canonical tool value for PTC. */
+export interface ToolExecutionResult {
+  readonly isError: boolean
+  readonly content: ReadonlyArray<ContentBlock>
+  readonly value?: unknown
+}
+
+export interface ToolCallView {
+  readonly summary: string
+}
+
+export interface ToolResultView {
+  readonly isError: boolean
+  readonly summary: string
+}
+
+export interface ToolCallRequest {
+  readonly callId: string
+  readonly tool: string
+  readonly arguments: string
+  readonly context: ToolRunContext
+}
+
+export type ToolCallOutcome = ToolExecutionResult
+
+export type PreExecuteDecision =
+  | { readonly kind: 'allow' }
+  | { readonly kind: 'deny'; readonly reason: string }
+  | { readonly kind: 'ask'; readonly reason: string }
+
+export type GuardDecision =
+  | { readonly kind: 'deny'; readonly reason: string }
+  | { readonly kind: 'abstain' }
+
+/** A monotonic policy check. A guard only denies or abstains, so hook order cannot bypass it. */
+export interface ToolGuard {
+  readonly name: string
+  readonly check: (exec: ToolExecution) => Effect.Effect<GuardDecision>
+}
+
+/** Filters the tools one scope may see. Plan mode and subagents register their own. */
+export interface ToolRestriction {
+  readonly name: string
+  readonly allows: (tool: string) => boolean
+}
+
+/**
+ * One tool as packages define it.
+ *
+ * `output.schema` describes the canonical value for structured consumers (PTC);
+ * the model sees `output.render` instead. `timeoutMs` is applied by the S4
+ * tool-call-timeout plugin, not by the S1 pipeline.
+ */
+export interface ToolDefinition<A, V> {
+  readonly name: string
+  readonly description: string
+  readonly parameters: Schema.Schema<A>
+  readonly output: {
+    readonly schema: Schema.Schema<V>
+    readonly render: (args: A, value: V) => ReadonlyArray<ContentBlock>
+  }
+  readonly execute: (args: A, exec: ToolRunContext) => Effect.Effect<V, ToolError>
+  readonly isConcurrencySafe?: (args: A) => boolean
+  readonly timeoutMs?: number
+  readonly finalizeContent?: (
+    exec: ToolExecution,
+    result: ToolExecutionResult,
+  ) => ReadonlyArray<ContentBlock> | undefined
+  readonly presentCall?: (args: A) => ToolCallView
+  readonly presentResult?: (args: A, result: ToolResultView) => ToolResultView
+}
