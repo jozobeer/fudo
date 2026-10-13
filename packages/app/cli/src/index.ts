@@ -44,6 +44,8 @@ import { Cause, Context, Effect, Layer, Stream } from 'effect'
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
   readonly profiles: ReadonlyArray<string>
+  /** Rows from the settings file; patches still win over them. */
+  readonly extraRows?: ReadonlyArray<PluginRow>
   readonly patches?: ReadonlyArray<string>
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
   /** One-shot task. Without it the command has nothing to run (the REPL lands later). */
@@ -125,10 +127,15 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
     const documents: Array<{ readonly plugins: ReadonlyArray<import('@fudo/kernel').PluginRow> }> =
       []
-    for (const text of [...options.profiles, ...(options.patches ?? [])]) {
+    for (const text of options.profiles) {
       documents.push(yield* parseProfile(text))
     }
-    const rows = mergeRows(documents.map((document) => document.plugins))
+    const layers: Array<ReadonlyArray<PluginRow>> = documents.map((document) => document.plugins)
+    if (options.extraRows !== undefined) layers.push(options.extraRows)
+    for (const text of options.patches ?? []) {
+      layers.push((yield* parseProfile(text)).plugins)
+    }
+    const rows = mergeRows(layers)
     const route = options.route !== '' ? options.route : routeFromRows(rows)
     const spillBytes = spillBytesOf(rows)
 
@@ -307,3 +314,4 @@ export * from './secrets-file.ts'
 export * from './auth.ts'
 export * from './auth-cli.ts'
 export * from './providers.ts'
+export * from './config-file.ts'

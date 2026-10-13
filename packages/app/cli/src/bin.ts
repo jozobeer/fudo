@@ -13,6 +13,7 @@ import { toolsPlugin } from '@fudo/tools'
 import { Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
 import { configPaths, loadSecrets } from './config.ts'
+import { loadConfigFile } from './config-file.ts'
 import { loadEnvFrom } from './env-file.ts'
 import { searchFromEnv } from './search-env.ts'
 import { runCommand, type CommandOptions } from './index.ts'
@@ -46,6 +47,7 @@ export interface MainIo {
 const HELP = `fudo "task"                     one-shot headless run
 fudo                             REPL (later slice)
 fudo --profile <name> --patch <file.yml>...
+fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
 fudo --dump-config
 fudo --resume <sessionId> [task]
 fudo --json "task"
@@ -67,14 +69,17 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
     // secrets file is separate so it can stay unreadable.
     loadEnvFrom(io.cwd)
     loadSecrets(configPaths().secrets, process.env, io.stderr)
+    const settings = yield* loadConfigFile(parsed.config ?? configPaths().config)
+    const profileName = parsed.profileFlag ?? settings.profile ?? parsed.profile
+    const route = parsed.modelFlag ?? settings.model ?? parsed.model
     const search = searchFromEnv(process.env)
     const base = yield* Effect.tryPromise({
       try: () => loadBundledProfile(),
       catch: (cause) => new Error(`cannot read the bundled profile: ${String(cause)}`),
     })
     const profileLayer = yield* Effect.tryPromise({
-      try: () => loadBundledProfileNamed(parsed.profile),
-      catch: (cause) => new Error('cannot read profile ' + parsed.profile + ': ' + String(cause)),
+      try: () => loadBundledProfileNamed(profileName),
+      catch: (cause) => new Error('cannot read profile ' + profileName + ': ' + String(cause)),
     })
     const patches: Array<string> = []
     for (const path of parsed.patches) {
@@ -89,7 +94,9 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
       profiles: [base, profileLayer],
       plugins: bundledPlugins,
       cwd: io.cwd,
-      route: parsed.model,
+      route,
+      ...(settings.plugins === undefined ? {} : { extraRows: settings.plugins }),
+      ...(settings.skills === undefined ? {} : { skills: settings.skills }),
       ...(search === undefined ? {} : { search }),
       stdout: io.stdout,
       stderr: io.stderr,
