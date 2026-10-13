@@ -83,6 +83,21 @@ const spillBytesOf = (rows: ReadonlyArray<PluginRow>): number | undefined => {
   return undefined
 }
 
+/** The failure of the newest turn, when it ended in an error. */
+const turnFailure = (agent: Agent): string | undefined => {
+  const events = agent.session.events()
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.type !== 'turn/end') continue
+    const reason = event.data.reason
+    if (reason.kind === 'error') {
+      return reason.failure.code + ': ' + reason.failure.message
+    }
+    return undefined
+  }
+  return undefined
+}
+
 const planModeOf = (config: unknown): boolean => isRecord(config) && config.planMode === true
 
 const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
@@ -248,6 +263,11 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
                   yield* agent.whenIdle
                 }),
           )
+          const replFailure = turnFailure(agent)
+          if (replFailure !== undefined) {
+            options.stderr('fudo: a turn failed: ' + replFailure + '\n')
+            return 1
+          }
           return 0
         }
         yield* agent.followup({ text: options.task, source: 'user' })
@@ -263,6 +283,11 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
           )
         }
         yield* agent.whenIdle
+        const failure = turnFailure(agent)
+        if (failure !== undefined) {
+          options.stderr('fudo: the turn failed: ' + failure + '\n')
+          return 1
+        }
         return cancelled ? 130 : 0
       }),
     )
