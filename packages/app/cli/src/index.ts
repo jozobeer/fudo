@@ -167,7 +167,13 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             }),
           )
           if (options.subagents === true) {
-            list.push(makeSubagentTool(Context.get(context, Agents), route))
+            list.push(
+              makeSubagentTool({
+                agents: Context.get(context, Agents),
+                route,
+                parentEvents: () => agent.session.events(),
+              }),
+            )
           }
           for (const tool of list) yield* registry.register(tool)
         }

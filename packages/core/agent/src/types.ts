@@ -1,3 +1,4 @@
+import type { SessionEvent } from '@fudo/session'
 import { Data, type Effect, type Queue, type Scope } from 'effect'
 import type { Session, SessionError, SessionId, TurnCancelCause } from '@fudo/session'
 import type { UserMessage } from './events.ts'
@@ -55,6 +56,8 @@ export interface AgentRunner {
 }
 
 export interface CreateAgentOptions {
+  /** Events the child session starts from, e.g. a fork of the parent. */
+  readonly seed?: ReadonlyArray<SessionEvent>
   readonly cwd: string
   readonly options: AgentOptions
   /** Resumes an existing session instead of creating one. */

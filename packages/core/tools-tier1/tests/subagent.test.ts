@@ -67,9 +67,16 @@ describe('subagent tool', () => {
   test('runs the task in a child and returns its answer', async () => {
     const seen: Array<{ cwd: string; task: string }> = []
     const result = await Effect.runPromise(
-      call(makeSubagentTool(fakeAgents(seen, 'child says hi'), 'stub/model'), {
-        task: 'look around',
-      }),
+      call(
+        makeSubagentTool({
+          agents: fakeAgents(seen, 'child says hi'),
+          route: 'stub/model',
+          parentEvents: () => [],
+        }),
+        {
+          task: 'look around',
+        },
+      ),
     )
 
     expect(result?.isError).toBe(false)
@@ -80,10 +87,17 @@ describe('subagent tool', () => {
   test('takes the cwd it is given', async () => {
     const seen: Array<{ cwd: string; task: string }> = []
     await Effect.runPromise(
-      call(makeSubagentTool(fakeAgents(seen, 'ok'), 'stub/model'), {
-        task: 'go',
-        cwd: '/elsewhere',
-      }),
+      call(
+        makeSubagentTool({
+          agents: fakeAgents(seen, 'ok'),
+          route: 'stub/model',
+          parentEvents: () => [],
+        }),
+        {
+          task: 'go',
+          cwd: '/elsewhere',
+        },
+      ),
     )
 
     expect(seen[0]?.cwd).toBe('/elsewhere')

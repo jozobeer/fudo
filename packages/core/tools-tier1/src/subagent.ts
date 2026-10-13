@@ -1,3 +1,4 @@
+import { forkSeed, type SessionEvent } from '@fudo/session'
 import { Schema, Effect } from 'effect'
 import type { Agent, AgentsShape } from '@fudo/agent'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
@@ -31,10 +32,18 @@ const textOf = (agent: Agent): string => {
  * Runs one task in a child agent and answers with what it said. The child owns
  * its own session, so its work stays in the log next to the parent's.
  */
-export const makeSubagentTool = (
-  agents: AgentsShape,
-  route: string,
-): ToolDefinition<SubagentArgs, SubagentValue> => ({
+export interface SubagentHost {
+  readonly agents: AgentsShape
+  readonly route: string
+  /** The parent's log; the child starts from it, minus the last instruction. */
+  readonly parentEvents: () => ReadonlyArray<SessionEvent>
+}
+
+export const makeSubagentTool = ({
+  agents,
+  route,
+  parentEvents,
+}: SubagentHost): ToolDefinition<SubagentArgs, SubagentValue> => ({
   name: 'subagent',
   description: 'Runs one task in a child agent and returns what it said.',
   parameters: Parameters,
@@ -48,6 +57,7 @@ export const makeSubagentTool = (
         .create({
           cwd: args.cwd ?? context.cwd,
           options: { route },
+          seed: forkSeed(parentEvents()),
         })
         .pipe(
           Effect.mapError(

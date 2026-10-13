@@ -44,7 +44,10 @@ export function agentsService(
         Effect.gen(function* () {
           const session =
             options.resume === undefined
-              ? yield* sessions.create({ cwd: options.cwd })
+              ? yield* sessions.create({
+                  cwd: options.cwd,
+                  ...(options.seed === undefined ? {} : { seed: options.seed }),
+                })
               : yield* sessions.open(options.resume)
           const scope = yield* Scope.make()
           const handle: AgentHandle = { fiber: undefined }
