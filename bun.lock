@@ -15,6 +15,8 @@
       "name": "@fudo/bundle-base",
       "dependencies": {
         "@fudo/kernel": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "@fudo/session-jsonl": "workspace:*",
         "@fudo/system-prompt": "workspace:*",
         "@fudo/tools": "workspace:*",
         "effect": "4.0.3",
