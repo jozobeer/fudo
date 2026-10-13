@@ -26,6 +26,8 @@ export interface ToolRunContext {
 export interface ToolExecution {
   readonly callId: string
   readonly tool: string
+  /** What the tool declared it needs; the safety policy reads it. */
+  readonly needs?: ReadonlyArray<ToolNeeds>
   /** Raw JSON string exactly as the model produced it. */
   readonly arguments: string
   readonly args: unknown

@@ -126,6 +126,7 @@ export const executeTool = (
       if (!parsed.ok) return errorResult(parsed.message)
 
       const exec: ToolExecution = {
+        needs: tool.needs ?? [],
         callId: request.callId,
         tool: tool.name,
         arguments: request.arguments,
