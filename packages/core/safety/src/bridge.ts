@@ -3,6 +3,7 @@ import type { Session } from '@fudo/session'
 import type { ToolExecution } from '@fudo/tools'
 import { Effect, type Scope } from 'effect'
 import { Approval } from './approval.ts'
+import type { ApprovalRequested } from './events.ts'
 import { Policy } from './policy-service.ts'
 
 const log = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<boolean> =>
@@ -15,6 +16,8 @@ const log = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<boolean> =>
  */
 export const installApproval = (
   session: Session,
+  /** Answers on the spot; without it the call waits for an Approval answer. */
+  answer?: (request: ApprovalRequested) => Effect.Effect<boolean>,
 ): Effect.Effect<void, never, Hooks | Policy | Approval | Scope.Scope> =>
   Effect.gen(function* () {
     const hooks = yield* Hooks
@@ -35,7 +38,10 @@ export const installApproval = (
         if (!recorded) {
           return { kind: 'deny', reason: 'cannot record the approval request' } as const
         }
-        const approved = yield* approval.request(exec.callId)
+        const approved =
+          answer === undefined
+            ? yield* approval.request(exec.callId)
+            : yield* answer({ callId: exec.callId, tool: exec.tool, reason: decision.reason })
         yield* log(
           session.append('safety/approval/answered', {
             callId: exec.callId,

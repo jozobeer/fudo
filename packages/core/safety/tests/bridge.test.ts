@@ -81,4 +81,35 @@ describe('installApproval', () => {
     expect(observed.waiting).toEqual([])
     expect(observed.isError).toBe(false)
   })
+
+  test('an answerer can decide on the spot', async () => {
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const events: Array<SessionEvent> = []
+          const session = fakeSession(events)
+          const tools = yield* Tools
+          yield* tools.register(danger)
+          const asked: Array<string> = []
+          yield* installApproval(session, (request) =>
+            Effect.sync(() => {
+              asked.push(request.tool + ':' + request.reason)
+              return true
+            }),
+          )
+          const result = yield* tools.call({
+            callId: 'c9',
+            tool: 'danger',
+            arguments: '{}',
+            context: { sessionId: 's1', cwd: '/work', callId: 'c9' },
+          })
+          return { isError: result.isError, asked, types: events.map((event) => event.type) }
+        }).pipe(Effect.provide(layerFor('read-only'))),
+      ),
+    )
+
+    expect(observed.asked).toEqual(['danger:preset read-only does not allow: exec'])
+    expect(observed.isError).toBe(false)
+    expect(observed.types).toEqual(['safety/approval/requested', 'safety/approval/answered'])
+  })
 })
