@@ -23,6 +23,7 @@ import {
   installApproval,
   installAsk,
   Policy,
+  type AskRequested,
   type ApprovalRequested,
 } from '@fudo/safety'
 import { Cause, Context, Effect, Layer, Stream } from 'effect'
@@ -40,6 +41,8 @@ export interface CommandOptions {
   readonly interrupt?: Effect.Effect<void>
   /** Answers an approval request; the default denies, so nothing hangs unanswered. */
   readonly approve?: (request: ApprovalRequested) => Effect.Effect<boolean>
+  /** Answers ask_user questions; without it the question waits for an Ask answer. */
+  readonly answer?: (request: AskRequested) => Effect.Effect<string>
   readonly resume?: SessionId
   readonly cwd: string
   /** `provider/model`, taken from the CLI or the profile row. */
@@ -128,7 +131,12 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
         // Tier 1 tools ask the user; their questions and answers join the log.
         if (rows.some((row) => row.name === '@fudo/tools-tier1')) {
           const registry = Context.get(context, Tools)
-          const ask = installAsk(Context.get(context, Ask), agent.session)
+          const holder = Context.get(context, Ask)
+          const answer = options.answer
+          const ask = installAsk(
+            answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
+            agent.session,
+          )
           for (const tool of tier1Tools(ask)) yield* registry.register(tool)
         }
 
