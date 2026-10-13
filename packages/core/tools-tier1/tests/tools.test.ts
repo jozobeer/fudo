@@ -1,0 +1,14 @@
+import { Effect } from 'effect'
+import { describe, expect, test } from 'bun:test'
+import { makeAsk } from '@fudo/safety'
+import { tier1Tools } from '../src/index.ts'
+
+describe('tier1Tools', () => {
+  test('lists the tier 1 tools with the installed ask holder', async () => {
+    const ask = await Effect.runPromise(makeAsk())
+    const tools = tier1Tools(ask)
+
+    expect(tools.map((tool) => tool.name)).toEqual(['todo_write', 'ask_user'])
+    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], []])
+  })
+})

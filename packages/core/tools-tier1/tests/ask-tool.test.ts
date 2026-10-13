@@ -3,7 +3,7 @@ import { makeAsk } from '@fudo/safety'
 import { Tools, toolsLayer, type ToolExecutionResult } from '@fudo/tools'
 import { Deferred, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { makeAskUserTool } from '../src/index.ts'
+import { askUserToolFor } from '../src/index.ts'
 
 describe('ask_user tool', () => {
   test('waits for the answer and reports it', async () => {
@@ -12,7 +12,7 @@ describe('ask_user tool', () => {
         Effect.gen(function* () {
           const ask = yield* makeAsk()
           const tools = yield* Tools
-          yield* tools.register(makeAskUserTool(ask))
+          yield* tools.register(askUserToolFor(ask))
           const done = yield* Deferred.make<ToolExecutionResult | undefined>()
           yield* Effect.forkScoped(
             Effect.gen(function* () {
@@ -45,7 +45,7 @@ describe('ask_user tool', () => {
         Effect.gen(function* () {
           const ask = yield* makeAsk()
           const tools = yield* Tools
-          yield* tools.register(makeAskUserTool(ask))
+          yield* tools.register(askUserToolFor(ask))
           const done = yield* Deferred.make<ToolExecutionResult | undefined>()
           yield* Effect.forkScoped(
             Effect.gen(function* () {

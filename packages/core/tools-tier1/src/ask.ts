@@ -19,7 +19,7 @@ export interface AskValue {
  * Asks the user one question and waits for the answer. The question id is the
  * call id, so the request and the answer line up in the log.
  */
-export const makeAskUserTool = (ask: AskShape): ToolDefinition<AskArgs, AskValue> => ({
+export const askUserToolFor = (ask: AskShape): ToolDefinition<AskArgs, AskValue> => ({
   name: 'ask_user',
   description: 'Asks the user one question and waits for the answer.',
   parameters: Parameters,
@@ -37,3 +37,6 @@ export const makeAskUserTool = (ask: AskShape): ToolDefinition<AskArgs, AskValue
       return { id: context.callId, question: args.question, answer }
     }),
 })
+
+/** The default ask tool, using whatever holder the caller passes. */
+export const makeAskUserTool = askUserToolFor
