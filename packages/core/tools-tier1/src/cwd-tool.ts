@@ -1,0 +1,43 @@
+import { isAbsolute, relative, resolve } from 'node:path'
+import { Schema, Effect } from 'effect'
+import { ToolError, type ToolDefinition } from '@fudo/tools'
+
+const Parameters = Schema.Struct({ path: Schema.String })
+
+export type WorkingDirectoryArgs = Schema.Schema.Type<typeof Parameters>
+
+export interface WorkingDirectoryValue {
+  readonly cwd: string
+}
+
+export interface WorkingDirectoryHost {
+  /** The workspace root; the new directory must stay inside it. */
+  readonly root: string
+  /** Records the change; the agent loop then uses the newest one. */
+  readonly change: (cwd: string) => Effect.Effect<void, ToolError>
+}
+
+/** Moves the working directory, as long as it stays inside the workspace. */
+export const makeWorkingDirectoryTool = (
+  host: WorkingDirectoryHost,
+): ToolDefinition<WorkingDirectoryArgs, WorkingDirectoryValue> => ({
+  name: 'working_directory',
+  description: 'Moves the working directory inside the workspace for later tools.',
+  parameters: Parameters,
+  output: {
+    schema: Schema.Struct({ cwd: Schema.String }),
+    render: (_args, value) => [{ type: 'text', text: 'working directory is now ' + value.cwd }],
+  },
+  execute: (args) =>
+    Effect.gen(function* () {
+      const target = isAbsolute(args.path) ? resolve(args.path) : resolve(host.root, args.path)
+      const inside = relative(resolve(host.root), target)
+      if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) {
+        return yield* Effect.fail(
+          new ToolError({ code: 'denied', message: 'path escapes the workspace: ' + args.path }),
+        )
+      }
+      yield* host.change(target)
+      return { cwd: target }
+    }),
+})

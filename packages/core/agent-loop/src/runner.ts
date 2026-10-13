@@ -12,6 +12,7 @@ import {
 } from '@fudo/llm'
 import {
   compactMessages,
+  cwdOf,
   deriveMessages,
   type CompactOptions,
   type Session,
@@ -192,7 +193,11 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
                 callId: call.id,
                 tool: call.name,
                 arguments: call.arguments,
-                context: { sessionId: agent.id, cwd: agent.session.header.cwd, callId: call.id },
+                context: {
+                  sessionId: agent.id,
+                  cwd: cwdOf(agent.session.events(), agent.session.header),
+                  callId: call.id,
+                },
               })
               const shown = yield* applySpill(outcome, call.id, SPILL)
               yield* append(agent, 'tool/result', {
