@@ -15,7 +15,13 @@ import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
 import { ToolError } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
-import { makeSubagentTool, makeWorkingDirectoryTool, tier1Tools } from '@fudo/tools-tier1'
+import {
+  jobTools,
+  makeJobs,
+  makeSubagentTool,
+  makeWorkingDirectoryTool,
+  tier1Tools,
+} from '@fudo/tools-tier1'
 import {
   Approval,
   Ask,
@@ -151,6 +157,8 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             agent.session,
           )
           const list = [...tier1Tools(ask, options.skills ?? [])]
+          const jobs = yield* makeJobs()
+          for (const tool of jobTools(jobs)) list.push(tool)
           list.push(
             makeWorkingDirectoryTool({
               root: options.cwd,
