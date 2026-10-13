@@ -18,6 +18,9 @@ import { Tier0Tools } from '@fudo/tools-tier0'
 import {
   jobTools,
   makeJobs,
+  mcpTools,
+  McpServers,
+  startMcpServer,
   makeWebSearchTool,
   type SearchHost,
   makeSubagentTool,
@@ -129,6 +132,17 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
 
         // Workspace instructions join the prompt before the first turn.
         yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
+
+        // MCP servers bring their own tools; the caller owns their processes.
+        if (rows.some((row) => row.name === '@fudo/mcp')) {
+          const registry = Context.get(context, Tools)
+          for (const server of Context.get(context, McpServers)) {
+            const client = yield* startMcpServer({ command: server.command })
+            for (const tool of yield* mcpTools(client, server.prefix ?? 'mcp__')) {
+              yield* registry.register(tool)
+            }
+          }
+        }
 
         // Plan mode hides every tool that could change the workspace.
         if (rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
