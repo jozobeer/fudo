@@ -1,0 +1,12 @@
+{
+  "name": "@fudo/ui-protocol",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/llm": "workspace:*",
+    "@fudo/safety": "workspace:*",
+    "@fudo/session": "workspace:*",
+    "effect": "4.0.3"
+  }
+}

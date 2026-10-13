@@ -1,0 +1,13 @@
+{
+  "name": "@fudo/ui-host",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/agent": "workspace:*",
+    "@fudo/kernel": "workspace:*",
+    "@fudo/session": "workspace:*",
+    "@fudo/ui-protocol": "workspace:*",
+    "effect": "4.0.3"
+  }
+}

@@ -171,6 +171,34 @@
         "effect": "4.0.3",
       },
     },
+    "packages/ui/host": {
+      "name": "@fudo/ui-host",
+      "dependencies": {
+        "@fudo/agent": "workspace:*",
+        "@fudo/kernel": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "@fudo/ui-protocol": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
+    "packages/ui/protocol": {
+      "name": "@fudo/ui-protocol",
+      "dependencies": {
+        "@fudo/llm": "workspace:*",
+        "@fudo/safety": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
+    "packages/ui/view": {
+      "name": "@fudo/ui-view",
+      "dependencies": {
+        "@fudo/llm": "workspace:*",
+        "@fudo/safety": "workspace:*",
+        "@fudo/session": "workspace:*",
+        "@fudo/ui-protocol": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@fudo/agent": ["@fudo/agent@workspace:packages/core/agent"],
@@ -204,6 +232,12 @@
     "@fudo/tools-tier0": ["@fudo/tools-tier0@workspace:packages/core/tools-tier0"],
 
     "@fudo/tools-tier1": ["@fudo/tools-tier1@workspace:packages/core/tools-tier1"],
+
+    "@fudo/ui-host": ["@fudo/ui-host@workspace:packages/ui/host"],
+
+    "@fudo/ui-protocol": ["@fudo/ui-protocol@workspace:packages/ui/protocol"],
+
+    "@fudo/ui-view": ["@fudo/ui-view@workspace:packages/ui/view"],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.72.0", "", { "os": "android", "cpu": "arm" }, "sha512-u4U1uaDOVBuorGNC/07NLm48nECHOiJJka002YGML16Md2DRvf38RGBt01lH60EOGvNlFVmbLoksQedNBoZHKw=="],
 
