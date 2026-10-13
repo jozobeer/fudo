@@ -18,8 +18,10 @@ import {
   type SessionEventMap,
 } from '@fudo/session'
 import { SystemPrompt } from '@fudo/system-prompt'
+import { applySpill, type SpillOptions } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
+import { tmpdir } from 'node:os'
 import type { AgentRequest } from './hooks.ts'
 
 export class AgentLoop extends Context.Service<AgentLoop, AgentRunner>()('fudo/AgentLoop') {}
@@ -32,6 +34,19 @@ type StepOutcome =
 
 /** The newest messages stay intact; older output is shortened before every request. */
 const COMPACT_MESSAGES: CompactOptions = { keepLast: 12, maxBytes: 32_000 }
+
+/** Results larger than this are written to a file; only their head stays in the log. */
+const SPILL_BYTES = 32_000
+
+const SPILL: SpillOptions = {
+  maxSpillBytes: SPILL_BYTES,
+  spill: (callId, text) =>
+    Effect.promise(async () => {
+      const path = tmpdir() + '/fudo-spill/' + callId + '.txt'
+      await Bun.write(path, text)
+      return path
+    }),
+}
 
 const isToolCall = (block: ContentBlock): block is ToolCall => block.type === 'tool-call'
 
@@ -179,10 +194,11 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
                 arguments: call.arguments,
                 context: { sessionId: agent.id, cwd: agent.session.header.cwd, callId: call.id },
               })
+              const shown = yield* applySpill(outcome, call.id, SPILL)
               yield* append(agent, 'tool/result', {
                 callId: call.id,
-                isError: outcome.isError,
-                content: outcome.content,
+                isError: shown.isError,
+                content: shown.content,
               })
               pending.delete(call.id)
             }
