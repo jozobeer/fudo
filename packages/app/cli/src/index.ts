@@ -12,9 +12,10 @@ import {
 } from '@fudo/kernel'
 import type { SessionId } from '@fudo/session'
 import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
+import { ToolError } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
-import { makeSubagentTool, tier1Tools } from '@fudo/tools-tier1'
+import { makeSubagentTool, makeWorkingDirectoryTool, tier1Tools } from '@fudo/tools-tier1'
 import {
   Approval,
   Ask,
@@ -150,6 +151,21 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
             agent.session,
           )
           const list = [...tier1Tools(ask, options.skills ?? [])]
+          list.push(
+            makeWorkingDirectoryTool({
+              root: options.cwd,
+              change: (cwd) =>
+                agent.session.append('session/cwd/changed', { cwd }).pipe(
+                  Effect.mapError(
+                    () =>
+                      new ToolError({
+                        code: 'execution',
+                        message: 'cannot record the working directory',
+                      }),
+                  ),
+                ),
+            }),
+          )
           if (options.subagents === true) {
             list.push(makeSubagentTool(Context.get(context, Agents), route))
           }
