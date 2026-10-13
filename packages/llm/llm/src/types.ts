@@ -6,6 +6,14 @@ export type ContentBlock =
   | { readonly type: 'text'; readonly text: string }
   | { readonly type: 'reasoning'; readonly text: string }
   | {
+      readonly type: 'image'
+      /** The media type, e.g. image/png. */
+      readonly mediaType: string
+      /** Base64 of the image bytes. */
+      readonly data: string
+      readonly name?: string
+    }
+  | {
       readonly type: 'tool-call'
       readonly id: string
       readonly name: string

@@ -118,5 +118,7 @@ const startDraft = (blockType: ContentBlock['type']): Draft => {
       return { kind: blockType, text: '' }
     case 'tool-call':
       return { kind: 'tool-call', id: '', name: undefined, arguments: '' }
+    case 'image':
+      throw new Error('image blocks arrive whole; they cannot be streamed')
   }
 }

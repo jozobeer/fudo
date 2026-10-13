@@ -47,6 +47,12 @@ export const ContentBlockSchema: Schema.Schema<ContentBlock> = Schema.Union([
   Schema.Struct({ type: Schema.Literal('text'), text: Schema.String }),
   Schema.Struct({ type: Schema.Literal('reasoning'), text: Schema.String }),
   Schema.Struct({
+    type: Schema.Literal('image'),
+    mediaType: Schema.String,
+    data: Schema.String,
+    name: Schema.optionalKey(Schema.String),
+  }),
+  Schema.Struct({
     type: Schema.Literal('tool-call'),
     id: Schema.String,
     name: Schema.String,
