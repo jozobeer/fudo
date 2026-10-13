@@ -1,4 +1,5 @@
 export * from './sandbox.ts'
 export * from './seatbelt.ts'
 export * from './policy.ts'
+export * from './policy-service.ts'
 export * from './events.ts'
