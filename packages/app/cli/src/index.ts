@@ -74,6 +74,15 @@ export interface CommandOptions {
 }
 
 /** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
+const spillBytesOf = (rows: ReadonlyArray<PluginRow>): number | undefined => {
+  for (const row of rows) {
+    if (isRecord(row.config) && typeof row.config.maxSpillBytes === 'number') {
+      return row.config.maxSpillBytes
+    }
+  }
+  return undefined
+}
+
 const planModeOf = (config: unknown): boolean => isRecord(config) && config.planMode === true
 
 const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
@@ -106,6 +115,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     }
     const rows = mergeRows(documents.map((document) => document.plugins))
     const route = options.route !== '' ? options.route : routeFromRows(rows)
+    const spillBytes = spillBytesOf(rows)
 
     if (options.dumpConfig === true) {
       options.stdout(renderConfig(rows))
@@ -152,11 +162,20 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
         const agents = Context.get(context, Agents)
         const agent: Agent =
           options.resume === undefined
-            ? yield* agents.create({ cwd: options.cwd, options: { route } })
+            ? yield* agents.create({
+                cwd: options.cwd,
+                options: {
+                  route,
+                  ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
+                },
+              })
             : yield* agents.create({
                 cwd: options.cwd,
                 resume: options.resume,
-                options: { route },
+                options: {
+                  route,
+                  ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
+                },
               })
 
         // Tools come from the profile's tier rows.
