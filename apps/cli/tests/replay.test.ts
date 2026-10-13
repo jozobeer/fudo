@@ -48,7 +48,10 @@ describe('replay through the CLI', () => {
   test('the recorded tool calls reach the pipeline and land in the log', async () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-replay-'))
     const sse = await Bun.file(
-      new URL('../../../llm/llm-openai/fixtures/ollama-cloud-tool-call.sse', import.meta.url),
+      new URL(
+        '../../../packages/llm/llm-openai/fixtures/ollama-cloud-tool-call.sse',
+        import.meta.url,
+      ),
     ).text()
     const replayed = replayAdapter(sse)
     let call = 0

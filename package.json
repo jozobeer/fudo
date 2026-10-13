@@ -2,6 +2,7 @@
   "name": "@fudo/root",
   "private": true,
   "workspaces": [
+    "apps/*",
     "packages/*/*"
   ],
   "type": "module",
@@ -12,7 +13,7 @@
     "lint": "oxlint --deny-warnings",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "complexity": "cccc --top-cognitive 10 --table packages",
+    "complexity": "cccc --top-cognitive 10 --table apps packages",
     "check:static": "bun run fmt:check && bun run lint && bun run typecheck && bun run complexity",
     "check": "bun run check:static && bun run test",
     "prepare": "git config core.hooksPath .githooks"

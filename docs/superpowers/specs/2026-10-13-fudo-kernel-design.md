@@ -51,9 +51,11 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 
 ### リポジトリ構成
 
-Bun workspaces の monorepo とし、パッケージを `packages/<group>/<pkg>/` に置く。パッケージ名は `@fudo/<pkg>`、CLI 名は `fudo` である。
+Bun workspaces の monorepo とし、UI を `apps/<app>/` に、それ以外のパッケージを `packages/<group>/<pkg>/` に置く。`packages/` は `apps/` に依存しない。パッケージ名は `@fudo/<pkg>`、CLI 名は `fudo` である。
 
 ```
+apps/
+  cli                  Headless 一発実行と REPL（profile runner）
 packages/
   kernel/kernel        Plugin 定義・hook registry・loader（YAML から Layer を組み立てる）
   core/session         SessionEventMap・append-only log・deriveMessages
@@ -66,7 +68,6 @@ packages/
   llm/llm              StreamChunk・LlmFailure・adapter seam
   llm/llm-openai       OpenAI 互換 adapter
   bundle/base          既定の plugin 行（YAML）
-  app/cli              Headless 一発実行と REPL（profile runner）
   test-support/replay  録画 fixture の再生と、テスト専用ツール
 ```
 

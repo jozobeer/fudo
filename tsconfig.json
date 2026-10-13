@@ -18,5 +18,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["packages/*/*/src", "packages/*/*/tests"]
+  "include": ["apps/*/src", "apps/*/tests", "packages/*/*/src", "packages/*/*/tests"]
 }

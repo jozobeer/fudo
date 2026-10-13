@@ -11,7 +11,7 @@
         "typescript": "7.0.2",
       },
     },
-    "packages/app/cli": {
+    "apps/cli": {
       "name": "@fudo/cli",
       "bin": {
         "fudo": "./src/run.ts",
@@ -179,7 +179,7 @@
 
     "@fudo/bundle-base": ["@fudo/bundle-base@workspace:packages/bundle/base"],
 
-    "@fudo/cli": ["@fudo/cli@workspace:packages/app/cli"],
+    "@fudo/cli": ["@fudo/cli@workspace:apps/cli"],
 
     "@fudo/kernel": ["@fudo/kernel@workspace:packages/kernel/kernel"],
 
