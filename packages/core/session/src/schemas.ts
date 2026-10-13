@@ -29,6 +29,7 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
     'session/header',
     Schema.Struct({ formatVersion: Schema.Int, createdAt: Schema.Number, cwd: Schema.String }),
   ],
+  ['session/cwd/changed', Schema.Struct({ cwd: Schema.String }) as Schema.Schema<unknown>],
   ['turn/start', Schema.Struct({ turn: Schema.Int })],
   ['turn/end', Schema.Struct({ turn: Schema.Int, reason: TurnEndReasonSchema })],
   ['step/start', Schema.Struct({ step: Schema.Int })],

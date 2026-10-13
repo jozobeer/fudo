@@ -47,6 +47,7 @@ export interface AssistantAttemptData {
 /** Every event the S1 kernel and its packages log. Plugins extend this interface. */
 export interface SessionEventMap {
   'session/header': SessionHeader
+  'session/cwd/changed': CwdChanged
   'turn/start': { readonly turn: number }
   'turn/end': { readonly turn: number; readonly reason: TurnEndReason }
   'step/start': { readonly step: number }
@@ -85,4 +86,9 @@ declare module '@fudo/kernel/hook' {
   interface HookMap {
     'session/event': Emit<(event: SessionEvent) => void>
   }
+}
+
+/** The working directory moved. The newest one wins. */
+export interface CwdChanged {
+  readonly cwd: string
 }
