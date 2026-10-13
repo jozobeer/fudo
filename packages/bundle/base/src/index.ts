@@ -1,17 +1,22 @@
+import base from '../profiles/base.yml' with { type: 'text' }
+import headless from '../profiles/headless.yml' with { type: 'text' }
+import repl from '../profiles/repl.yml' with { type: 'text' }
+
+// Imported as text, not read by path, so `bun build --compile` embeds them in the binary.
+const profiles: ReadonlyMap<string, string> = new Map([
+  ['base', base],
+  ['headless', headless],
+  ['repl', repl],
+])
+
 /** Profile shipped with the default bundle. Rows are resolved by the kernel loader. */
-export const baseProfileUrl = new URL('../profiles/base.yml', import.meta.url)
-
-export async function loadBundledProfile(url: URL = baseProfileUrl): Promise<string> {
-  return Bun.file(url).text()
+export async function loadBundledProfile(): Promise<string> {
+  return loadBundledProfileNamed('base')
 }
 
-/** The bundled profile for one CLI profile name, e.g. headless or repl. */
-export function bundledProfileUrl(name: string): URL {
-  if (!/^[a-z0-9-]+$/.test(name)) throw new Error('invalid profile name: ' + name)
-  return new URL('../profiles/' + name + '.yml', import.meta.url)
-}
-
-/** Reads the bundled profile named name; a missing file rejects. */
+/** Reads the bundled profile named name, e.g. headless or repl; an unknown name rejects. */
 export async function loadBundledProfileNamed(name: string): Promise<string> {
-  return Bun.file(bundledProfileUrl(name)).text()
+  const text = profiles.get(name)
+  if (text === undefined) throw new Error('no bundled profile named ' + name)
+  return text
 }
