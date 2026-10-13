@@ -1,5 +1,5 @@
 import type { Emit } from '@fudo/kernel'
-import type { AssistantStreamRecord, ContentBlock, LlmFailure, LlmUsage } from '@fudo/llm'
+import type { AssistantStreamRecord, ContentBlock, LlmFailureData, LlmUsage } from '@fudo/llm'
 
 export type SessionSeq = number
 export type SessionId = string
@@ -19,7 +19,7 @@ export type TurnCancelCause = 'user' | 'shutdown' | 'parent-cancelled'
 export interface TurnEndReasonMap {
   completed: { readonly kind: 'completed' }
   cancelled: { readonly kind: 'cancelled'; readonly cause: TurnCancelCause }
-  error: { readonly kind: 'error'; readonly failure: LlmFailure }
+  error: { readonly kind: 'error'; readonly failure: LlmFailureData }
 }
 
 export type TurnEndReason = TurnEndReasonMap[keyof TurnEndReasonMap]
@@ -31,8 +31,8 @@ export interface AssistantMessageData {
   readonly provider: string
   readonly model: string
   readonly content: ReadonlyArray<ContentBlock>
-  readonly usage: LlmUsage | undefined
-  readonly replayState: unknown
+  readonly usage?: LlmUsage
+  readonly replayState?: unknown
   readonly stream: ReadonlyArray<AssistantStreamRecord>
 }
 
@@ -40,7 +40,7 @@ export interface AssistantMessageData {
 export interface AssistantAttemptData {
   readonly provider: string
   readonly model: string
-  readonly failure: LlmFailure
+  readonly failure: LlmFailureData
   readonly stream: ReadonlyArray<AssistantStreamRecord>
 }
 

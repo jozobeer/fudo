@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LlmFailure } from '@fudo/llm'
+import { LlmFailure, encodeLlmFailure } from '@fudo/llm'
 import type { RequestMessage } from '@fudo/llm'
 import { deriveMessages, type MessageProjection } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
@@ -15,8 +15,6 @@ describe('deriveMessages', () => {
         provider: 'ollama-cloud',
         model: 'qwen3-coder:480b',
         content: [{ type: 'text', text: 'hi' }],
-        usage: undefined,
-        replayState: undefined,
         stream: [],
       }),
       event(6, 'tool/call', { callId: 'call-1', name: 'read', arguments: '{"path":"a"}' }),
@@ -24,8 +22,6 @@ describe('deriveMessages', () => {
         provider: 'ollama-cloud',
         model: 'qwen3-coder:480b',
         content: [{ type: 'tool-call', id: 'call-1', name: 'read', arguments: '{"path":"a"}' }],
-        usage: undefined,
-        replayState: undefined,
         stream: [],
       }),
       event(8, 'tool/result', {
@@ -36,7 +32,7 @@ describe('deriveMessages', () => {
       event(9, 'assistant/attempt', {
         provider: 'ollama-cloud',
         model: 'qwen3-coder:480b',
-        failure: new LlmFailure({ code: 'TIMEOUT', message: 'no response' }),
+        failure: encodeLlmFailure(new LlmFailure({ code: 'TIMEOUT', message: 'no response' })),
         stream: [],
       }),
       event(10, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),

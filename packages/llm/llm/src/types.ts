@@ -40,16 +40,19 @@ export type StreamChunk =
   | { readonly type: 'finish'; readonly kind: FinishKind }
 
 /** Provider-neutral failure classes. Consumers branch on `code`, never on wording. */
-export type LlmFailureCode =
-  | 'AUTH'
-  | 'RATE_LIMIT'
-  | 'TIMEOUT'
-  | 'ABORTED'
-  | 'EMPTY_RESPONSE'
-  | 'CONTEXT_WINDOW_EXCEEDED'
-  | 'TRANSPORT'
-  | 'PROVIDER'
-  | 'INVALID_REQUEST'
+export const LLM_FAILURE_CODES = [
+  'AUTH',
+  'RATE_LIMIT',
+  'TIMEOUT',
+  'ABORTED',
+  'EMPTY_RESPONSE',
+  'CONTEXT_WINDOW_EXCEEDED',
+  'TRANSPORT',
+  'PROVIDER',
+  'INVALID_REQUEST',
+] as const
+
+export type LlmFailureCode = (typeof LLM_FAILURE_CODES)[number]
 
 export class LlmFailure extends Data.TaggedError('LlmFailure')<{
   readonly code: LlmFailureCode
