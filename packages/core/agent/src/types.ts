@@ -10,6 +10,8 @@ export type AgentStatus = 'idle' | 'running' | 'cancelling' | 'disposed'
 export type AgentCancelCause = TurnCancelCause
 
 export interface AgentOptions {
+  /** Results larger than this are written away; unset keeps the loop default. */
+  readonly maxSpillBytes?: number
   /** `provider/model` route. */
   readonly route: string
   readonly reasoningEffort?: string

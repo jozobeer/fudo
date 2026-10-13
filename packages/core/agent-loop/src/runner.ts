@@ -40,15 +40,15 @@ const COMPACT_MESSAGES: CompactOptions = { keepLast: 12, maxBytes: 32_000 }
 /** Results larger than this are written to a file; only their head stays in the log. */
 const SPILL_BYTES = 32_000
 
-const SPILL: SpillOptions = {
-  maxSpillBytes: SPILL_BYTES,
+const spillOf = (agent: Agent): SpillOptions => ({
+  maxSpillBytes: agent.options.maxSpillBytes ?? SPILL_BYTES,
   spill: (callId, text) =>
     Effect.promise(async () => {
       const path = tmpdir() + '/fudo-spill/' + callId + '.txt'
       await Bun.write(path, text)
       return path
     }),
-}
+})
 
 const isToolCall = (block: ContentBlock): block is ToolCall => block.type === 'tool-call'
 
@@ -195,7 +195,7 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
                     callId: call.id,
                   },
                 })
-                const shown = yield* applySpill(outcome, call.id, SPILL)
+                const shown = yield* applySpill(outcome, call.id, spillOf(agent))
                 yield* append(agent, 'tool/result', {
                   callId: call.id,
                   isError: shown.isError,
