@@ -30,6 +30,8 @@ const toMessage = (event: SessionEvent): ReadonlyArray<RequestMessage> => {
     case 'tool/call':
       return []
   }
+  // Events that plugins add do not reach the model unless a projection puts them there.
+  return []
 }
 
 /** Folds an event log into the model history. The log is the only source. */

@@ -1,14 +1,7 @@
 import { Effect, Schema } from 'effect'
 import { SessionError } from './errors.ts'
 import type { SessionEvent } from './events.ts'
-import { SessionEventSchemas } from './schemas.ts'
-
-/** Event schemas a decoder accepts, keyed by event type. Plugins add their own. */
-export type SessionEventSchemaMap = ReadonlyMap<string, Schema.Schema<unknown>>
-
-export const coreSessionEventSchemas: SessionEventSchemaMap = new Map(
-  Object.entries(SessionEventSchemas) as Array<[string, Schema.Schema<unknown>]>,
-)
+import { SessionEventSchemas, type SessionEventSchemaMap } from './schemas.ts'
 
 const EnvelopeSchema = Schema.Struct({
   seq: Schema.Int,
@@ -29,7 +22,7 @@ const invalid = (message: string): SessionError =>
  */
 export function decodeSessionEvent(
   value: unknown,
-  schemas: SessionEventSchemaMap = coreSessionEventSchemas,
+  schemas: SessionEventSchemaMap = SessionEventSchemas,
 ): Effect.Effect<SessionEvent | undefined, SessionError> {
   return Effect.gen(function* () {
     const envelope = yield* Schema.decodeUnknownEffect(EnvelopeSchema)(value).pipe(

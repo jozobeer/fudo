@@ -5,7 +5,10 @@ import {
   LlmUsageSchema,
 } from '@fudo/llm'
 import { Schema } from 'effect'
-import type { SessionEventMap, SessionEventType, TurnEndReason } from './events.ts'
+import type { TurnEndReason } from './events.ts'
+
+/** Event schemas a decoder accepts, keyed by event type. Plugins add their own. */
+export type SessionEventSchemaMap = ReadonlyMap<string, Schema.Schema<unknown>>
 
 const TurnEndReasonSchema: Schema.Schema<TurnEndReason> = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('completed') }),
@@ -16,51 +19,76 @@ const TurnEndReasonSchema: Schema.Schema<TurnEndReason> = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('error'), failure: LlmFailureSchema }),
 ])
 
-/** One runtime schema for every core event's data, used to read logs and replay. */
-export const SessionEventSchemas: {
-  readonly [K in SessionEventType]: Schema.Schema<SessionEventMap[K]>
-} = {
-  'session/header': Schema.Struct({
-    formatVersion: Schema.Int,
-    createdAt: Schema.Number,
-    cwd: Schema.String,
-  }),
-  'turn/start': Schema.Struct({ turn: Schema.Int }),
-  'turn/end': Schema.Struct({ turn: Schema.Int, reason: TurnEndReasonSchema }),
-  'step/start': Schema.Struct({ step: Schema.Int }),
-  'step/end': Schema.Struct({ step: Schema.Int }),
-  'request/header': Schema.Struct({
-    provider: Schema.String,
-    model: Schema.String,
-    params: Schema.Record(Schema.String, Schema.Unknown),
-  }),
-  'system/message': Schema.Struct({ text: Schema.String }),
-  'user/message': Schema.Struct({
-    text: Schema.String,
-    source: Schema.Literals(['user', 'inject', 'runtime-context']),
-  }),
-  'assistant/message': Schema.Struct({
-    provider: Schema.String,
-    model: Schema.String,
-    content: Schema.Array(ContentBlockSchema),
-    usage: Schema.optionalKey(LlmUsageSchema),
-    replayState: Schema.optionalKey(Schema.Unknown),
-    stream: Schema.Array(AssistantStreamRecordSchema),
-  }),
-  'assistant/attempt': Schema.Struct({
-    provider: Schema.String,
-    model: Schema.String,
-    failure: LlmFailureSchema,
-    stream: Schema.Array(AssistantStreamRecordSchema),
-  }),
-  'tool/call': Schema.Struct({
-    callId: Schema.String,
-    name: Schema.String,
-    arguments: Schema.String,
-  }),
-  'tool/result': Schema.Struct({
-    callId: Schema.String,
-    isError: Schema.Boolean,
-    content: Schema.Array(ContentBlockSchema),
-  }),
+/**
+ * Runtime schemas for the core events. This is a map, not an exhaustive record:
+ * packages add event types to `SessionEventMap` by declaration merging and
+ * supply their matching schemas where they construct a decoder.
+ */
+export const SessionEventSchemas: SessionEventSchemaMap = new Map<string, Schema.Schema<unknown>>([
+  [
+    'session/header',
+    Schema.Struct({ formatVersion: Schema.Int, createdAt: Schema.Number, cwd: Schema.String }),
+  ],
+  ['turn/start', Schema.Struct({ turn: Schema.Int })],
+  ['turn/end', Schema.Struct({ turn: Schema.Int, reason: TurnEndReasonSchema })],
+  ['step/start', Schema.Struct({ step: Schema.Int })],
+  ['step/end', Schema.Struct({ step: Schema.Int })],
+  [
+    'request/header',
+    Schema.Struct({
+      provider: Schema.String,
+      model: Schema.String,
+      params: Schema.Record(Schema.String, Schema.Unknown),
+    }),
+  ],
+  ['system/message', Schema.Struct({ text: Schema.String })],
+  [
+    'user/message',
+    Schema.Struct({
+      text: Schema.String,
+      source: Schema.Literals(['user', 'inject', 'runtime-context']),
+    }),
+  ],
+  [
+    'assistant/message',
+    Schema.Struct({
+      provider: Schema.String,
+      model: Schema.String,
+      content: Schema.Array(ContentBlockSchema),
+      usage: Schema.optionalKey(LlmUsageSchema),
+      replayState: Schema.optionalKey(Schema.Unknown),
+      stream: Schema.Array(AssistantStreamRecordSchema),
+    }),
+  ],
+  [
+    'assistant/attempt',
+    Schema.Struct({
+      provider: Schema.String,
+      model: Schema.String,
+      failure: LlmFailureSchema,
+      stream: Schema.Array(AssistantStreamRecordSchema),
+    }),
+  ],
+  [
+    'tool/call',
+    Schema.Struct({ callId: Schema.String, name: Schema.String, arguments: Schema.String }),
+  ],
+  [
+    'tool/result',
+    Schema.Struct({
+      callId: Schema.String,
+      isError: Schema.Boolean,
+      content: Schema.Array(ContentBlockSchema),
+    }),
+  ],
+])
+/** Merges event schema maps; a later map wins on the same event type. */
+export function extendSessionEventSchemas(
+  ...maps: ReadonlyArray<SessionEventSchemaMap>
+): SessionEventSchemaMap {
+  const merged = new Map<string, Schema.Schema<unknown>>()
+  for (const map of maps) {
+    for (const [type, schema] of map) merged.set(type, schema)
+  }
+  return merged
 }

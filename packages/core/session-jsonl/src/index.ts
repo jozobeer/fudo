@@ -2,6 +2,7 @@ import {
   SESSION_FORMAT_VERSION,
   SessionError,
   decodeSessionEvent,
+  type SessionEventSchemaMap,
   type OpenedSession,
   type SessionEvent,
   type SessionHeader,
@@ -18,6 +19,8 @@ import { join } from 'node:path'
 export interface JsonlSessionsOptions {
   /** Directory that holds one subdirectory per session. */
   readonly root: string
+  /** Event schemas beyond the core catalog, keyed by event type. */
+  readonly schemas?: SessionEventSchemaMap
 }
 
 const FILE_NAME = 'session.v1.jsonl'
@@ -47,12 +50,13 @@ const parseLine = (
 const decodeEvents = (
   id: SessionId,
   text: string,
+  schemas: SessionEventSchemaMap | undefined,
 ): Effect.Effect<ReadonlyArray<SessionEvent>, SessionError> =>
   Effect.gen(function* () {
     const events: Array<SessionEvent> = []
     for (const [index, line] of text.split('\n').entries()) {
       if (line.trim() === '') continue
-      const event = yield* decodeSessionEvent(yield* parseLine(id, index + 1, line))
+      const event = yield* decodeSessionEvent(yield* parseLine(id, index + 1, line), schemas)
       if (event !== undefined) events.push(event)
     }
     const first = events[0]
@@ -69,12 +73,16 @@ const decodeEvents = (
     return events
   })
 
-const readHeader = (id: SessionId, text: string): Effect.Effect<SessionHeader, SessionError> =>
+const readHeader = (
+  id: SessionId,
+  text: string,
+  schemas: SessionEventSchemaMap | undefined,
+): Effect.Effect<SessionHeader, SessionError> =>
   Effect.gen(function* () {
     const firstLine = text.split('\n').find((line) => line.trim() !== '')
     if (firstLine === undefined)
       return yield* Effect.fail(persistenceError(`session ${id} is empty`))
-    const event = yield* decodeSessionEvent(yield* parseLine(id, 1, firstLine))
+    const event = yield* decodeSessionEvent(yield* parseLine(id, 1, firstLine), schemas)
     if (event === undefined || event.type !== 'session/header') {
       return yield* Effect.fail(
         persistenceError(`session ${id} does not start with session/header`),
@@ -124,13 +132,13 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
 
   const open = (id: SessionId): Effect.Effect<OpenedSession, SessionError> =>
     Effect.gen(function* () {
-      const events = yield* decodeEvents(id, yield* readText(id))
+      const events = yield* decodeEvents(id, yield* readText(id), options.schemas)
       return { id, events, sink: sinkFor(fileOf(id), id) }
     })
 
   const stat = (id: SessionId): Effect.Effect<SessionSummary, SessionError> =>
     Effect.gen(function* () {
-      const header = yield* readHeader(id, yield* readText(id))
+      const header = yield* readHeader(id, yield* readText(id), options.schemas)
       return { id, cwd: header.cwd, createdAt: header.createdAt }
     })
 
