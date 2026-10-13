@@ -8,8 +8,10 @@
 mise install   # Bun を mise.toml の版で入れる
 cp .env.example .env   # API キーを書く。mise と Bun の両方が読み込む
 bun install
-bun run check  # fmt:check → lint → typecheck → test
+bun run check  # fmt:check → lint → typecheck → complexity → test
 ```
+
+`bun install` が pre-push hook を有効にし、push 前に test 以外の静的チェック（`bun run check:static`）が走る。
 
 ## 参考元
 

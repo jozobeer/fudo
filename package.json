@@ -13,7 +13,9 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "complexity": "cccc --top-cognitive 10 --table packages",
-    "check": "bun run fmt:check && bun run lint && bun run typecheck && bun run test"
+    "check:static": "bun run fmt:check && bun run lint && bun run typecheck && bun run complexity",
+    "check": "bun run check:static && bun run test",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",
