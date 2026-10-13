@@ -210,3 +210,46 @@ describe('parseProfile', () => {
     expect(error.code).toBe('config')
   })
 })
+
+describe('loader composition', () => {
+  class Up extends Context.Service<Up, { readonly id: string }>()('test/Up') {}
+  class Down extends Context.Service<Down, { readonly id: string }>()('test/Down') {}
+
+  const upPlugin: Plugin<{}, Up, never> = {
+    name: 'up',
+    config: Schema.Struct({}),
+    provides: [Up],
+    requires: [],
+    layer: () => Layer.succeed(Up, { id: 'up' }),
+  }
+
+  const downPlugin: Plugin<{}, Down, Up> = {
+    name: 'down',
+    config: Schema.Struct({}),
+    provides: [Down],
+    requires: [Up],
+    layer: () =>
+      Layer.effect(
+        Down,
+        Effect.gen(function* () {
+          const up = yield* Up
+          return { id: `${up.id}-down` }
+        }),
+      ),
+  }
+
+  test('a provided service reaches the built context through the loader', async () => {
+    const built = await Effect.runPromise(
+      Effect.gen(function* () {
+        const layer = yield* loadProfile({
+          plugins: [upPlugin, downPlugin],
+          layers: [[row('up', 'up'), row('down', 'down')]],
+        })
+        const context = yield* Layer.build(layer)
+        return Context.get(context, Down)
+      }).pipe(Effect.scoped),
+    )
+
+    expect(built).toEqual({ id: 'up-down' })
+  })
+})
