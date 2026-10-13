@@ -1,0 +1,54 @@
+import { Schema, Effect } from 'effect'
+import { ToolError, type ToolDefinition } from '@fudo/tools'
+
+const Parameters = Schema.Struct({
+  query: Schema.String,
+  limit: Schema.optionalKey(Schema.Int),
+})
+
+export type WebSearchArgs = Schema.Schema.Type<typeof Parameters>
+
+export interface SearchHit {
+  readonly title: string
+  readonly url: string
+  readonly snippet: string
+}
+
+export interface SearchHost {
+  /** Runs one query against whatever provider the caller configured. */
+  readonly search: (
+    query: string,
+    limit: number,
+  ) => Effect.Effect<ReadonlyArray<SearchHit>, ToolError>
+}
+
+/** Searches the web through the provider the caller injected. */
+export const makeWebSearchTool = (
+  host: SearchHost,
+): ToolDefinition<WebSearchArgs, ReadonlyArray<SearchHit>> => ({
+  name: 'web_search',
+  description: 'Searches the web and returns titles, urls, and snippets.',
+  parameters: Parameters,
+  needs: ['network'],
+  isConcurrencySafe: () => true,
+  output: {
+    schema: Schema.Array(
+      Schema.Struct({ title: Schema.String, url: Schema.String, snippet: Schema.String }),
+    ),
+    render: (_args, value) => [
+      {
+        type: 'text',
+        text: value.map((hit) => hit.title + '\n' + hit.url + '\n' + hit.snippet).join('\n\n'),
+      },
+    ],
+  },
+  execute: (args) =>
+    Effect.gen(function* () {
+      if (args.query.trim() === '') {
+        return yield* Effect.fail(
+          new ToolError({ code: 'invalid-arguments', message: 'empty query' }),
+        )
+      }
+      return yield* host.search(args.query, args.limit ?? 5)
+    }),
+})
