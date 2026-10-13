@@ -4,6 +4,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
+    "@fudo/kernel": "workspace:*",
     "@fudo/session": "workspace:*",
     "effect": "4.0.3"
   }

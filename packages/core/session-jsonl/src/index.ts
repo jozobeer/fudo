@@ -172,3 +172,4 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
 
   return { create, open, stat, list }
 }
+export * from './plugin.ts'

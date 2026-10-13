@@ -57,6 +57,7 @@
     "packages/core/session-jsonl": {
       "name": "@fudo/session-jsonl",
       "dependencies": {
+        "@fudo/kernel": "workspace:*",
         "@fudo/session": "workspace:*",
         "effect": "4.0.3",
       },
