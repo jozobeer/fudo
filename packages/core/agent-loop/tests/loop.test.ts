@@ -253,4 +253,54 @@ describe('agent loop', () => {
 
     expect(reason(events)).toEqual([{ kind: 'cancelled', cause: 'user' }])
   })
+
+  test('cancel during a tool call pairs the call with a synthesized result', async () => {
+    const slow: ToolDefinition<{}, { readonly ok: boolean }> = {
+      name: 'slow',
+      description: 'Never finishes',
+      parameters: Schema.Struct({}),
+      output: {
+        schema: Schema.Struct({ ok: Schema.Boolean }),
+        render: () => [{ type: 'text', text: 'ok' }],
+      },
+      execute: () => Effect.sleep('1 hour').pipe(Effect.as({ ok: true })),
+    }
+
+    const events = await scenario(
+      [
+        chunks([
+          {
+            type: 'block-end',
+            index: 0,
+            block: { type: 'tool-call', id: 'c1', name: 'slow', arguments: '{}' },
+          },
+          { type: 'finish', kind: 'tool-calls' },
+        ]),
+        chunks(textTurn('done')),
+      ],
+      (ctx) =>
+        Effect.gen(function* () {
+          yield* ctx.tools.register(slow)
+          const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+          yield* agent.followup({ text: 'go', source: 'user' })
+          for (let index = 0; index < 200; index += 1) {
+            if (agent.session.events().some((event) => event.type === 'tool/call')) break
+            yield* Effect.yieldNow
+          }
+          yield* agent.cancel('user')
+          yield* agent.whenIdle
+          return agent
+        }),
+    )
+
+    const kinds = types(events)
+    const callIndex = kinds.indexOf('tool/call')
+    const resultIndex = kinds.indexOf('tool/result')
+    const result = events.session.events().find((event) => event.type === 'tool/result')
+
+    expect(callIndex).toBeGreaterThanOrEqual(0)
+    expect(resultIndex).toBeGreaterThan(callIndex)
+    expect(result?.data.isError).toBe(true)
+    expect(reason(events)).toEqual([{ kind: 'cancelled', cause: 'user' }])
+  })
 })
