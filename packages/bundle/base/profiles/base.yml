@@ -12,6 +12,10 @@ plugins:
     name: '@fudo/tools'
   - id: system-prompt
     name: '@fudo/system-prompt'
+  - id: safety
+    name: '@fudo/safety'
+    config:
+      preset: workspace-write
   - id: llm
     name: '@fudo/llm-openai'
     config:

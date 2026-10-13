@@ -4,6 +4,7 @@ import { Sessions, sessionPlugin } from '@fudo/session'
 import { sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { SystemPrompt, systemPromptPlugin } from '@fudo/system-prompt'
 import { Tools, toolsPlugin } from '@fudo/tools'
+import { Policy, safetyPlugin } from '@fudo/safety'
 import { Llm } from '@fudo/llm'
 import { llmOpenAiPlugin } from '@fudo/llm-openai'
 import { Agents, agentPlugin } from '@fudo/agent'
@@ -23,6 +24,7 @@ const plugins = [
   llmOpenAiPlugin,
   agentPlugin,
   agentLoopPlugin,
+  safetyPlugin,
 ]
 
 afterAll(async () => {
@@ -54,18 +56,20 @@ describe('bundled profile assembly', () => {
           tools: Context.get(context, Tools).schemas().length,
           prompt: Context.get(context, SystemPrompt).sections().length,
           llm: Context.get(context, Llm).capabilities.toolChoice,
+          preset: Context.get(context, Policy).preset,
         }
       }).pipe(Effect.scoped),
     )
 
     expect(built).toEqual({
-      rows: 8,
+      rows: 9,
       listed: 1,
       status: 'idle',
       sessions: true,
       tools: 0,
       prompt: 0,
       llm: false,
+      preset: 'workspace-write',
     })
   })
 })

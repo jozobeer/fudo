@@ -14,6 +14,7 @@ describe('base profile', () => {
       'session-jsonl',
       'tools',
       'system-prompt',
+      'safety',
       'llm',
       'agent',
       'agent-loop',

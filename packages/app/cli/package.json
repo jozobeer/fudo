@@ -13,6 +13,7 @@
     "@fudo/kernel": "workspace:*",
     "@fudo/llm": "workspace:*",
     "@fudo/llm-openai": "workspace:*",
+    "@fudo/safety": "workspace:*",
     "@fudo/session": "workspace:*",
     "@fudo/session-jsonl": "workspace:*",
     "@fudo/system-prompt": "workspace:*",
