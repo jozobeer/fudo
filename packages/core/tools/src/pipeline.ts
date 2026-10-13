@@ -1,5 +1,5 @@
 import type { HookRegistry } from '@fudo/kernel'
-import { Cause, Effect, Option, Schema } from 'effect'
+import { Cause, Effect, Option, Schema, Duration } from 'effect'
 import {
   ToolError,
   type PreExecuteDecision,
@@ -55,7 +55,10 @@ export const tryDecodeArguments = (tool: AnyTool, raw: string): Option.Option<un
   )
 
 const runBody = (tool: AnyTool, exec: ToolExecution): Effect.Effect<ToolExecutionResult> =>
-  tool.execute(exec.args, exec.context).pipe(
+  (tool.timeoutMs === undefined
+    ? tool.execute(exec.args, exec.context)
+    : Effect.timeout(tool.execute(exec.args, exec.context), Duration.millis(tool.timeoutMs))
+  ).pipe(
     Effect.map((value) => ({
       isError: false,
       content: tool.output.render(exec.args, value),
