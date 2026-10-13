@@ -128,6 +128,14 @@
         "effect": "4.0.3",
       },
     },
+    "packages/core/tools-tier1": {
+      "name": "@fudo/tools-tier1",
+      "dependencies": {
+        "@fudo/kernel": "workspace:*",
+        "@fudo/tools": "workspace:*",
+        "effect": "4.0.3",
+      },
+    },
     "packages/kernel/kernel": {
       "name": "@fudo/kernel",
       "dependencies": {
@@ -188,6 +196,8 @@
     "@fudo/tools": ["@fudo/tools@workspace:packages/core/tools"],
 
     "@fudo/tools-tier0": ["@fudo/tools-tier0@workspace:packages/core/tools-tier0"],
+
+    "@fudo/tools-tier1": ["@fudo/tools-tier1@workspace:packages/core/tools-tier1"],
 
     "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.72.0", "", { "os": "android", "cpu": "arm" }, "sha512-u4U1uaDOVBuorGNC/07NLm48nECHOiJJka002YGML16Md2DRvf38RGBt01lH60EOGvNlFVmbLoksQedNBoZHKw=="],
 

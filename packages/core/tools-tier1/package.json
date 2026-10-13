@@ -1,0 +1,11 @@
+{
+  "name": "@fudo/tools-tier1",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fudo/kernel": "workspace:*",
+    "@fudo/tools": "workspace:*",
+    "effect": "4.0.3"
+  }
+}
