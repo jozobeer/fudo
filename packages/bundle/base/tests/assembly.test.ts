@@ -51,7 +51,7 @@ describe('bundled profile assembly', () => {
         const agents = Context.get(context, Agents)
         const agent = yield* agents.create({
           cwd: '/work',
-          options: { route: 'ollama-cloud/kimi-k2.7-code' },
+          options: { route: 'ollama-cloud/deepseek-v4.1-flash' },
         })
         return {
           rows: rows.length,

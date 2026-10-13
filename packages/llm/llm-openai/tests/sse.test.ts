@@ -8,7 +8,7 @@ const fixture = async (): Promise<ReadonlyArray<string>> =>
   )
 
 describe('OpenAiStreamDecoder', () => {
-  test('decodes the recorded tool-call stream into reasoning and parallel tool calls', async () => {
+  test('decodes the recorded tool-call stream into reasoning, text, and parallel tool calls', async () => {
     const chunks = decodeOpenAiStream(await fixture())
     const assembler = new BlockAssembler()
     for (const chunk of chunks) assembler.push(chunk)
@@ -16,6 +16,7 @@ describe('OpenAiStreamDecoder', () => {
 
     expect(assembled.content.map((block) => block.type)).toEqual([
       'reasoning',
+      'text',
       'tool-call',
       'tool-call',
     ])

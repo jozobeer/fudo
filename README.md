@@ -36,7 +36,7 @@ cp .env.example .env   # OLLAMA_API_KEY=... を書く
 既定のモデルは `~/.config/fudo/config.yaml` に書く。
 
 ```yaml
-model: ollama-cloud/kimi-k2.7-code
+model: ollama-cloud/deepseek-v4.1-flash
 ```
 
 モデルを指定せずに実行すると `model "" not found` で止まる。`--model` を渡すとこの設定を上書きする。

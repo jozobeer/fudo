@@ -17,7 +17,7 @@ describe('replayAdapter', () => {
       Stream.runCollect(
         adapter.stream({
           provider: 'ollama-cloud',
-          model: 'kimi-k2.7-code',
+          model: 'deepseek-v4.1-flash',
           messages: [],
           tools: undefined,
           params: {},

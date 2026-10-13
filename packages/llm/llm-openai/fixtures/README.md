@@ -2,7 +2,7 @@
 
 `ollama-cloud-tool-call.sse` は 2026-10-13 に Ollama Cloud の OpenAI 互換 API
 (`POST https://ollama.com/v1/chat/completions`) へ streaming + `stream_options.include_usage` +
-2 つの tool を付けて録画した生の応答である。モデルは `kimi-k2.7-code`。
+2 つの tool を付けて録画した生の応答である。モデルは `deepseek-v4.1-flash`。
 
 録画で確定したこと:
 
@@ -14,4 +14,4 @@
 
 - `Schema.toJsonSchemaDocument()` が返す draft 2020-12 の JSON Schema は tools パラメータとしてそのまま受理された。
   入れ子の struct は `definitions` へ退避されず `schema` に inline され、`$ref` は現れなかった（`{ ...document.schema, $defs: document.definitions }` の形で送信）。
-  検証は 2026-10-13 に `kimi-k2.7-code` で実施し、`collect` が `{"label":"x","items":[{"path":"a"}]}` で呼ばれた。
+  検証は 2026-10-13 に `deepseek-v4.1-flash` で実施し、`collect` が `{"label":"x","items":[{"path":"a"}]}` で呼ばれた。

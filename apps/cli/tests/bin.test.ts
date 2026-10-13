@@ -15,7 +15,7 @@ describe('parseArgs', () => {
       '--patch',
       'b.yml',
       '--model',
-      'ollama-cloud/kimi-k2.7-code',
+      'ollama-cloud/deepseek-v4.1-flash',
       '--json',
       'do',
       'the',
@@ -24,7 +24,7 @@ describe('parseArgs', () => {
 
     expect(parsed.profile).toBe('repl')
     expect(parsed.patches).toEqual(['a.yml', 'b.yml'])
-    expect(parsed.model).toBe('ollama-cloud/kimi-k2.7-code')
+    expect(parsed.model).toBe('ollama-cloud/deepseek-v4.1-flash')
     expect(parsed.json).toBe(true)
     expect(parsed.task).toBe('do the thing')
     expect(parsed.errors).toEqual([])

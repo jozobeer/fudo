@@ -5,7 +5,7 @@ import { openAiAdapter } from '../src/index.ts'
 
 const request: LlmRequest = {
   provider: 'ollama-cloud',
-  model: 'kimi-k2.7-code',
+  model: 'deepseek-v4.1-flash',
   messages: [
     { role: 'system', content: [{ type: 'text', text: 'be brief' }] },
     { role: 'user', content: [{ type: 'text', text: 'hi' }] },
