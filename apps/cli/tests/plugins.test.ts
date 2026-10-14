@@ -13,4 +13,8 @@ describe('the plugins the command can assemble', () => {
 
     for (const row of profile.plugins) expect(names()).toContain(row.name)
   })
+
+  test('has the mcp plugin, so a settings row can name it', () => {
+    expect(names()).toContain('@fudo/mcp')
+  })
 })

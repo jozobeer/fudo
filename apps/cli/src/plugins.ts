@@ -8,7 +8,7 @@ import { askPlugin, safetyPlugin } from '@fudo/safety'
 import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
 import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
+import { mcpPlugin, tier1Plugin } from '@fudo/tools-tier1'
 
 /**
  * Every plugin a profile row or a settings row may name.
@@ -29,4 +29,5 @@ export const bundledPlugins: ReadonlyArray<Plugin<any, any, any>> = [
   askPlugin,
   tier0Plugin,
   tier1Plugin,
+  mcpPlugin,
 ]
