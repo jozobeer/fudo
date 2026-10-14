@@ -3,11 +3,39 @@ import { kernelPlugin, loadProfile } from '@fudo/kernel'
 import { BlockAssembler, Llm } from '@fudo/llm'
 import { Context, Effect, Layer, Stream } from 'effect'
 import { replayAdapter, replayPlugin } from '../src/index.ts'
+import { normalizeLog } from '../src/scenario.ts'
 
 const recording = async (): Promise<string> =>
   Bun.file(
     new URL('../../../llm/llm-openai/fixtures/ollama-cloud-tool-call.sse', import.meta.url),
   ).text()
+
+describe('normalizeLog', () => {
+  test('zeroes the moments that move and keeps a schema field named time', () => {
+    const line = normalizeLog(
+      [
+        {
+          seq: 1,
+          time: 1728912345678,
+          type: 'request/header',
+          data: {
+            createdAt: 1728912345678,
+            params: { weekly: { time: { type: 'string', description: "like '08:30'" } } },
+          },
+        },
+      ],
+      [],
+    )
+    const parsed = JSON.parse(line)
+
+    expect(parsed.time).toBe(0)
+    expect(parsed.data.createdAt).toBe(0)
+    expect(parsed.data.params.weekly.time).toEqual({
+      type: 'string',
+      description: "like '08:30'",
+    })
+  })
+})
 
 describe('replayAdapter', () => {
   test('replays the recorded stream as assistant content', async () => {

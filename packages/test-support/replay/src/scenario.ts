@@ -68,7 +68,12 @@ const scrub = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(scrub)
   if (typeof value !== 'object' || value === null) return value
   return Object.fromEntries(
-    Object.entries(value).map(([key, inner]) => [key, UNSTABLE.test(key) ? 0 : scrub(inner)]),
+    Object.entries(value).map(([key, inner]) => [
+      key,
+      // Only a number can be a moment that moves between runs. A field named
+      // `time` inside a tool schema is a schema; zeroing it would hide it.
+      UNSTABLE.test(key) && typeof inner === 'number' ? 0 : scrub(inner),
+    ]),
   )
 }
 
