@@ -15,14 +15,16 @@
 
 ## 結果（3 回の幅と平均）
 
-| harness | task | runs | done | tool calls | turns | failed edits | re-reads |
-|---|---|---|---|---|---|---|---|
-| fudo | fix-add | 3 | 3 | 3-4 (3.3) | 1 | 0 | 1 |
-| dsh | fix-add | 3 | 3 | 3-4 (3.7) | 1 | 0 | 1 |
-| fudo | write-notes | 3 | 3 | 2-3 (2.3) | 1 | 0 | 0 |
-| dsh | write-notes | 3 | 3 | 2-4 (3.0) | 1 | 0 | 0 |
-| fudo | rename-function | 3 | 3 | 7-14 (10.3) | 1 | 0 | 0-2 (0.7) |
-| dsh | rename-function | 3 | 3 | 8-12 (10.0) | 1 | 0 | 0-2 (0.7) |
+`counted` は数値の出た走の数で、幅と平均はその走だけから出る。
+
+| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads |
+|---|---|---|---|---|---|---|---|---|
+| fudo | fix-add | 3 | 3 | 3 | 3-4 (3.3) | 1 | 0 | 1 |
+| dsh | fix-add | 3 | 3 | 3 | 3-4 (3.7) | 1 | 0 | 1 |
+| fudo | write-notes | 3 | 3 | 3 | 2-3 (2.3) | 1 | 0 | 0 |
+| dsh | write-notes | 3 | 3 | 3 | 2-4 (3.0) | 1 | 0 | 0 |
+| fudo | rename-function | 3 | 3 | 3 | 7-14 (10.3) | 1 | 0 | 0-2 (1.3) |
+| dsh | rename-function | 3 | 3 | 3 | 8-12 (10.0) | 1 | 0 | 0-2 (0.7) |
 
 走ごとの値（参考）:
 
@@ -40,7 +42,7 @@
 - **完了と turn 数に差は無い**。6 セルすべて 3/3 完了、どの走も 1 turn。3 タスクは 1 turn で終わる大きさなので、turn 数はハーネスの差を写さない。
 - **失敗 edit は両方 0**。どちらの edit も一発で当たっており、この 3 タスクでは edit の当たり外れが差にならない。
 - **tool calls の差は走ごとのばらつきに埋もれている**。rename-function は fudo が 7〜14、dsh が 8〜12 で、平均の差（10.3 対 10.0）より各ハーネス内の幅の方が大きい。n=3 でこの幅では、平均の 0.3 回を「dsh の方が少ない」と読む根拠は無い。
-- **読み直しの型は同じ**。fix-add は両方とも「read → edit → read」で、最後の read が同じパスの 2 回目になる（1 re-read）。rename-function の 0〜2 回は、改名後に両ファイルを読み直して確認した走だけに出る。fudo は 1 走で `bash(git diff)` を挟んでから読み直し、dsh は 1 走で編集前に `ls -R` を重ねた——どちらも同じ確認行動の別表現で、頻度の差ではない。
+- **読み直しの型は同じ**。fix-add は両方とも「read → edit → read」で、最後の read が同じパスの 2 回目になる（1 re-read）。rename-function の 0〜2 回は、改名後に両ファイルを読み直して確認した走だけに出る（fudo 2/3 走、dsh 1/3 走。n=3 では区別できない）。fudo は 1 走で `bash(git diff)` を挟んでから読み直し、dsh は 1 走で編集前に `ls -R` を重ねた——どちらも同じ確認行動の別表現で、頻度の差ではない。
 - したがって、この 3 タスク・n=3 の範囲では **ハーネス由来の系統差は観測されなかった**。差が出るとすれば長いタスク（多 turn・edit 失敗・compaction 発火）で、そこはこの A/B の外である。
 
 ## 計数の訂正（同じログの数え直し）
