@@ -20,11 +20,25 @@ export interface Scenario {
   readonly streams: ReadonlyArray<string>
   /** The one-shot task, or the lines a batch run is fed instead. */
   readonly task?: string
+  /** A second turn opened from the same log, which is what `--resume` does. */
+  readonly resumeTask?: string
   readonly lines?: ReadonlyArray<string>
   /** Files the workspace starts with, keyed by a path relative to it. */
   readonly files?: Readonly<Record<string, string>>
   /** How an approval request is answered; undefined refuses, like a run with nobody there. */
   readonly approve?: boolean
+  /** Profile rows the recording overlays on the bundled profile, matched by id. */
+  readonly extraRows?: ReadonlyArray<ScenarioRow>
+  /** Whether the composition may start child agents. */
+  readonly subagents?: boolean
+}
+
+/** One profile row a scenario adds or replaces; shaped like the loader reads it. */
+export interface ScenarioRow {
+  readonly id: string
+  readonly name: string
+  readonly config?: Readonly<Record<string, unknown>>
+  readonly disabled?: boolean
 }
 
 /** What one replay needs from whoever owns the CLI: a place, a log, and the plugins. */
@@ -34,21 +48,30 @@ export interface ScenarioRun {
   readonly streams: ReadonlyArray<string>
   readonly approve: boolean | undefined
   readonly task: string | undefined
+  readonly resumeTask: string | undefined
   readonly lines: ReadonlyArray<string> | undefined
+  readonly extraRows: ReadonlyArray<ScenarioRow> | undefined
+  readonly subagents: boolean | undefined
 }
 
-/** Runs one session the way the CLI does, and answers with its log. */
+/** One session a replay left on disk. A run that started children leaves more than one. */
+export interface ScenarioSession {
+  readonly id: string
+  readonly events: ReadonlyArray<LoggedEvent>
+}
+
+/** Runs one session the way the CLI does, and answers with every log it left. */
 export type ScenarioRunner = (
   run: ScenarioRun,
-) => Promise<{ readonly code: number; readonly events: ReadonlyArray<LoggedEvent> }>
+) => Promise<{ readonly code: number; readonly sessions: ReadonlyArray<ScenarioSession> }>
 
 /** What one replay left behind, ready to compare with a recording. */
 export interface ScenarioOutcome {
   readonly name: string
   readonly code: number
-  /** The log and the workspace, with ids, times, and temp paths written as tokens. */
+  /** The logs and the workspace, with ids, times, and temp paths written as tokens. */
   readonly snapshot: string
-  readonly events: ReadonlyArray<LoggedEvent>
+  readonly sessions: ReadonlyArray<ScenarioSession>
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
@@ -155,13 +178,16 @@ export const runScenario = async (
     await writeFile(join(workspace, path), text)
   }
   try {
-    const { code, events } = await runner({
+    const { code, sessions } = await runner({
       workspace,
       logs,
       streams: scenario.streams,
       approve: scenario.approve,
       task: scenario.task,
+      resumeTask: scenario.resumeTask,
       lines: scenario.lines,
+      extraRows: scenario.extraRows,
+      subagents: scenario.subagents,
     })
     // The longest paths first: a shorter one would leave its own name behind.
     const tokens: ReadonlyArray<readonly [string, string]> = [
@@ -171,15 +197,21 @@ export const runScenario = async (
       [tmpdir(), '<tmpdir>'],
     ]
     const files = await readTree(workspace)
+    // Sorted by their own normalized text: a run that started children leaves
+    // more than one log, and the order they were listed in is not stable.
+    const recorded = sessions
+      .map((session) => normalizeLog(session.events, tokens))
+      .sort()
+      .join('\n--- next session ---\n')
     return {
       name: scenario.name,
       code,
-      events,
+      sessions,
       snapshot:
         'exit ' +
         String(code) +
         '\n' +
-        normalizeLog(events, tokens) +
+        recorded +
         '\n--- workspace ---\n' +
         files.map(([path, text]) => path + '\n' + text).join('\n'),
     }

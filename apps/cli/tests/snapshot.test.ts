@@ -4,7 +4,7 @@ import { loadBundledProfile } from '@fudo/bundle-base'
 import { kernelPlugin, type Plugin } from '@fudo/kernel'
 import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
 import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin, type SessionEvent } from '@fudo/session'
+import { sessionPlugin } from '@fudo/session'
 import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
 import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
@@ -15,6 +15,8 @@ import {
   runScenario,
   firstDifference,
   type Scenario,
+  type ScenarioRow,
+  type ScenarioSession,
 } from '@fudo/test-support-replay'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -92,24 +94,29 @@ const deltaOf = (chunk: StreamChunk): Record<string, unknown> => {
   return {}
 }
 
-/** Runs one scenario through the shipping composition and answers with its log. */
+/** Runs one scenario through the shipping composition and answers with every log. */
 const runner = async (run: {
   readonly workspace: string
   readonly logs: string
   readonly streams: ReadonlyArray<string>
   readonly approve: boolean | undefined
   readonly task: string | undefined
+  readonly resumeTask: string | undefined
   readonly lines: ReadonlyArray<string> | undefined
-}): Promise<{ readonly code: number; readonly events: ReadonlyArray<SessionEvent> }> => {
+  readonly extraRows: ReadonlyArray<ScenarioRow> | undefined
+  readonly subagents: boolean | undefined
+}): Promise<{ readonly code: number; readonly sessions: ReadonlyArray<ScenarioSession> }> => {
+  // One counter for every run: a resumed turn and a child turn both draw the
+  // next recorded stream, in the order the model reached for it.
+  const adapters = run.streams.map((sse) => replayAdapter(sse))
   let step = 0
   const llm: Plugin<{}, Llm, never> = {
     name: 'replay-llm',
     config: Schema.Struct({}),
     provides: [Llm],
     requires: [],
-    layer: () => {
-      const adapters = run.streams.map((sse) => replayAdapter(sse))
-      return Layer.succeed(Llm, {
+    layer: () =>
+      Layer.succeed(Llm, {
         name: 'replay',
         capabilities: {
           toolChoice: false,
@@ -128,47 +135,65 @@ const runner = async (run: {
             params: {},
           }) as Stream.Stream<StreamChunk, never>
         },
-      } satisfies LlmAdapter)
-    },
+      } satisfies LlmAdapter),
   }
-  const code = await Effect.runPromise(
-    runCommand({
-      profiles: [await loadBundledProfile()],
-      extraRows: [
-        { id: 'session-jsonl', name: '@fudo/session-jsonl', config: { root: run.logs } },
-        // The recording stands in for the provider the profile names.
-        { id: 'llm', name: 'replay-llm', config: {} },
-      ],
-      plugins: [
-        kernelPlugin,
-        sessionJsonlPlugin,
-        sessionPlugin,
-        toolsPlugin,
-        systemPromptPlugin,
-        safetyPlugin,
-        askPlugin,
-        tier0Plugin,
-        tier1Plugin,
-        llm,
-        agentPlugin,
-        agentLoopPlugin,
-      ] as ReadonlyArray<Plugin<any, any, any>>,
-      cwd: run.workspace,
-      route: 'replay/model',
-      ...(run.task === undefined
-        ? { lines: Stream.fromIterable(run.lines ?? []) }
-        : { task: run.task }),
-      approve: () => Effect.succeed(run.approve === true),
-      stdout: () => undefined,
-      stderr: () => undefined,
-    }),
-  )
-  const listed = await Effect.runPromise(jsonlSessions({ root: run.logs }).list())
-  const id = listed[0]?.id
+  const rows = [
+    { id: 'session-jsonl', name: '@fudo/session-jsonl', config: { root: run.logs } },
+    // The recording stands in for the provider the profile names.
+    { id: 'llm', name: 'replay-llm', config: {} },
+    ...(run.extraRows ?? []),
+  ]
+  const runOnce = async (extra: {
+    readonly task?: string
+    readonly lines?: ReadonlyArray<string>
+    readonly resume?: string
+  }): Promise<number> =>
+    Effect.runPromise(
+      runCommand({
+        profiles: [await loadBundledProfile()],
+        extraRows: rows,
+        plugins: [
+          kernelPlugin,
+          sessionJsonlPlugin,
+          sessionPlugin,
+          toolsPlugin,
+          systemPromptPlugin,
+          safetyPlugin,
+          askPlugin,
+          tier0Plugin,
+          tier1Plugin,
+          llm,
+          agentPlugin,
+          agentLoopPlugin,
+        ] as ReadonlyArray<Plugin<any, any, any>>,
+        cwd: run.workspace,
+        route: 'replay/model',
+        ...(extra.task === undefined ? {} : { task: extra.task }),
+        ...(extra.lines === undefined ? {} : { lines: Stream.fromIterable(extra.lines) }),
+        ...(extra.resume === undefined ? {} : { resume: extra.resume }),
+        ...(run.subagents === true ? { subagents: true } : {}),
+        approve: () => Effect.succeed(run.approve === true),
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+
+  let code = 0
+  if (run.task !== undefined) code = await runOnce({ task: run.task })
+  else if (run.lines !== undefined) code = await runOnce({ lines: run.lines })
+  if (run.resumeTask !== undefined) {
+    const listed = await Effect.runPromise(jsonlSessions({ root: run.logs }).list())
+    code = await runOnce({ task: run.resumeTask, resume: listed[0]?.id ?? '' })
+  }
+
+  const store = jsonlSessions({ root: run.logs })
+  const sessions: Array<ScenarioSession> = []
+  for (const summary of await Effect.runPromise(store.list())) {
+    const opened = await Effect.runPromise(store.open(summary.id))
+    sessions.push({ id: summary.id, events: opened.events })
+  }
   // A run that wrote no log still has a code to record, and that code is the finding.
-  if (id === undefined) return { code, events: [] }
-  const opened = await Effect.runPromise(jsonlSessions({ root: run.logs }).open(id))
-  return { code, events: opened.events }
+  return { code, sessions }
 }
 
 const SCENARIOS: ReadonlyArray<Scenario> = [
@@ -186,6 +211,53 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     name: 'recorded-stream',
     task: 'run the recorded turn',
     streams: [await recorded()],
+  },
+  {
+    name: 'tool-failure',
+    task: 'read the notes',
+    streams: [
+      sseOf(toolTurn('read', { path: 'missing.txt' }, 'c1')),
+      sseOf(textTurn('the file is not there')),
+    ],
+  },
+  {
+    name: 'approval-refusal',
+    task: 'run the command',
+    approve: false,
+    streams: [
+      sseOf(toolTurn('bash', { command: 'echo hi' }, 'c1')),
+      sseOf(textTurn('that was refused')),
+    ],
+  },
+  {
+    name: 'compaction',
+    task: 'say done',
+    // A window small enough that the first request is already over the line.
+    extraRows: [
+      {
+        id: 'agent-loop',
+        name: '@fudo/agent-loop',
+        config: { keepLast: 1, maxBytes: 10, contextWindow: 100, headroomTokens: 0 },
+      },
+    ],
+    // The first stream answers the auxiliary summary call, the second the turn.
+    streams: [sseOf(textTurn('the earlier span, condensed')), sseOf(textTurn('done'))],
+  },
+  {
+    name: 'resume',
+    task: 'the first question',
+    resumeTask: 'the second question',
+    streams: [sseOf(textTurn('the first answer')), sseOf(textTurn('the second answer'))],
+  },
+  {
+    name: 'subagent',
+    task: 'ask a child to say hi',
+    subagents: true,
+    streams: [
+      sseOf(toolTurn('subagent', { task: 'say hi to the parent' }, 'c1')),
+      sseOf(textTurn('hi from the child')),
+      sseOf(textTurn('the child said hi')),
+    ],
   },
 ]
 
