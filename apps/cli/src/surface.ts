@@ -38,6 +38,8 @@ interface SettingsNote {
   readonly summary: string
   /** What the settings file holds now, so the dump shows the state. */
   readonly value: (settings: FudoConfig | undefined) => string
+  /** Lines `fudo config init` comments out as the starting point for this key. */
+  readonly example: ReadonlyArray<string>
 }
 
 const countText = (count: number, noun: string): string =>
@@ -51,22 +53,32 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
     name: 'model',
     summary: 'provider/model',
     value: (settings) => settings?.model ?? 'not set',
+    example: ['model: ollama-cloud/deepseek-v4.1-flash'],
   },
   {
     name: 'profile',
     summary: 'a bundled profile name; --profile wins over it',
     value: (settings) => settings?.profile ?? 'not set, so headless is used',
+    example: ['profile: headless'],
   },
   {
     name: 'skills',
     summary: 'directories that hold <name>/SKILL.md',
     value: (settings) =>
       countOr('not set, so the skill tool is off', settings?.skills?.length, 'directory'),
+    example: ['skills:', '  - ~/skills'],
   },
   {
     name: 'plugins',
     summary: 'rows merged by id, between the profile and --patch',
     value: (settings) => countOr('not set', settings?.plugins?.length, 'row'),
+    example: [
+      'plugins:',
+      '  - id: safety',
+      "    name: '@fudo/safety'",
+      '    config:',
+      '      preset: workspace-write',
+    ],
   },
 ]
 
@@ -83,7 +95,8 @@ export const renderRowKeys = (): string =>
     ...ROW_KEYS.map((key) => '  - ' + key.name + ' (' + key.where + '): ' + key.summary),
   ].join('\n') + '\n'
 
-const renderSettings = (path: string, settings: FudoConfig | undefined): string =>
+/** The settings file named, with each key and what it holds now. */
+export const renderSettings = (path: string, settings: FudoConfig | undefined): string =>
   [
     'settings (' + path + '):',
     ...SETTINGS_KEYS.map(

@@ -145,7 +145,7 @@ const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
 }
 
 const NO_MODEL =
-  'no model is set: pass --model provider/model or set model in the settings file (fudo models lists them)'
+  'no model is set: run fudo config set model <provider/model>, or pass --model for one run (fudo models lists them)'
 
 const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
 

@@ -57,6 +57,7 @@ fudo --profile <name> --patch <file.yml>...
 fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
 fudo --model <provider/model>    the route to use (fudo models lists them)
 fudo --dump-config
+fudo config [set K V|init]       settings: show them, write one key, start a file
 fudo models                      list the models the provider offers
 fudo web [--port N]              browser UI over a local server
 fudo --resume <sessionId> [task]

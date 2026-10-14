@@ -164,7 +164,7 @@ describe('the model a run uses', () => {
     await tearDown()
     expect(code).toBe(1)
     expect(err).toEqual([
-      'fudo: no model is set: pass --model provider/model or set model in the settings file (fudo models lists them)\n',
+      'fudo: no model is set: run fudo config set model <provider/model>, or pass --model for one run (fudo models lists them)\n',
     ])
     expect(requested).toEqual([])
   })

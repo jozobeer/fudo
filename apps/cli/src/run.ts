@@ -4,6 +4,7 @@ import { Deferred, Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
 import { main, type MainIo } from './bin.ts'
 import { runAuthAtStart } from './auth-cli.ts'
+import { runConfigAtStart } from './config-cli.ts'
 
 export interface ProcessIo extends MainIo {
   /** True when the process owns a terminal; piped input becomes batch lines. */
@@ -56,6 +57,13 @@ export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effe
 export function runAsProcess(argv: ReadonlyArray<string>): void {
   if (argv[0] === 'auth') {
     void runAuthAtStart(argv).then((code) => {
+      process.exitCode = code ?? 0
+    })
+    return
+  }
+
+  if (argv[0] === 'config') {
+    void runConfigAtStart(argv).then((code) => {
       process.exitCode = code ?? 0
     })
     return
