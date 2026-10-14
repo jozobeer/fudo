@@ -2,6 +2,8 @@ import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
 import { type PluginRow } from '@fudo/kernel'
 import type { TuiIo } from '@fudo/tui'
 import { Effect, Stream } from 'effect'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { type SearchHost } from '@fudo/tools-tier1'
 import { parseArgs, type ParsedArgs } from './args.ts'
 import { configPaths, loadSecrets } from './config.ts'
@@ -124,6 +126,8 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   plugins: bundledPlugins,
   cwd: io.cwd,
   route: inputs.route,
+  // The fudo home: where the sessions root lives, so a user-global AGENTS.md sits there too.
+  agentsHome: join(homedir(), '.fudo'),
   settingsPath: inputs.settingsPath,
   settings: inputs.settings,
   stdout: io.stdout,

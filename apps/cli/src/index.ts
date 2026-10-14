@@ -13,9 +13,16 @@ import {
   type PluginError,
   type PluginRow,
 } from '@fudo/kernel'
-import type { SessionId } from '@fudo/session'
-import { SystemPrompt, registerAgentsMd } from '@fudo/system-prompt'
-import { ToolError } from '@fudo/tools'
+import { cwdOf, type SessionId } from '@fudo/session'
+import {
+  SystemPrompt,
+  additionalInstructionsText,
+  loadedAgentsOf,
+  nestedAgentsFiles,
+  registerAgentsMd,
+  type AgentsMdOptions,
+} from '@fudo/system-prompt'
+import { ToolError, type ToolExecution } from '@fudo/tools'
 import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import {
@@ -47,7 +54,7 @@ import {
   type AskShape,
   type PolicyShape,
 } from '@fudo/safety'
-import { join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@fudo/tui'
 import { makeUiHost, type UiHost } from '@fudo/ui-host'
 import { defaultStaticRoot, serveWeb } from '@fudo/web'
@@ -88,6 +95,8 @@ export interface CommandOptions {
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
   /** Directories searched by the skill tool, in order. */
   readonly skills?: ReadonlyArray<string>
+  /** Home directory whose AGENTS.md applies to every workspace. */
+  readonly agentsHome?: string
   /** Lets the model run tasks in child agents. */
   readonly subagents?: boolean
   /** A search provider; without one the web_search tool is not registered. */
@@ -351,6 +360,53 @@ const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
       ? serveLines(agent, options, work.lines)
       : Effect.succeed(0)
 
+/** Instruction discovery options of this run. */
+const agentsOptionsOf = (options: CommandOptions): AgentsMdOptions =>
+  options.agentsHome === undefined ? {} : { home: options.agentsHome }
+
+/** Tools whose first argument names the file they touched. */
+const TOUCHED_PATH_TOOLS = new Set(['read', 'write', 'edit'])
+
+const touchedPathOf = (exec: ToolExecution): string | undefined => {
+  if (!TOUCHED_PATH_TOOLS.has(exec.tool)) return undefined
+  const args = exec.args
+  if (typeof args !== 'object' || args === null) return undefined
+  const path = (args as { readonly path?: unknown }).path
+  return typeof path === 'string' ? path : undefined
+}
+
+/**
+ * Nested instruction files reach the model as it touches their directories: the
+ * files between the workspace root and the touched file are read once and injected
+ * as the next step's input, so the model learns they apply where it is working.
+ */
+const installNestedAgentsMd = (input: {
+  readonly hooks: HookRegistry
+  readonly agent: Agent
+  readonly root: string
+  readonly loaded: Map<string, string>
+}) =>
+  input.hooks.on('tools/post-execute', (exec, result) =>
+    Effect.gen(function* () {
+      const path = touchedPathOf(exec)
+      if (path === undefined) return result
+      const cwd = cwdOf(input.agent.session.events(), input.agent.session.header)
+      const files = yield* nestedAgentsFiles(input.loaded, { root: input.root, cwd, path })
+      for (const file of files) {
+        input.loaded.set(file.path, file.text.trim())
+        const scope = relative(input.root, dirname(file.path))
+        // A session that cannot be written stops the agent.
+        yield* input.agent
+          .inject({
+            text: additionalInstructionsText(file, scope === '' ? '.' : scope),
+            source: 'inject',
+          })
+          .pipe(Effect.orDie)
+      }
+      return result
+    }),
+  )
+
 /** Everything the profile's rows install on one running agent. */
 interface ProfileWiring {
   readonly rows: ReadonlyArray<PluginRow>
@@ -472,7 +528,11 @@ const runSession = (
     if (!ownsTheScreen(work)) yield* installOutput(hooks, options)
 
     // Workspace instructions join the prompt before the first turn.
-    yield* registerAgentsMd(Context.get(context, SystemPrompt), options.cwd)
+    const agents = yield* registerAgentsMd(
+      Context.get(context, SystemPrompt),
+      options.cwd,
+      agentsOptionsOf(options),
+    )
 
     if (hasRow(rows, '@fudo/mcp')) {
       yield* installMcpServers(Context.get(context, Tools), Context.get(context, McpServers))
@@ -480,6 +540,13 @@ const runSession = (
 
     const agent = yield* createAgent(Context.get(context, Agents), options, route, spillBytes)
     const ui = yield* uiHostOf(work, agent, hooks)
+
+    yield* installNestedAgentsMd({
+      hooks,
+      agent,
+      root: options.cwd,
+      loaded: loadedAgentsOf(agents),
+    })
 
     yield* installFromProfile({
       rows,
