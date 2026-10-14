@@ -1,5 +1,4 @@
 import type { HookRegistry } from '@fudo/kernel'
-import { applySpill, type SpillOptions } from './spill.ts'
 import { Cause, Effect, Option, Schema, Duration } from 'effect'
 import {
   ToolError,
@@ -120,7 +119,6 @@ export const executeTool = (
   tool: AnyTool,
   request: ToolCallRequest,
   guards: ReadonlyArray<ToolGuard>,
-  spill: SpillOptions = {},
 ): Effect.Effect<ToolCallOutcome> =>
   Effect.gen(function* () {
     const result = yield* Effect.gen(function* () {
@@ -151,7 +149,6 @@ export const executeTool = (
       return finalize(tool, exec, posted ?? executed)
     }).pipe(Effect.catchCause((cause) => Effect.succeed(errorResult(describeCause(cause)))))
 
-    const shown = yield* applySpill(result, { callId: request.callId, tool: tool.name }, spill)
-    yield* hooks.emit('tools/result', shown)
-    return shown
+    yield* hooks.emit('tools/result', result)
+    return result
   })
