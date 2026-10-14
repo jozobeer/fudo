@@ -48,7 +48,7 @@ export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, 
   name: 'edit',
   presentCall: (args) => ({ summary: 'edit ' + args.path + ' ' + changedLines(args) }),
   description:
-    'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file.',
+    'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file. If it reports no match or more than one, read the file again and quote the exact text. A file this session has not read is refused: read it first.',
   parameters: Parameters,
   needs: ['write'],
   output: {

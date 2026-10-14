@@ -29,7 +29,7 @@ export const makeWriteTool = (observed: ObservedFiles): ToolDefinition<WriteArgs
   name: 'write',
   presentCall: (args) => ({ summary: 'write ' + args.path }),
   description:
-    'Writes a UTF-8 text file inside the workspace, creating parent directories. Read a file before you overwrite it: write replaces the whole file.',
+    'Writes a UTF-8 text file inside the workspace, creating parent directories. Read a file before you overwrite it: write replaces the whole file. If it refuses because the file changed on disk, read it again and write what you now see.',
   parameters: Parameters,
   needs: ['write'],
   output: {

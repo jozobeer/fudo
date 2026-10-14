@@ -62,7 +62,7 @@ export const globTool: ToolDefinition<GlobArgs, GlobValue> = {
   name: 'glob',
   presentCall: (args) => ({ summary: 'glob ' + args.pattern }),
   description:
-    'Lists workspace files matching a glob pattern, in modification-time order (oldest first). Use it to find files by name; use grep to search inside them. node_modules and .git are never walked.',
+    'Lists workspace files matching a glob pattern, in modification-time order (oldest first). Use it to find files by name; use grep to search inside them. node_modules and .git are never walked. A list too long to show is stored whole; read that file with offset and limit.',
   parameters: Parameters,
   needs: ['read'],
   output: {
