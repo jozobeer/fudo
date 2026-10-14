@@ -35,7 +35,13 @@ export type TurnEndReason = TurnEndReasonMap[keyof TurnEndReasonMap]
  * Why a user message entered the log. The schema derives its literals from this
  * list, so an added source cannot be forgotten on the way to the log.
  */
-export const USER_MESSAGE_SOURCES = ['user', 'inject', 'runtime-context', 'skill-catalog'] as const
+export const USER_MESSAGE_SOURCES = [
+  'user',
+  'inject',
+  'runtime-context',
+  'skill-catalog',
+  'goal-round',
+] as const
 
 export type UserMessageSource = (typeof USER_MESSAGE_SOURCES)[number]
 

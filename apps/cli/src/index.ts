@@ -40,6 +40,8 @@ import {
   makeSubagentTool,
   makeWorkingDirectoryTool,
   makeExitPlanModeTool,
+  makeGoalTool,
+  startGoalRound,
   discoverSkills,
   renderSkillCatalog,
   skillRoots,
@@ -252,6 +254,19 @@ const tier1ToolList = (
   const list = [...tier1Tools(ask, skills)]
   if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
   for (const tool of jobTools(jobs)) list.push(tool)
+  list.push(
+    makeGoalTool({
+      events: () => agent.session.events(),
+      append: (state) =>
+        agent.session
+          .append('goal/updated', state)
+          .pipe(
+            Effect.mapError(
+              () => new ToolError({ code: 'execution', message: 'cannot record the goal' }),
+            ),
+          ),
+    }),
+  )
   list.push(
     makeWorkingDirectoryTool({
       root: options.cwd,
@@ -499,6 +514,13 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
         wiring.hooks,
         Context.get(wiring.context, Policy),
         Context.get(wiring.context, Approval),
+      )
+    }
+    // An active goal keeps going by itself: at the end of a turn of this agent, the
+    // next round is queued before the turn closes, so the run cannot go idle in between.
+    if (hasRow(wiring.rows, '@fudo/tools-tier1')) {
+      yield* wiring.hooks.on('agent/turn-stopping', (ending: Agent) =>
+        ending === wiring.agent ? startGoalRound(ending) : Effect.void,
       )
     }
   })

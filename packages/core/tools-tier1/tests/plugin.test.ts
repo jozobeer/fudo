@@ -25,6 +25,6 @@ describe('tier1Plugin', () => {
       ),
     )
 
-    expect(names).toEqual(['todo_write', 'goal', 'ask_user', 'web_fetch', 'read_image'])
+    expect(names).toEqual(['todo_write', 'ask_user', 'web_fetch', 'read_image'])
   })
 })

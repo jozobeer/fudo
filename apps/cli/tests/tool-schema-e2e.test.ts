@@ -120,7 +120,6 @@ describe('the tool declarations the model receives', () => {
       'grep',
       'bash',
       'todo_write',
-      'goal',
       'ask_user',
       'web_fetch',
       'read_image',
@@ -129,6 +128,7 @@ describe('the tool declarations the model receives', () => {
       'job_output',
       'job_kill',
       'job_list',
+      'goal',
       'working_directory',
     ])
     expect(tools.flatMap((tool) => toolSchemaIssues(tool))).toEqual([])

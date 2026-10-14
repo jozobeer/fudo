@@ -130,7 +130,15 @@
 
 ## C. 自律性・委譲
 
-- [ ] **C1 goal**。fudo の `goal` は引数をログに返すだけ（`fudo:packages/core/tools-tier1/src/goal.ts:17`）。dsh は目標を durable に畳み、継続ラウンドでプロンプトを注入し、blocked を N ラウンド未満では拒否する（`dsh:packages/goal/goal-round-driver/src/index.ts:166`）。受け入れ: 目標がセッションをまたいで持続し、自動で次のラウンドが走る。
+- [x] **C1 goal**。fudo の `goal` は引数をログに返すだけ（`fudo:packages/core/tools-tier1/src/goal.ts:17`）。dsh は目標を durable に畳み、継続ラウンドでプロンプトを注入し、blocked を N ラウンド未満では拒否する（`dsh:packages/goal/goal-round-driver/src/index.ts:166`）。受け入れ: 目標がセッションをまたいで持続し、自動で次のラウンドが走る。
+  - 実装（2026-10-14）:
+    - 設計文書 S6 の決定 3 を改訂した（「自動再開は v1 では持たない」→ 持つ）。理由と形は `docs/superpowers/specs/2026-10-13-fudo-tier3-design.md` にある。
+    - `goal-state.ts`: 目標の唯一の置き場は session の `goal/updated`（log-only）。`currentGoal` が最新の 1 件を畳むので、再開したセッションでも目標は生きている。ラウンド数は `user/message`（source = `goal-round`）の数から導出し、別のカウンタを持たない。`USER_MESSAGE_SOURCES` に `goal-round` を足した。
+    - `goal.ts`: action 付きのツール（create / edit / pause / resume / complete / blocked）。create は objective 必須、edit は言葉と上限、pause / resume / complete は phase、blocked は理由必須で、直近の user/message が `goal-round`（自動ラウンドの中）なら 3 ラウンド未満では拒否する。phase の変更は古い blocker を落とす。
+    - `goal-rounds.ts`: `goalRoundDecision(events)`（純粋）と `startGoalRound(agent)`。CLI が `agent/turn-stopping` に登録し、turn が閉じる**前**に次のラウンドを `goal-round` 来源の user/message として followup する。上限に達したらシステム判断で blocked（round-limit）。自分（`wiring.agent`）の turn だけを見る。
+  - 検証: `goal-state.test.ts` 3 本（最新を畳む・無ければ undefined／ラウンドはログから数える／最小 3 ラウンド）、`goal.test.ts` 7 本（create と必須／phase の遷移／goal が無いときの拒否／blocked の理由と 3 ラウンド規則と受理／人間の stop は何ラウンドでも通る／phase 変更で blocker が消える）、`goal-rounds.test.ts` 6 本（決定の 3 通り／ラウンドを積む／上限でブロックし積まない／paused は触らない）、e2e `apps/cli/tests/goal-rounds-e2e.test.ts` 2 本（実 CLI で、create の turn が終わると自動で次ラウンドが走り、そのラウンドで complete すると 2 turn で止まる／maxGoalRounds 1 なら 2 turn で blocked になりループしない）。`bun run check` 621 pass / 0 fail。
+  - 学び: 「turn が終わってから次を積む」設計は、CLI が `whenIdle` で抜ける競合を生む（idle 判定の後にラウンドが積まれると run が終わる）。turn が閉じる前に積む（turn-stopping）ことで自動継続が確実になる。
+  - 未確認: 子 agent は `forkSeed` で親の goal を引き継ぐが、driver は main agent の turn だけを見るので子は自分のラウンドを回さない（子のログには active な goal が残る）。blocked の 3 ラウンド判定は「直近の user/message が `goal-round` か」で自動ラウンドを判定しており、人間が steer した直後は人間の番と見なす。上限到達時の blocked はシステム判断なので 3 ラウンド規則の対象外。
 - [ ] **C2 schedule**。dsh は create/list/update/delete と cron/daily/weekly/every を持ち、期限到達で `followup` する（`dsh:packages/schedule/tool-schedule/src/index.ts:446`）。fudo に時間の概念はない。
 - [ ] **C3 workflow / PTC**。dsh はスクリプトで子エージェントを扇状に走らせ、schema で結果を検証し、失敗項目を null に落とす（`dsh:packages/workflow/tool-workflow/src/index.ts:161`）。fudo は1 step 内の並列ツール呼び出しだけ（`fudo:packages/core/agent-loop/src/batch.ts:1`）。
 - [ ] **C4 guards**。fudo は monotonic guard の seam を持つが production に1本も登録していない（`fudo:packages/core/tools/src/pipeline.ts:96`）。dsh は繰り返し呼び出しの検出（閾値 3/5/8）と宣言 timeout の強制を持つ（`dsh:packages/guard/repeat-tool-reminder/src/index.ts:36`）。

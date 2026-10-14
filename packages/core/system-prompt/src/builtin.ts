@@ -50,7 +50,10 @@ const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
     'Check the [exit code: N] marker on every bash result; investigate failures before moving on. A command that outlives its timeout is killed and marked; use job_start for work that should keep running.',
   ],
   ['todo_write', "Keep a multi-step task's plan and progress in todo_write as steps finish."],
-  ['goal', 'Record the objective the work pursues with goal so it survives the session.'],
+  [
+    'goal',
+    'Record the objective with goal so it survives the session; while the phase is active the next round runs on its own, so complete it when the objective is achieved.',
+  ],
   ['skill', 'Read a skill with the skill tool before acting on a task that names or matches one.'],
   ['ask_user', 'Use ask_user when only the human can decide; do not guess at their choice.'],
   ['read_image', 'Use read_image for png, jpeg, webp, and gif files instead of read.'],
