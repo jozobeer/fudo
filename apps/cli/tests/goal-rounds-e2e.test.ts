@@ -97,7 +97,13 @@ const profile = (root: string): string =>
 const run = async (
   create: unknown,
   rounds: ReadonlyArray<ReadonlyArray<StreamChunk>>,
-): Promise<{ code: number; turns: number; goalRounds: Array<string>; goals: Array<unknown> }> => {
+): Promise<{
+  code: number
+  turns: number
+  goalRounds: Array<string>
+  goals: Array<unknown>
+  results: Array<string>
+}> => {
   const root = await mkdtemp(join(tmpdir(), 'fudo-goal-'))
   const code = await Effect.runPromise(
     runCommand({
@@ -134,6 +140,9 @@ const run = async (
       event.type === 'user/message' && event.data.source === 'goal-round' ? [event.data.text] : [],
     ),
     goals: events.flatMap((event) => (event.type === 'goal/updated' ? [event.data] : [])),
+    results: events.flatMap((event) =>
+      event.type === 'tool/result' ? [JSON.stringify(event.data.content)] : [],
+    ),
   }
 }
 
@@ -153,6 +162,24 @@ describe('a goal that keeps itself going through the command', () => {
     expect(observed.goalRounds[0]).toContain('Objective: finish the backlog')
     expect(observed.goalRounds[0]).toContain('Round: 1/256')
     expect(observed.goals.at(-1)).toMatchObject({ phase: 'complete' })
+  })
+
+  test('the model cannot pause its own goal from a round the driver started', async () => {
+    const observed = await run(
+      { action: 'create', objective: 'finish the backlog', maxGoalRounds: 1 },
+      // The rest of the human turn that created the goal, then the queued round.
+      [textTurn('started'), goalTurn({ action: 'pause' }), textTurn('still working')],
+    )
+
+    expect(observed.code).toBe(0)
+    // The round asked to pause and was refused; the goal ran to its limit instead.
+    expect(observed.results.some((text) => text.includes('needs a turn a human started'))).toBe(
+      true,
+    )
+    expect(
+      observed.goals.some((goal) => (goal as { readonly phase?: string }).phase === 'paused'),
+    ).toBe(false)
+    expect(observed.goals.at(-1)).toMatchObject({ phase: 'blocked' })
   })
 
   test('a goal that runs out of rounds is stopped instead of looping', async () => {

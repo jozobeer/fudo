@@ -5,7 +5,8 @@ import {
   currentGoal,
   DEFAULT_MAX_GOAL_ROUNDS,
   goalRounds,
-  GOAL_ROUND_SOURCE,
+  inGoalRound,
+  inHumanTurn,
   MIN_BLOCKED_ROUNDS,
   type GoalPhase,
   type GoalState,
@@ -98,13 +99,28 @@ const editGoal = (args: GoalArgs, current: GoalState, log: GoalLog) => {
   )
 }
 
-/** Whether the model is answering inside a round this driver started. */
-const inAutomaticRound = (events: ReadonlyArray<SessionEvent>): boolean => {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    if (event?.type === 'user/message') return event.data.source === GOAL_ROUND_SOURCE
+/** The phase an action moves the goal to. */
+const phaseOf = (action: string): GoalPhase =>
+  action === 'pause' ? 'paused' : action === 'resume' ? 'active' : 'complete'
+
+/**
+ * Moves the phase: complete is the model's to give, but pause and resume are a
+ * person's decisions, so a turn the model started on its own may not make them.
+ */
+const movePhase = (args: GoalArgs, current: GoalState, log: GoalLog) => {
+  if (args.action === 'pause' || args.action === 'resume') {
+    if (!inHumanTurn(log.events())) {
+      return Effect.fail(
+        refuse(
+          args.action +
+            ' needs a turn a human started; a model turn cannot ' +
+            args.action +
+            ' a goal',
+        ),
+      )
+    }
   }
-  return false
+  return setPhase(args.action, phaseOf(args.action), current, log)
 }
 
 const blockGoal = (args: GoalArgs, current: GoalState, log: GoalLog) => {
@@ -114,7 +130,7 @@ const blockGoal = (args: GoalArgs, current: GoalState, log: GoalLog) => {
   }
   const events = log.events()
   const rounds = goalRounds(events)
-  if (inAutomaticRound(events) && rounds < MIN_BLOCKED_ROUNDS) {
+  if (!inHumanTurn(events) && inGoalRound(events) && rounds < MIN_BLOCKED_ROUNDS) {
     return Effect.fail(
       refuse(
         'blocked needs at least ' +
@@ -179,8 +195,6 @@ export const makeGoalTool = (log: GoalLog): ToolDefinition<GoalArgs, GoalValue> 
       }
       if (args.action === 'edit') return yield* editGoal(args, current, log)
       if (args.action === 'blocked') return yield* blockGoal(args, current, log)
-      const phase: GoalPhase =
-        args.action === 'pause' ? 'paused' : args.action === 'resume' ? 'active' : 'complete'
-      return yield* setPhase(args.action, phase, current, log)
+      return yield* movePhase(args, current, log)
     }),
 })

@@ -4,6 +4,7 @@ import {
   registerSessionEventSchemas,
   type SessionEvent,
   type SessionEventSchemaMap,
+  type UserMessageSource,
 } from '@fudo/session'
 
 /** Where a goal stands. */
@@ -62,3 +63,26 @@ export const currentGoal = (events: ReadonlyArray<SessionEvent>): GoalState | un
 export const goalRounds = (events: ReadonlyArray<SessionEvent>): number =>
   events.filter((event) => event.type === 'user/message' && event.data.source === GOAL_ROUND_SOURCE)
     .length
+
+/** The events of the turn that is still open: everything after the last `turn/start`. */
+const openTurn = (events: ReadonlyArray<SessionEvent>): ReadonlyArray<SessionEvent> => {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (events[index]?.type === 'turn/start') return events.slice(index + 1)
+  }
+  return events
+}
+
+/** Whether the open turn carries an input that came from this source. */
+export const turnHasSource = (
+  events: ReadonlyArray<SessionEvent>,
+  source: UserMessageSource,
+): boolean =>
+  openTurn(events).some((event) => event.type === 'user/message' && event.data.source === source)
+
+/** Whether the open turn began with a person typing: the only authority for pause and resume. */
+export const inHumanTurn = (events: ReadonlyArray<SessionEvent>): boolean =>
+  turnHasSource(events, 'user')
+
+/** Whether the open turn is one the goal driver started, rather than a person. */
+export const inGoalRound = (events: ReadonlyArray<SessionEvent>): boolean =>
+  turnHasSource(events, GOAL_ROUND_SOURCE)

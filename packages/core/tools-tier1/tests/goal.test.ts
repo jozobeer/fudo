@@ -88,8 +88,8 @@ describe('the goal tool', () => {
     expect(events).toHaveLength(0)
   })
 
-  test('pause, resume, and complete move the phase', async () => {
-    const { log, events } = fakeLog()
+  test('pause, resume, and complete move the phase in a turn a human started', async () => {
+    const { log, events } = fakeLog([humanWord(1)])
 
     const created = await Effect.runPromise(
       call(makeGoalTool(log), { action: 'create', objective: 'aim' }),
@@ -102,7 +102,35 @@ describe('the goal tool', () => {
     expect(paused?.value).toMatchObject({ phase: 'paused' })
     expect(resumed?.value).toMatchObject({ phase: 'active' })
     expect(completed?.value).toMatchObject({ phase: 'complete' })
-    expect(events).toHaveLength(4)
+    expect(events.filter((each) => each.type === 'goal/updated')).toHaveLength(4)
+  })
+
+  test('a turn the model started cannot pause or resume the goal', async () => {
+    const { log, events } = fakeLog([created(1), goalRound(2)])
+
+    const paused = await Effect.runPromise(call(makeGoalTool(log), { action: 'pause' }))
+    const resumed = await Effect.runPromise(call(makeGoalTool(log), { action: 'resume' }))
+
+    expect(paused?.isError).toBe(true)
+    expect(textOf(paused)).toContain('human')
+    expect(resumed?.isError).toBe(true)
+    expect(textOf(resumed)).toContain('human')
+    expect(events.filter((each) => each.type === 'goal/updated')).toHaveLength(1)
+  })
+
+  test('an automatic round that also received a steer still cannot block early', async () => {
+    const { log } = fakeLog([
+      created(1),
+      goalRound(2),
+      event(3, 'user/message', { text: 'a job finished', source: 'inject' }),
+    ])
+
+    const result = await Effect.runPromise(
+      call(makeGoalTool(log), { action: 'blocked', blockedReason: 'waiting on the API' }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('3')
   })
 
   test('moving a goal that is not there is refused', async () => {
@@ -160,6 +188,7 @@ describe('the goal tool', () => {
         maxGoalRounds: 256,
         blockedReason: 'the key is gone',
       }),
+      humanWord(2),
     ])
 
     const resumed = await Effect.runPromise(call(makeGoalTool(log), { action: 'resume' }))
