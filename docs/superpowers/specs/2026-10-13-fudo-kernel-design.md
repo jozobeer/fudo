@@ -65,7 +65,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |
 | `workflow` | 採用（2026-10-14 改訂）。S6 の決定 4 を改訂し、データで書く扇状実行のツールとして持つ。dsh のスクリプト engine は持たない（[S6 の決定 4](2026-10-13-fudo-tier3-design.md)） |
 | MCP resources | 除外。S5 の MCP は「ツール一覧の取り込みと実行だけ」と決めている |
-| session query 5 種 | 他所。D4（session の耐久性）が引き受ける |
+| session query 5 種 | 採用済み（2026-10-14）。`fudo sessions` の一覧・閲覧と `--search` が担い、索引は JSONL の隣に置く（D4） |
 | schedule 4 種 | 採用済み。`schedule` ツール 1 つが create / list / update / delete を担う（C2） |
 | `terminal` 6 種（PTY） | 除外。fudo に端末セッションの概念は無く、`bash` と `job_*` がその役目を負う |
 | `computer` / browser use | 除外。画面を操作する client を持たない |
@@ -89,7 +89,7 @@ apps/
 packages/
   kernel/kernel        Plugin 定義・hook registry・loader（YAML から Layer を組み立てる）
   core/session         SessionEventMap・append-only log・deriveMessages
-  core/session-jsonl   JSONL 永続化 provider
+  core/session-jsonl   JSONL 永続化 provider、observation と FTS5 の読み出し
   core/tools           tool registry と実行 pipeline
   core/system-prompt   prompt section と tool schema の組み立て
   core/agent           Agent interface・registry・agent/* イベント
@@ -353,6 +353,7 @@ fudo --profile <name> --patch <file.yml>... --dump-config
 fudo --resume <sessionId>        ログから復元して続ける
 fudo sessions                    ログの一覧（新しい順）
 fudo sessions <sessionId>        1 つのログを会話として読む
+fudo sessions --search <text>    全文索引でセッションを探す
 fudo --json "task"               session/event を JSONL で stdout に出す
 ```
 

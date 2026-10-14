@@ -46,8 +46,8 @@
 
 ## 4. 耐久（層5）
 
-- [ ] **session の読み出し機構**。現在値: JSONL の生読み、破損末尾の修復、v0→v1 の移行まで（`fudo:packages/core/session-jsonl/src/repair.ts`、`upgrade.ts`）。dsh は v0→v4 の連鎖、zstd 圧縮、flock lease、ZIP export、FTS5 の検索と trace を持つ（`dsh:packages/session-query/session-query/src/index.ts:153`）。受け入れ: 1万イベントのログで一覧が1秒未満で返り、検索が全走査なしで引ける。
-- [ ] **複数 consumer**。現在値: UI host の fan-out のみ（`fudo:packages/ui/host/src/index.ts`）。dsh は `Observation.retain()` で複数の読み手が同じログを購読する（`dsh:packages/session-query/src/observation.ts:17`）。
+- [x] **session の読み出し機構**。一覧は `readFirstLine` で先頭行だけを読み、10,000 イベントのログでも本文を運ばない（`fudo:packages/core/session-jsonl/src/first-line.ts`）。検索は同じ root に置く SQLite FTS5 の索引（`index.v1.sqlite`）で引き、変更のあったファイルだけを `(mtimeMs, size)` で再索引し、消えたセッションを落とす（`src/query.ts` の `sync` / `search`）。索引は生の JSONL 行から作り、event schema に依存しない（decode できない行も検索でき、切れた末尾は読み飛ばす）。CLI は `fudo sessions --search <text>`。zstd 圧縮・flock lease・ZIP export・trace は持たない（v1 の規模の外）。受け入れ: `fudo:packages/core/session-jsonl/tests/query.test.ts` に 10,000 イベントの一覧 <1s・512 MB の sparse tail でも一覧が本文を読まないこと・索引の増分更新・削除の反映、e2e `fudo:apps/cli/tests/sessions-e2e.test.ts` に `--search` の実走。
+- [x] **複数 consumer**。`SessionObservation` が 1 つの不変カット（header・events・file revision）を貸し出し、`retain()` で同じカットを別の読み手に渡し、`dispose()` で自分の lease だけを返す。カットはファイルの revision が変わらない限り再利用され、最後の lease が返ると捨てられる（`fudo:packages/core/session-jsonl/src/query.ts`）。UI host の fan-out（複数タブ）はそのまま。読み出し経路（`fudo sessions <id>`）はこの observation を通るので、共有の実消費者がいる。受け入れ: `tests/query.test.ts` の「hands the same cut to every reader that retains it」（同一 events 配列の共有、lease が生きている間は再読み込みしない、全部返すと読み直す）と「a file that changed since the cut is read again」。
 - [x] **除外した基盤**（telemetry、identity、settings UI、credentials サービス）。除外は変えない、と [kernel 設計](../../superpowers/specs/2026-10-13-fudo-kernel-design.md) の追記で決めた。telemetry・identity・credentials は D5 の理由のまま、settings UI は `fudo config` / `--dump-config` / 承認つき `plugin` ツールで足りる。
 
 ## 5. 検証機構（層6）
