@@ -1,5 +1,7 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
+import { normalizeNewlines, readUtf8 } from './text.ts'
 import { resolveInside } from './write.ts'
 
 const Parameters = Schema.Struct({
@@ -35,8 +37,13 @@ const countOf = (text: string, needle: string): number => {
   return count
 }
 
-/** Replaces text in one file. Without \`all\`, the old text must be unique. */
-export const editTool: ToolDefinition<EditArgs, EditValue> = {
+/**
+ * Replaces text in one file. The file must have been read in this session and be
+ * unchanged since, so an edit never runs over somebody else's work; without
+ * `all`, the old text must be unique. Every refusal happens before the file is
+ * written, so a failed edit leaves it exactly as it was.
+ */
+export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, EditValue> => ({
   name: 'edit',
   description:
     'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file.',
@@ -54,10 +61,8 @@ export const editTool: ToolDefinition<EditArgs, EditValue> = {
   execute: (args, context) =>
     Effect.gen(function* () {
       const path = yield* resolveInside(context.cwd, args.path)
-      const text = yield* Effect.tryPromise({
-        try: () => Bun.file(path).text(),
-        catch: () => new ToolError({ code: 'execution', message: 'cannot read ' + path }),
-      })
+      yield* guardEdit(observed, context.sessionId, path)
+      const text = normalizeNewlines(yield* readUtf8(path))
       const found = countOf(text, args.oldString)
       if (found === 0) {
         return yield* Effect.fail(
@@ -76,14 +81,12 @@ export const editTool: ToolDefinition<EditArgs, EditValue> = {
       const updated = all
         ? text.split(args.oldString).join(args.newString)
         : text.replace(args.oldString, args.newString)
-      const written = yield* Effect.tryPromise({
-        try: async () => {
-          await Bun.write(path, updated)
-          return true
-        },
+      yield* Effect.tryPromise({
+        try: () => Bun.write(path, updated),
         catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
       })
-      void written
+      const written = yield* look(path)
+      if (written !== undefined) observed.observe(context.sessionId, path, written)
       return { path, replacements: all ? found : 1 }
     }),
-}
+})

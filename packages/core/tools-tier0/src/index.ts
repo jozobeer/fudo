@@ -4,23 +4,27 @@ export * from './bash.ts'
 export * from './edit.ts'
 export * from './glob.ts'
 export * from './grep.ts'
+export * from './text.ts'
+export * from './observed-files.ts'
 
 import { noneSandbox, type SandboxShape } from '@fudo/safety'
 import type { ToolDefinition } from '@fudo/tools'
-import { readTool } from './read.ts'
-import { writeTool } from './write.ts'
-import { editTool } from './edit.ts'
+import { makeReadTool } from './read.ts'
+import { makeWriteTool } from './write.ts'
+import { makeEditTool } from './edit.ts'
 import { globTool } from './glob.ts'
 import { grepTool } from './grep.ts'
 import { makeBashTool } from './bash.ts'
+import { makeObservedFiles, type ObservedFiles } from './observed-files.ts'
 
 /** Every Tier 0 tool, with the sandbox the caller chose for bash. */
 export const tier0Tools = (
   sandbox: SandboxShape = noneSandbox,
+  observed: ObservedFiles = makeObservedFiles(),
 ): ReadonlyArray<ToolDefinition<any, any>> => [
-  readTool,
-  writeTool,
-  editTool,
+  makeReadTool(observed),
+  makeWriteTool(observed),
+  makeEditTool(observed),
   globTool,
   grepTool,
   makeBashTool(sandbox),

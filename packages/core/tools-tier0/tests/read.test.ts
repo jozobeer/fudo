@@ -5,7 +5,12 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { READ_MAX_BYTES, READ_MAX_LINE_CHARS, readTool } from '../src/index.ts'
+import {
+  READ_MAX_BYTES,
+  READ_MAX_LINE_CHARS,
+  makeObservedFiles,
+  makeReadTool,
+} from '../src/index.ts'
 
 const call = (
   args: unknown,
@@ -15,7 +20,7 @@ const call = (
     Effect.gen(function* () {
       const context = yield* Layer.build(Layer.provideMerge(toolsLayer, HooksLive))
       const tools = Context.get(context, Tools)
-      yield* tools.register(readTool)
+      yield* tools.register(makeReadTool(makeObservedFiles()))
       return yield* tools.call({
         callId: 'c1',
         tool: 'read',

@@ -1,42 +1,62 @@
 import { HooksLive } from '@fudo/kernel'
-import { Tools, toolsLayer, type ToolError, type ToolExecutionResult } from '@fudo/tools'
+import {
+  Tools,
+  toolsLayer,
+  type ToolDefinition,
+  type ToolError,
+  type ToolExecutionResult,
+} from '@fudo/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { editTool } from '../src/index.ts'
+import { makeEditTool, makeObservedFiles, makeReadTool } from '../src/index.ts'
 
-const call = (
-  args: unknown,
-  cwd: string,
-): Effect.Effect<ToolExecutionResult | undefined, ToolError, never> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const context = yield* Layer.build(Layer.provideMerge(toolsLayer, HooksLive))
-      const tools = Context.get(context, Tools)
-      yield* tools.register(editTool)
-      return yield* tools.call({
-        callId: 'c1',
-        tool: 'edit',
-        arguments: JSON.stringify(args),
-        context: { sessionId: 's1', cwd, callId: 'c1' },
-      })
-    }),
-  )
+/** One session's tools share what they have observed about the workspace. */
+const makeSession = (cwd: string) => {
+  const observed = makeObservedFiles()
+  const list: ReadonlyArray<ToolDefinition<any, any>> = [
+    makeReadTool(observed),
+    makeEditTool(observed),
+  ]
+  return (
+    name: string,
+    args: unknown,
+  ): Effect.Effect<ToolExecutionResult | undefined, ToolError, never> =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(Layer.provideMerge(toolsLayer, HooksLive))
+        const tools = Context.get(context, Tools)
+        for (const tool of list) yield* tools.register(tool)
+        return yield* tools.call({
+          callId: 'c1',
+          tool: name,
+          arguments: JSON.stringify(args),
+          context: { sessionId: 's1', cwd, callId: 'c1' },
+        })
+      }),
+    )
+}
 
-const withFile = async (body: string) => {
+/** A workspace with one file, read the way a careful model would read it. */
+const withReadFile = async (body: string) => {
   const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
   await Bun.write(join(dir, 'a.txt'), body)
-  return dir
+  const call = makeSession(dir)
+  await Effect.runPromise(call('read', { path: 'a.txt' }))
+  return { dir, call }
 }
+
+const textOf = (result: ToolExecutionResult | undefined): string =>
+  JSON.stringify(result?.content ?? [])
 
 describe('edit tool', () => {
   test('replaces a unique match', async () => {
-    const dir = await withFile('one\ntwo\nthree\n')
+    const { dir, call } = await withReadFile('one\ntwo\nthree\n')
 
     const result = await Effect.runPromise(
-      call({ path: 'a.txt', oldString: 'two', newString: 'TWO' }, dir),
+      call('edit', { path: 'a.txt', oldString: 'two', newString: 'TWO' }),
     )
 
     expect(result?.isError).toBe(false)
@@ -45,33 +65,81 @@ describe('edit tool', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
-  test('refuses text that is missing or ambiguous', async () => {
-    const dir = await withFile('a\na\n')
+  test('refuses text that is missing or ambiguous, leaving the file alone', async () => {
+    const { dir, call } = await withReadFile('a\na\n')
 
     const missing = await Effect.runPromise(
-      call({ path: 'a.txt', oldString: 'zzz', newString: 'x' }, dir),
+      call('edit', { path: 'a.txt', oldString: 'zzz', newString: 'x' }),
     )
     const ambiguous = await Effect.runPromise(
-      call({ path: 'a.txt', oldString: 'a', newString: 'x' }, dir),
+      call('edit', { path: 'a.txt', oldString: 'a', newString: 'x' }),
     )
 
     expect(missing?.isError).toBe(true)
-    expect(JSON.stringify(missing?.content)).toContain('no match')
+    expect(textOf(missing)).toContain('no match')
     expect(ambiguous?.isError).toBe(true)
-    expect(JSON.stringify(ambiguous?.content)).toContain('2 matches')
+    expect(textOf(ambiguous)).toContain('2 matches')
     expect(await Bun.file(join(dir, 'a.txt')).text()).toBe('a\na\n')
     await rm(dir, { recursive: true, force: true })
   })
 
   test('replaces every match when asked', async () => {
-    const dir = await withFile('a\na\n')
+    const { dir, call } = await withReadFile('a\na\n')
 
     const result = await Effect.runPromise(
-      call({ path: 'a.txt', oldString: 'a', newString: 'x', all: true }, dir),
+      call('edit', { path: 'a.txt', oldString: 'a', newString: 'x', all: true }),
     )
 
     expect(result?.value).toEqual({ path: join(dir, 'a.txt'), replacements: 2 })
     expect(await Bun.file(join(dir, 'a.txt')).text()).toBe('x\nx\n')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('refuses a file this session never read', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    await Bun.write(join(dir, 'a.txt'), 'untouched\n')
+    const call = makeSession(dir)
+
+    const result = await Effect.runPromise(
+      call('edit', { path: 'a.txt', oldString: 'untouched', newString: 'changed' }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('read')
+    expect(await Bun.file(join(dir, 'a.txt')).text()).toBe('untouched\n')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('refuses a file that changed after it was read, and leaves it alone', async () => {
+    const { dir, call } = await withReadFile('the original\n')
+    await Bun.write(join(dir, 'a.txt'), 'someone else wrote this\n')
+
+    const result = await Effect.runPromise(
+      call('edit', { path: 'a.txt', oldString: 'someone', newString: 'nobody' }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('changed')
+    expect(await Bun.file(join(dir, 'a.txt')).text()).toBe('someone else wrote this\n')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a file that is not UTF-8 cannot be read, so it cannot be edited', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    const path = join(dir, 'a.txt')
+    await Bun.write(path, new Uint8Array([0xff, 0xfe, 0x00, 0x41]))
+    const call = makeSession(dir)
+
+    const read = await Effect.runPromise(call('read', { path: 'a.txt' }))
+    const edit = await Effect.runPromise(
+      call('edit', { path: 'a.txt', oldString: 'A', newString: 'B' }),
+    )
+
+    expect(read?.isError).toBe(true)
+    expect(textOf(read)).toContain('UTF-8')
+    expect(edit?.isError).toBe(true)
+    expect(textOf(edit)).toContain('read')
+    expect((await Bun.file(path).arrayBuffer()).byteLength).toBe(4)
     await rm(dir, { recursive: true, force: true })
   })
 })

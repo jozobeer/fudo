@@ -90,7 +90,15 @@
   - 検証: `packages/core/tools-tier0/tests/read.test.ts` の 8 本（numbered と EOF footer／途中の footer と offset 案内／長い行の切り詰めと明示／EOF 越えエラー／空ファイル／非 UTF-8 拒否／バイト上限と Output capped／存在しないファイル）。`bun run check` 567 pass / 0 fail。
   - 学び: 「打ち切り」は 2 種類ある（limit に達した／バイト上限に達した）。1 つの真偽値では footer を書き分けられず、テストが露見させたので `capped` を別に持たせた。
   - 未確認: dsh の `<path><type><content>` エンベロープは写していない（fudo の結果は素のテキスト）。行番号の区切りは fudo の tab のまま。
-- [ ] **B3 write / edit**。fudo は未読ファイルを黙って上書きし、陳腐化も CRLF もバイナリも見ない（`fudo:packages/core/tools-tier0/src/write.ts:44`、`edit.ts:51`）。dsh は未読・陳腐化を拒否して読み直しを促し、CRLF を正規化し、失敗時はファイルを変えない（`dsh:packages/fs/fs-observation-policy/src/index.ts:65`）。受け入れ: 外部変更を踏み潰さない。
+- [x] **B3 write / edit**。fudo は未読ファイルを黙って上書きし、陳腐化も CRLF もバイナリも見ない（`fudo:packages/core/tools-tier0/src/write.ts:44`、`edit.ts:51`）。dsh は未読・陳腐化を拒否して読み直しを促し、CRLF を正規化し、失敗時はファイルを変えない（`dsh:packages/fs/fs-observation-policy/src/index.ts:65`）。受け入れ: 外部変更を踏み潰さない。
+  - 実装（2026-10-14）:
+    - `@fudo/tools-tier0` に `observed-files.ts` を足した。session ごとに「最後に見たときのバイト数と mtime」を覚え、`guardWrite` / `guardEdit` が現在の stat と突き合わせる。write は、存在するファイルなら「このセッションで読んでいて、かつ変わっていない」ときだけ上書きを許す（新規作成は自由）。edit は「読んでいて、変わっていない」を必須にし、未読は `read <path> before you edit it`、不在は `cannot edit <path>: it is not there`、変化は `<path> changed on disk since you read it; read it again before you write` で拒否する。拒否は書き込みの前に起きるので、失敗した edit はファイルを変えない。
+    - read は成功時に観測を記録し、write/edit は成功時に自分の書き込みを観測として記録し直す（直後の編集に読み直しを要求しない）。
+    - CRLF は `normalizeNewlines` で LF に正規化する（write は書き込む内容、edit は突き合わせと書き戻しの両方）。非 UTF-8 は `readUtf8` が拒否するので、edit は binary に到達できない。
+    - read / write / edit は `makeReadTool(observed)` などのファクトリになり、`tier0Tools(sandbox, observed = makeObservedFiles())` が層ごとに 1 つの観測を持つ（アプリ内の全ツールで共有）。
+  - 検証: `write.test.ts` 6 本（新規作成／workspace 外の拒否／未読の上書き拒否とファイル不変／読後の上書き成功／読後に外部変更 → 拒否とファイル不変／CRLF → LF）と `edit.test.ts` 6 本（一意置換／不一致・曖昧の拒否とファイル不変／全置換／未読の拒否／外部変更の拒否／非 UTF-8 は read が拒否し edit も未読として拒否・バイト列不変）、e2e `apps/cli/tests/write-guard-e2e.test.ts` 2 本（実 CLI 経路で read → write が同じ観測を共有して成功し、未読の write は拒否してファイルが変わらない）。`bun run check` 576 pass / 0 fail。
+  - 学び: 「失敗してもファイルを変えない」は、拒否判定を書き込みの前段に置くことで初めて成立する。non-UTF-8 の edit がテストで露見させたのは順序の話で、guard が読了を要求するため binary は read の時点で止まる（拒否の理由が 2 段になる）。
+  - 未確認: 観測の状態は sessionId ごとの Map で、agent の dispose では解放しない（プロセス内のセッション数ぶん残る）。書き込みの原子性（一時ファイル + rename）は持たず、Bun.write の 1 回書きのまま。dsh の createIfAbsent / replaceIfVersion の CAS は、fudo では stat 比較 + 単一プロセス前提で代替している。
 - [ ] **B4 glob / grep**。fudo は Bun.Glob と JS 正規表現で、ignore もバイナリ除外も並び順もなく、超過分は捨てる（`fudo:packages/core/tools-tier0/src/glob.ts:30`、`grep.ts:83`）。dsh は ripgrep 相当で、ignore 尊重・バイナリ除外・上限超過分の退避 locator を持つ（`dsh:packages/fs/tool-fs-search/src/grep.ts:113`）。受け入れ: node_modules とバイナリを掘らず、結果の全量に手が届く。
 - [ ] **B5 bash**。fudo は timeout が一切なく、exit code はエラー文字列に埋まり、打ち切り先も告げない（`fudo:packages/core/tools-tier0/src/bash.ts:42`）。dsh は既定120秒/最大600秒、`[exit code: N]` マーカー、退避先つきの打ち切り通知、背景実行を持つ（`dsh:packages/shell/tool-bash/src/render.ts:11`）。受け入れ: ハングせず、失敗が失敗として読める。
 - [ ] **B6 欠けているツール**。pwsh、`job_list`、subagent 制御（send_message / interrupt_agent / list_agents / wait_agent）、subagent_fork、list_subagent_models、exit_plan_mode、present、lsp、workflow、MCP resources、session query 5種、schedule 4種、terminal 6種、computer/browser use、plugin_manager、str_replace_editor、ralph、create_worktree、team_*。

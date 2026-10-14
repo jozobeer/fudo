@@ -1,5 +1,7 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { look, type ObservedFiles } from './observed-files.ts'
+import { linesOf, readUtf8 } from './text.ts'
 
 /** One line longer than this many characters is cut, so one line cannot fill the window. */
 export const READ_MAX_LINE_CHARS = 2000
@@ -128,26 +130,6 @@ const footer = (value: ReadValue): string => {
   )
 }
 
-/** Reads a file as UTF-8 text; anything that is not UTF-8 is refused, not replaced. */
-const readText = (path: string): Effect.Effect<string, ToolError> =>
-  Effect.gen(function* () {
-    const bytes = yield* Effect.tryPromise({
-      try: () => Bun.file(path).arrayBuffer(),
-      catch: () => new ToolError({ code: 'execution', message: 'cannot read ' + path }),
-    })
-    return yield* Effect.try({
-      try: () => new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-      catch: () => new ToolError({ code: 'execution', message: 'not a UTF-8 text file: ' + path }),
-    })
-  })
-
-/** The lines of a file, without the empty line a trailing newline would add. */
-const linesOf = (text: string): ReadonlyArray<string> => {
-  const lines = text.split('\n')
-  if (lines[lines.length - 1] === '') lines.pop()
-  return lines
-}
-
 /** Refuses a window that cannot exist, before any line is rendered. */
 const checkWindow = (
   path: string,
@@ -182,8 +164,12 @@ const checkWindow = (
   return Effect.void
 }
 
-/** Reads one UTF-8 text file. Line numbers are 1-based, like an editor. */
-export const readTool: ToolDefinition<ReadArgs, ReadValue> = {
+/**
+ * Reads one UTF-8 text file. Line numbers are 1-based, like an editor. What it
+ * read is remembered for the session, so a later write or edit can tell whether
+ * somebody else changed the file in between.
+ */
+export const makeReadTool = (observed: ObservedFiles): ToolDefinition<ReadArgs, ReadValue> => ({
   name: 'read',
   description:
     'Reads a UTF-8 text file and returns its lines with 1-based line numbers. Use it instead of cat, head, or tail; page through a long file with offset and limit.',
@@ -211,9 +197,11 @@ export const readTool: ToolDefinition<ReadArgs, ReadValue> = {
       const path = args.path.startsWith('/') ? args.path : context.cwd + '/' + args.path
       const offset = args.offset ?? 1
       const limit = args.limit ?? 2000
-      const lines = linesOf(yield* readText(path))
+      const lines = linesOf(yield* readUtf8(path))
       yield* checkWindow(path, offset, limit, lines.length)
       const window = windowed(lines, offset, limit)
+      const current = yield* look(path)
+      if (current !== undefined) observed.observe(context.sessionId, path, current)
       return {
         text: window.text,
         totalLines: lines.length,
@@ -224,4 +212,4 @@ export const readTool: ToolDefinition<ReadArgs, ReadValue> = {
         shortened: window.shortened,
       }
     }),
-}
+})
