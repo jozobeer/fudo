@@ -8,7 +8,7 @@ import {
 } from '@fudo/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { globTool, grepTool } from '../src/index.ts'
@@ -32,6 +32,9 @@ const call = (
     }),
   )
 
+const textOf = (result: ToolExecutionResult | undefined): string =>
+  (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+
 const workspace = async () => {
   const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
   await Bun.write(join(dir, 'a.ts'), 'const one = 1\n// needle\n')
@@ -47,6 +50,27 @@ describe('glob tool', () => {
     const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
 
     expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], truncated: false })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('does not walk node_modules', async () => {
+    const dir = await workspace()
+    await mkdir(join(dir, 'node_modules', 'pkg'), { recursive: true })
+    await Bun.write(join(dir, 'node_modules', 'pkg', 'index.ts'), 'export {}\n')
+
+    const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
+
+    expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], truncated: false })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a capped listing says how to see the rest', async () => {
+    const dir = await workspace()
+
+    const result = await Effect.runPromise(call(globTool, { pattern: '**/*', limit: 1 }, dir))
+
+    expect(result?.value).toMatchObject({ truncated: true })
+    expect(textOf(result)).toContain('narrow the pattern')
     await rm(dir, { recursive: true, force: true })
   })
 })
@@ -73,6 +97,33 @@ describe('grep tool', () => {
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('bad pattern')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('binary files and node_modules are not searched', async () => {
+    const dir = await workspace()
+    await Bun.write(
+      join(dir, 'blob.bin'),
+      new Uint8Array([0x6e, 0x65, 0x65, 0x64, 0x6c, 0x65, 0x00, 0x01]),
+    )
+    await mkdir(join(dir, 'node_modules'), { recursive: true })
+    await Bun.write(join(dir, 'node_modules', 'dep.md'), 'needle from a dependency\n')
+
+    const result = await Effect.runPromise(call(grepTool, { pattern: 'needle' }, dir))
+
+    const value = result?.value as { readonly matches: ReadonlyArray<{ file: string }> }
+    expect(value.matches.map((match) => match.file)).toEqual(['a.ts', 'c.md'])
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a capped search says how to see the rest', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
+    await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
+
+    const result = await Effect.runPromise(call(grepTool, { pattern: 'needle', limit: 1 }, dir))
+
+    expect(result?.value).toMatchObject({ truncated: true })
+    expect(textOf(result)).toContain('narrow the pattern')
     await rm(dir, { recursive: true, force: true })
   })
 })

@@ -39,7 +39,10 @@ const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
     'Use read instead of cat, head, or tail to view a file; it returns 1-based line numbers you can cite, and its footer says whether more lines follow.',
   ],
   ['glob', 'Use glob to find files by name pattern; do not shell out to find or ls.'],
-  ['grep', 'Use grep to search file contents; do not shell out to grep or rg.'],
+  [
+    'grep',
+    'Use grep to search file contents; do not shell out to grep or rg. It skips node_modules, .git, hidden paths, and binary files, and its footer says when it stopped early.',
+  ],
   ['write', 'Read a file before write replaces it: the call rewrites the whole file.'],
   ['edit', 'Use edit for a targeted change; oldString must match exactly once unless all is set.'],
   [

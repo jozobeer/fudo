@@ -4,6 +4,7 @@ export * from './bash.ts'
 export * from './edit.ts'
 export * from './glob.ts'
 export * from './grep.ts'
+export * from './walk.ts'
 export * from './text.ts'
 export * from './observed-files.ts'
 

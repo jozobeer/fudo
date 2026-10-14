@@ -1,0 +1,90 @@
+import { Effect } from 'effect'
+import { describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { isBinary, makeIgnoredPaths, readIgnoreRules, walkFiles } from '../src/index.ts'
+
+const write = async (dir: string, path: string, body = 'x\n'): Promise<void> => {
+  await mkdir(join(dir, path, '..'), { recursive: true })
+  await Bun.write(join(dir, path), body)
+}
+
+describe('walkFiles', () => {
+  test('never walks node_modules or .git, at any depth', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    await write(dir, 'src/a.ts')
+    await write(dir, 'node_modules/pkg/index.js')
+    await write(dir, 'src/node_modules/pkg/index.js')
+    await write(dir, '.git/config')
+    await write(dir, '.hidden/file.txt')
+
+    const found = await Effect.runPromise(walkFiles({ cwd: dir, limit: 100 }))
+
+    expect(found).toEqual(['src/a.ts'])
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('honours the workspace ignore files, last rule winning', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    await Bun.write(join(dir, '.gitignore'), ['logs/', '*.log', '!keep.log', ''].join('\n'))
+    await write(dir, 'logs/debug.txt')
+    await write(dir, 'debug.log')
+    await write(dir, 'keep.log')
+    await write(dir, 'src/a.ts')
+
+    const found = await Effect.runPromise(walkFiles({ cwd: dir, limit: 100 }))
+
+    expect(found).toEqual(['keep.log', 'src/a.ts'])
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a nested pattern only matches where it points', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    await Bun.write(join(dir, '.ignore'), ['src/generated/**', '*.tmp', ''].join('\n'))
+    await write(dir, 'src/generated/a.ts')
+    await write(dir, 'src/kept.ts')
+    await write(dir, 'elsewhere/generated/b.ts')
+    await write(dir, 'note.tmp')
+
+    const found = await Effect.runPromise(walkFiles({ cwd: dir, limit: 100 }))
+
+    expect(found).toEqual(['elsewhere/generated/b.ts', 'src/kept.ts'])
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('stops at the limit and reports what it collected', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    for (let index = 0; index < 5; index += 1) await write(dir, 'f' + String(index) + '.txt')
+
+    const found = await Effect.runPromise(walkFiles({ cwd: dir, limit: 2 }))
+
+    expect(found).toHaveLength(2)
+    await rm(dir, { recursive: true, force: true })
+  })
+})
+
+describe('isBinary', () => {
+  test('a NUL byte in the head means binary', () => {
+    expect(isBinary(new Uint8Array([0x41, 0x00, 0x42]))).toBe(true)
+    expect(isBinary(new TextEncoder().encode('plain text\n'))).toBe(false)
+  })
+})
+
+describe('the ignore rules themselves', () => {
+  test('a directory rule does not speak for a file of the same name', async () => {
+    const rules = makeIgnoredPaths([
+      { negated: false, directoryOnly: true, anchored: false, pattern: 'build' },
+    ])
+
+    expect(rules.ignores('build', true)).toBe(true)
+    expect(rules.ignores('build', false)).toBe(false)
+  })
+
+  test('a missing ignore file is no rules at all', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+
+    expect(await Effect.runPromise(readIgnoreRules(dir))).toEqual([])
+    await rm(dir, { recursive: true, force: true })
+  })
+})
