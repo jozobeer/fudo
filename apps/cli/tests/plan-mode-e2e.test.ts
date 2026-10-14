@@ -16,6 +16,15 @@ import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
 
+const toolTurn = (name: string, args: unknown): ReadonlyArray<StreamChunk> => [
+  {
+    type: 'block-end',
+    index: 0,
+    block: { type: 'tool-call', id: 'c-' + name, name, arguments: JSON.stringify(args) },
+  },
+  { type: 'finish', kind: 'tool-calls' },
+]
+
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'text-delta', index: 0, text },
   { type: 'block-end', index: 0, block: { type: 'text', text } },
@@ -126,5 +135,80 @@ describe('plan mode through the command', () => {
 
     expect(observed.offered).toContain('write')
     expect(observed.offered).toContain('bash')
+  })
+
+  test('an approved plan brings the workspace tools back', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-plan-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'fudo-plan-ws-'))
+    const offered: Array<ReadonlyArray<string>> = []
+    let step = 0
+    const stub: Plugin<{}, Llm, never> = {
+      name: 'stub-llm',
+      config: Schema.Struct({}),
+      provides: [Llm],
+      requires: [],
+      layer: () =>
+        Layer.succeed(Llm, {
+          name: 'stub',
+          capabilities: {
+            toolChoice: false,
+            reasoningEffort: null,
+            images: 'none',
+            promptCacheControl: false,
+          },
+          stream: (request) => {
+            offered.push((request.tools ?? []).map((schema) => schema.name))
+            step += 1
+            if (step === 1) {
+              return Stream.fromIterable(
+                toolTurn('exit_plan_mode', { plan: '1. write out.txt with the answer' }),
+              )
+            }
+            if (step === 2) {
+              return Stream.fromIterable(
+                toolTurn('write', { path: 'out.txt', content: 'the answer\n' }),
+              )
+            }
+            return Stream.fromIterable(textTurn('done'))
+          },
+        } satisfies LlmAdapter),
+    }
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(root, true)],
+        plugins: [
+          kernelPlugin,
+          sessionJsonlPlugin,
+          sessionPlugin,
+          toolsPlugin,
+          systemPromptPlugin,
+          safetyPlugin,
+          askPlugin,
+          tier0Plugin,
+          tier1Plugin,
+          stub,
+          agentPlugin,
+          agentLoopPlugin,
+        ] as ReadonlyArray<Plugin<any, any, any>>,
+        cwd: workspace,
+        route: 'stub/model',
+        task: 'plan, then do it',
+        answer: () => Effect.succeed('approve'),
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+
+    // While the plan is still a plan, the model cannot write.
+    expect(offered[0]).not.toContain('write')
+    expect(offered[0]).toContain('exit_plan_mode')
+    // The approval ends plan mode, and the very next call could write.
+    expect(code).toBe(0)
+    expect(offered[1]).toContain('write')
+    expect(await Bun.file(join(workspace, 'out.txt')).text()).toBe('the answer\n')
+
+    await rm(root, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
   })
 })

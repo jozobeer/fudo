@@ -76,6 +76,12 @@ const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
     'Read a background job with job_output; job_kill stops one that no longer matters.',
   ],
   ['job_kill', 'Stop a background job with job_kill when its output no longer matters.'],
+  ['job_list', 'Look at job_list before starting work that may already be running.'],
+  ['list_agents', 'Look at list_agents to find a child agent before messaging or waiting for it.'],
+  [
+    'exit_plan_mode',
+    'While plan mode is on, offer the finished plan with exit_plan_mode: only the user approving it ends plan mode.',
+  ],
 ]
 
 export interface BuiltinOptions {

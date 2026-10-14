@@ -1,8 +1,7 @@
-import type { ToolRestriction } from '@fudo/tools'
+import type { ToolRegistry, ToolRestriction } from '@fudo/tools'
 import { Effect, type Scope } from 'effect'
-import type { ToolRegistry } from '@fudo/tools'
 
-/** The tools plan mode leaves visible: reading and talking, never changing. */
+/** The tools plan mode leaves visible: reading, talking, and the way out. */
 export const PLAN_MODE_TOOLS: ReadonlyArray<string> = [
   'read',
   'glob',
@@ -10,18 +9,47 @@ export const PLAN_MODE_TOOLS: ReadonlyArray<string> = [
   'skill',
   'todo_write',
   'ask_user',
+  'exit_plan_mode',
 ]
 
-/** A restriction that hides every tool that could change the workspace. */
+/** What the user answers to approve a plan; any other words keep plan mode. */
+export const PLAN_APPROVAL = 'approve'
+
+/** A restriction that hides every tool that could change the workspace while it is active. */
 export const planModeRestriction = (
+  active: () => boolean,
   allowed: ReadonlyArray<string> = PLAN_MODE_TOOLS,
 ): ToolRestriction => ({
   name: 'plan-mode',
-  allows: (tool) => allowed.includes(tool),
+  allows: (tool) => !active() || allowed.includes(tool),
 })
 
-/** Registers the plan-mode restriction until the surrounding scope closes. */
-export const installPlanMode = (
-  tools: ToolRegistry,
-  allowed: ReadonlyArray<string> = PLAN_MODE_TOOLS,
-): Effect.Effect<void, never, Scope.Scope> => tools.restrict(planModeRestriction(allowed))
+/**
+ * Plan mode as one object. The restriction is registered once and consults this
+ * object on every call, so the tool that ends plan mode can lift it while the
+ * session keeps running: the next `schemas` and `call` see the workspace-changing
+ * tools again.
+ */
+export interface PlanModeShape {
+  /** Whether the workspace-changing tools are hidden right now. */
+  readonly active: () => boolean
+  /** Registers the restriction until the surrounding scope closes. */
+  readonly install: (
+    tools: ToolRegistry,
+    allowed?: ReadonlyArray<string>,
+  ) => Effect.Effect<void, never, Scope.Scope>
+  /** Ends plan mode. There is no way back in. */
+  readonly leave: () => void
+}
+
+export const makePlanMode = (): PlanModeShape => {
+  let planning = true
+  return {
+    active: () => planning,
+    install: (tools, allowed = PLAN_MODE_TOOLS) =>
+      tools.restrict(planModeRestriction(() => planning, allowed)),
+    leave: () => {
+      planning = false
+    },
+  }
+}

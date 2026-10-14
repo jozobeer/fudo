@@ -39,6 +39,7 @@ import {
   type SearchHost,
   makeSubagentTool,
   makeWorkingDirectoryTool,
+  makeExitPlanModeTool,
   discoverSkills,
   renderSkillCatalog,
   skillRoots,
@@ -51,12 +52,13 @@ import {
   askServiceLayer,
   installApproval,
   installAsk,
-  installPlanMode,
+  makePlanMode,
   Policy,
   type ApprovalRequested,
   type ApprovalShape,
   type AskRequested,
   type AskShape,
+  type PlanModeShape,
   type PolicyShape,
 } from '@fudo/safety'
 import { dirname, join, relative } from 'node:path'
@@ -223,6 +225,8 @@ const installTier1 = (
   route: string,
   answer: CommandOptions['answer'],
   skills: ReadonlyArray<string>,
+  /** Present only when the profile asked for plan mode; the tool that leaves it needs it. */
+  planMode: PlanModeShape | undefined,
 ) =>
   Effect.gen(function* () {
     const ask = installAsk(
@@ -230,7 +234,7 @@ const installTier1 = (
       agent.session,
     )
     const jobs = yield* makeJobs()
-    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs, skills)) {
+    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs, skills, planMode)) {
       yield* tools.register(tool)
     }
   })
@@ -243,6 +247,7 @@ const tier1ToolList = (
   agents: AgentsShape,
   jobs: JobsShape,
   skills: ReadonlyArray<string>,
+  planMode: PlanModeShape | undefined,
 ) => {
   const list = [...tier1Tools(ask, skills)]
   if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
@@ -271,6 +276,9 @@ const tier1ToolList = (
       }),
       ...agentTools(agents),
     )
+  }
+  if (planMode !== undefined) {
+    list.push(makeExitPlanModeTool(planMode, ask))
   }
   return list
 }
@@ -458,6 +466,13 @@ interface ProfileWiring {
 const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolError, Scope.Scope> =>
   Effect.gen(function* () {
     const tools = Context.get(wiring.context, Tools)
+    // Plan mode hides every tool that could change the workspace, until the model
+    // offers a plan and the user lets it go.
+    const planMode = wiring.rows.some(
+      (row) => row.name === '@fudo/safety' && planModeOf(row.config),
+    )
+      ? makePlanMode()
+      : undefined
     if (hasRow(wiring.rows, '@fudo/tools-tier0')) {
       yield* installTier0(tools, Context.get(wiring.context, Tier0Tools))
     }
@@ -471,11 +486,11 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
         wiring.route,
         wiring.answer,
         wiring.skills,
+        planMode,
       )
     }
-    // Plan mode hides every tool that could change the workspace.
-    if (wiring.rows.some((row) => row.name === '@fudo/safety' && planModeOf(row.config))) {
-      yield* installPlanMode(tools)
+    if (planMode !== undefined) {
+      yield* planMode.install(tools)
     }
     if (hasRow(wiring.rows, '@fudo/safety')) {
       yield* installSafety(

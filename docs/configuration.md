@@ -75,7 +75,7 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 |---|---|---|
 | `model` | どの行でも | `provider/model`。`--model` と設定ファイルの `model` が無いときにルートになる |
 | `maxSpillBytes` | どの行でも | tool の出力がこの大きさを超えたら、ファイルに退避して参照と要点だけをモデルに返す。退避先は fudo home の `spill/<sessionId>/`（0700、7日で掃除）、fudo home が無ければ一時ディレクトリ。`read` の結果は対象外で、注記のパスを `read` の offset/limit で読み直せる |
-| `planMode` | `@fudo/safety` の行 | `true` でワークスペースを変える tool を外す |
+| `planMode` | `@fudo/safety` の行 | `true` でワークスペースを変える tool を外す。モデルは `exit_plan_mode` で計画を出し、ユーザーが承認したときだけ解除される |
 
 ## コマンドライン
 
