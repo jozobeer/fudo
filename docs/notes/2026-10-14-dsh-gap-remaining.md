@@ -6,16 +6,16 @@
 - `fudo:` はこのリポジトリのルートからのパス。
 - 実測は 2026-10-14 22:50 時点。`bun run check` は 742 pass / 1 skip / 0 fail（743 テスト / 189 ファイル）。
 
-## 実装度（重み付き 約75%）
+## 実装度（重み付き 約90%、A/B は fudo 側のみ）
 
 | 層 | 重み | 実装度 | 主な残り |
 |---|---|---|---|
 | 核・実行機構 | 15% | 95% | なし（ログの忠実性は回復済み） |
-| モデルに見える文脈 | 30% | 65% | runtime context は 4 種で充足（実測）、compaction に閾値と要約がない |
-| ツール実行面 | 20% | 80% | 説明文が DSH の 1/3（edit と検索は充足） |
-| 自律性・委譲 | 20% | 85% | repeat リマインダーが未配線、workflow に編成の表現力がない |
-| 安全・耐久 | 10% | 65% | 圧縮・lease・export・検索がない |
-| UI・提示・検証 | 5% | 40% | 記録が 2 件、coverage/doc/重複 gate がない |
+| モデルに見える文脈 | 30% | 95% | なし（閾値・要約・meter・pruner が入った） |
+| ツール実行面 | 20% | 95% | 説明文の総量は DSH より少ないが、回復手順は全 tool にある |
+| 自律性・委譲 | 20% | 95% | repeat は配線済み、workflow は決定で充足 |
+| 安全・耐久 | 10% | 80% | zstd 圧縮・lease・export・trace は持たない（v1 の規模の外） |
+| UI・提示・検証 | 5% | 80% | A/B が fudo 側のみ（dsh の資格情報待ち） |
 
 ## 0. 作ったのに効いていない（先に片付ける）
 
@@ -60,9 +60,9 @@
   - real-API lane: `fudo:apps/cli/tests/real-api-e2e.test.ts` が `OLLAMA_API_KEY` の無い環境では skip し、あるときは出荷 profile で 1 turn を走らせ、外部状態（書かれたファイル）だけを判定する。この環境はキーが無いので skip のままである。
 - [x] **提示層**。v1 はカードを持たない、と [S8 の設計](../superpowers/specs/2026-10-13-fudo-web-design.md) に書いた。理由は、1 行要約がログに残って TUI・Web・replay が同じ行を読むこと、カードはクライアントごとの描画契約を増やすこと、差分は edit の要約と read の行番号で足りること。見直す条件（1 行では追えない・markdown をそのまま読みたい）も書いた。
 
-## 6. 挙動の実測（未着手）
+## 6. 挙動の実測（fudo 側のみ実施）
 
-- [ ] **同一タスクの A/B**。fudo と dsh で同じコーディングタスクを走らせ、ツール呼び出し回数・失敗した edit の数・読み直しの回数・turn 数を数える。現在値: 未実施。受け入れ: 3 タスク × 2 ハーネスで数値が出て、差の説明がつく。ここが埋まるまで「良い動き」の主張は未証明のままである。
+- [ ] **同一タスクの A/B**（半実施）。harness は `fudo:scripts/ab/run.ts` にあり、3 タスク × 2 ハーネスを回して両形式のログからツール呼び出し・失敗 edit・読み直し・turn を数える（計数は `fudo:scripts/ab/metrics.test.ts` で両形式とも検証済み）。2026-10-14 に fudo 側 3 タスクを実測した（fix-add 3 calls / write-notes 3 / rename-function 12、失敗 edit 0、読み直し 1・0・2、各 1 turn、3 タスクとも done）。dsh 側は 3 走ともモデルに届く前に資格情報で止まった: `AUTH: Authentication Fails, Your api key: ****ci1Q is invalid`。dsh の headless は Messages 互換の `llm-deepseek` を使うので、fudo が使う Ollama Cloud のキーでは代用できない。受入（3 タスク × 2 ハーネスで数値）は dsh の有効な資格情報が入るまで未達である。記録と再実行手順は [A/B の記録](2026-10-14-ab-measurement.md)。
 
 ## 未確認
 

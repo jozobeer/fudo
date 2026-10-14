@@ -14,6 +14,7 @@
     "coverage:gate": "bun run scripts/coverage-gate.ts",
     "doc:gate": "bun run scripts/doc-gate.ts",
     "duplication": "bun run scripts/duplication-gate.ts",
+    "ab": "bun run scripts/ab/run.ts",
     "lint": "oxlint --deny-warnings",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
