@@ -126,8 +126,8 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   plugins: bundledPlugins,
   cwd: io.cwd,
   route: inputs.route,
-  // The fudo home: where the sessions root lives, so a user-global AGENTS.md sits there too.
-  agentsHome: join(homedir(), '.fudo'),
+  // The fudo home: where the sessions root lives, so user-global instructions sit there too.
+  fudoHome: join(homedir(), '.fudo'),
   settingsPath: inputs.settingsPath,
   settings: inputs.settings,
   stdout: io.stdout,

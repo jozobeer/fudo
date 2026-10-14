@@ -229,7 +229,7 @@ describe('workspace instructions', () => {
         cwd: workspace,
         route: 'stub/model',
         task: 'say ok',
-        agentsHome: home,
+        fudoHome: home,
         stdout: () => undefined,
         stderr: () => undefined,
       }),

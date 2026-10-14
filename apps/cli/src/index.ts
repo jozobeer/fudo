@@ -95,8 +95,8 @@ export interface CommandOptions {
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
   /** Directories searched by the skill tool, in order. */
   readonly skills?: ReadonlyArray<string>
-  /** Home directory whose AGENTS.md applies to every workspace. */
-  readonly agentsHome?: string
+  /** The fudo home: user-global AGENTS.md and skills live here. */
+  readonly fudoHome?: string
   /** Lets the model run tasks in child agents. */
   readonly subagents?: boolean
   /** A search provider; without one the web_search tool is not registered. */
@@ -362,7 +362,7 @@ const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
 
 /** Instruction discovery options of this run. */
 const agentsOptionsOf = (options: CommandOptions): AgentsMdOptions =>
-  options.agentsHome === undefined ? {} : { home: options.agentsHome }
+  options.fudoHome === undefined ? {} : { home: options.fudoHome }
 
 /** Tools whose first argument names the file they touched. */
 const TOUCHED_PATH_TOOLS = new Set(['read', 'write', 'edit'])
