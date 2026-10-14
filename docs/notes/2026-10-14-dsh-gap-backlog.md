@@ -149,7 +149,14 @@
   - 検証: `schedule-time.test.ts` 10 本（every と最終発火起点／daily の今日・明日／weekly の当日と翌週／cron の毎分・固定時刻・ステップ・リスト・範囲・曜日・月日・来ない規則の拒否）、`schedule.test.ts` 6 本（create と必須と複数ルールの拒否／来ない規則の拒否／list／update と delete と不明 id／畳み込みの削除）、`schedule-runs.test.ts` 5 本（soonest first と削除済みの除外／最終発火から数える／発火の記録とプロンプト／期限が来た予定を実際に発火させる（実 Hooks レジストリ）／予定が無ければ待つだけ）、e2e `apps/cli/tests/schedule-e2e.test.ts`（実 CLI で、1 本目の run が予定を残して終わり、1.2 秒後の 2 本目の run が期限切れの予定を発火してモデルを呼び戻し、モデルが delete すると止まる）。`bun run check` 643 pass / 0 fail。
   - 学び: cron の曜日フィールドを取り違えるバグを「来ない規則」のテストが露見させた（`slice(2)` で月を曜日として読んでいた）。ありえない入力（`0 0 30 2 *`）を 1 本置くと、正例だけのテストでは見えない取り違えが出る。
   - 未確認: 時間帯はプロセスのローカル 1 つだけで、dsh のような予定ごとの IANA zone は持たない。DST の切り替えは「ローカル時刻の一致」で判定するので、春の 1 時間は飛び、秋の重複は 1 回だけ発火する。タスク 1 発の run（`fudo run "..."`）は turn が終わると終了するので、その run の中で期限が来ない予定は発火せず、次に同じセッションを開いたときに期限切れとして発火する（長く生きる REPL / TUI / Web では開いている間に発火する）。cron の `L`/`W`/`#` や名前付き月は持たない。
-- [ ] **C3 workflow / PTC**。dsh はスクリプトで子エージェントを扇状に走らせ、schema で結果を検証し、失敗項目を null に落とす（`dsh:packages/workflow/tool-workflow/src/index.ts:161`）。fudo は1 step 内の並列ツール呼び出しだけ（`fudo:packages/core/agent-loop/src/batch.ts:1`）。
+- [x] **C3 workflow / PTC**。dsh はスクリプトで子エージェントを扇状に走らせ、schema で結果を検証し、失敗項目を null に落とす（`dsh:packages/workflow/tool-workflow/src/index.ts:161`）。fudo は1 step 内の並列ツール呼び出しだけ（`fudo:packages/core/agent-loop/src/batch.ts:1`）。
+  - 実装（2026-10-14）:
+    - 設計文書 S6 の決定 4 を改訂した（「同じ turn の並列ツール呼び出しに留める」→ データで書く扇状実行のツールを足す。JS のオーケストレーションスクリプトを解釈する engine は持たない）。
+    - `workflow.ts`: `tasks`（id / task / cwd? / expect? = text | json）と `concurrency`（既定 4）。各 task は `subagent` と同じく親のログから fork した子を起こし、**同時に**走らせ、1 つずつ `{id, value, error?}` を返す。子を起こせない・メッセージを取らない・expect: json の答えが JSON でない、はその項目だけが `value: null` と理由になり、run 全体は成功したまま。id の重複と空の tasks は実行前に拒否する。
+    - 値は JSON（`Schema.Json`）で返るので、モデルは結果をそのまま読んで次の workflow を決められる。CLI は `--subagents` のとき subagent / agentTools と一緒に登録する。
+  - 検証: `workflow.test.ts` 3 本（扇状に走らせて全部の答えを返す／JSON として読めない項目だけ null になり他は生きる／同じ id は実行前に拒否）、e2e `apps/cli/tests/workflow-e2e.test.ts`（実 CLI 経路で親 + 子 2 の 3 セッションができ、結果が `a: first` と `b: (failed: the answer is not JSON)` になる）。`bun run check` 647 pass / 0 fail。
+  - 学び: Effect 4 ではエラーを握る関数が `Effect.catchCause` 系に限られ、Effect のメソッド版 `catchAll` も無い。項目ごとの失敗隔離は、エラー型を作らず `Effect.orElseSucceed` と純粋な try/catch に落とす方が素直だった。JSON 値のスキーマは Effect の `Schema.Json` がそのまま使える。
+  - 未確認: dsh の JS スクリプト（ループ・分岐・逐次依存・結果の schema 言語での検証・background run と jobs 連携・run の record イベント）は持たない。ループと依存は「モデルが workflow を何度か呼ぶ」で表す。`concurrency` の既定 4 は fudo の値である。
 - [ ] **C4 guards**。fudo は monotonic guard の seam を持つが production に1本も登録していない（`fudo:packages/core/tools/src/pipeline.ts:96`）。dsh は繰り返し呼び出しの検出（閾値 3/5/8）と宣言 timeout の強制を持つ（`dsh:packages/guard/repeat-tool-reminder/src/index.ts:36`）。
 - [ ] **C5 commands**。dsh はモデルの turn を消費しないコマンドレジストリを持ち、`command/run`・`command/done` として記録する（`dsh:packages/interaction/commands/src/index.ts:61`）。fudo は CLI のサブコマンドのみ。
 - [ ] **C6 preset**。dsh はセッション単位で構成（ツール世界）を選び、最初の turn の前に固定する（`dsh:packages/preset/agent-preset-registry/src/index.ts:341`）。fudo の「preset」は権限レベルの別名で、構成はプロセス全体で1つ。

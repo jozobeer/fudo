@@ -17,7 +17,10 @@
    - 目標は session のイベント `goal/updated`（log-only）として残す。`currentGoal(events)` が最新の 1 件を畳むので、再開したセッションでも目標は生きている。ラウンド数はログの `user/message`（source = `goal-round`）の数から導出し、別の状態を持たない。上限は `maxGoalRounds`（既定 256）。
    - 自動再開は `startGoalRound(agent)` が担い、CLI が `agent/turn-stopping` に登録する。turn が閉じる**前に**次のラウンドの指示を `goal-round` 来源の user/message として `followup` するので、run が途中で idle になって終わることがない。上限に達していれば、システムの判断として blocked（round-limit）にする。ラウンドの判断は自分（`wire` された agent）の turn だけを見る。`goal-round` は `USER_MESSAGE_SOURCES` に足す。
    - モデルは `goal` ツールの action（create / edit / pause / resume / complete / blocked）で目標を動かす。blocked は理由を要求し、直近の user/message が `goal-round`（＝自動ラウンドの中）なら 3 ラウンド未満では拒否する。
-4. **workflow（PTC）は「同じ turn で複数のツールを並べる」に留める。** isConcurrencySafe が真の連続呼び出しを並列に実行する（S1 で保留にした項目）。コードを書く/実行する新しい DSL は v1 では持たない。
+4. **workflow はデータで書く扇状実行にする（2026-10-14 改訂）。** 当初は「同じ turn で複数のツールを並べるだけ」と決めていたが、[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C3 が、子エージェントを扇状に走らせ・結果を検証し・失敗項目を null に落とす workflow を求めているので、ツールを 1 つ足す。
+   - 入力はデータ（task の配列）にする。dsh のように JavaScript のオーケストレーションスクリプトを解釈する engine は持たない（fudo には script を走らせる sandbox と interpreter が無く、その分のコストが v1 の規模を超える）。ループ・分岐・逐次依存は、モデルが workflow を何回か呼ぶことで表す。
+   - 扇状実行そのものは S6 の並列ツール呼び出し（isConcurrencySafe）と同じ仕組みで行う。1 つの task が失敗してもその項目だけが null になり、他の task と run 全体は生き残る。
+   - 結果の検証は「task が expect: json を宣言していれば JSON として読む」に留める。dsh は結果を schema で検証して分岐に使うが、その schema 言語は持たない。
 5. **subagent の fork は、親の履歴を子に渡す形で表す。** 子のセッションを親のイベントから派生させて作り、cwd と route を引き継ぐ。
 6. **schedule はログのイベントで表し、時計は 1 本の fiber が持つ（2026-10-14 追加）。** 予定は `schedule/created` / `schedule/updated` / `schedule/deleted` としてログに残し、`currentSchedules(events)` が最新の状態を畳む（goal と同じ方針）。期限到達は `schedule/fired` として記録し、発火の判定は「ルールから計算した次の時刻」と「最後に発火した時刻」の比較だけで行う。時計は起動時に一度だけ立てる scoped fiber が持ち、次の期限まで `Effect.sleep` して `followup` する。したがって予定はプロセスをまたいで生き、再開したセッションでも期限が来ていれば発火する。
    - 種別は every（秒）・daily（ローカル時刻）・weekly（曜日 + ローカル時刻）・cron（5 フィールド）。

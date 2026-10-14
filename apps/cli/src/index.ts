@@ -42,6 +42,7 @@ import {
   makeExitPlanModeTool,
   makeGoalTool,
   makeScheduleTool,
+  makeWorkflowTool,
   installScheduleRuns,
   startGoalRound,
   discoverSkills,
@@ -316,6 +317,7 @@ const tier1ToolList = (
         parentEvents: () => agent.session.events(),
       }),
       ...agentTools(agents),
+      makeWorkflowTool({ agents, route, parentEvents: () => agent.session.events() }),
     )
   }
   if (planMode !== undefined) {

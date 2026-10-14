@@ -67,6 +67,10 @@ const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
     'Delegate a self-contained task to subagent only when it needs none of your context.',
   ],
   [
+    'workflow',
+    'Use workflow to fan out several child agents at once; an item that fails comes back as null while the others still answer.',
+  ],
+  [
     'working_directory',
     'Use working_directory to move inside the workspace instead of chaining cd in bash.',
   ],
