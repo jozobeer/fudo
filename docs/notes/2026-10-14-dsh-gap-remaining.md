@@ -52,7 +52,7 @@
 
 ## 5. 検証機構（層6）
 
-- [ ] **記録の corpus**。現在値: 2 件（`fudo:apps/cli/tests/snapshots/`）。dsh は 227 シナリオ / 1,555 ファイルをキー無しで再生する（`dsh:vitest.snapshot.config.ts:32`）。受け入れ: 主要経路（tool 失敗、承認拒否、compaction 発火、resume、subagent）がそれぞれ1本以上の記録で再生される。
+- [x] **記録の corpus**。7 シナリオ（既存 2 + 追加 5）。追加は tool 失敗、承認拒否、compaction 発火、resume、subagent。harness を広げた: `Scenario` が `resumeTask`（同じログから 2 turn 目を開く）、`extraRows`（agent-loop の予算を小さくして compaction を起こす）、`subagents` を持ち、snapshot は 1 回の実行が残した**全セッション**のログを正規化テキスト順に並べる（subagent の子のログも残り、並び順が安定する。`fudo:packages/test-support/replay/src/scenario.ts`）。1 つの step カウンタが resume と子のストリームを順に配る。受け入れ: 5 本それぞれに印（isError、approval/requested と denied、compaction/checkpoint、turn/start 2 つ、session 区切り）が入り、`UPDATE_SNAPSHOTS` 無しの再生が 3 回連続で全緑。
 - [x] **coverage 閾値**。`bun run check` は `scripts/coverage-gate.ts` を通す。lcov の LF/LH と FNF/FNH を合計し、lines 93% / functions 92% を下回ると、どの指標が落ちたかを stderr に出して 1 で終わる（2026-10-14 の実測は lines 94.58% / functions 93.49%）。bunfig の `coverageThreshold` は使わない——Bun 1.4.3 は値（0.01 でも）を読んだうえで毎回無言で失敗する。受け入れ: 床を 99 に上げると `bun run check` が `fudo: coverage fell below the floor: lines, functions` で落ちることを実走で確認した。
 - [x] **doc gate・重複検出・real-API lane**。
   - doc gate: `scripts/doc-gate.ts` が docs/ と README の相対リンクと `fudo:<path>` 参照を解決し、無ければ 1 で落ちる（17 ファイル）。既に壊れていた 5 本のリンクも直した。受け入れ: README に切れたリンクを足すと `README.md: link points nowhere` で落ちる。
@@ -66,6 +66,6 @@
 
 ## 未確認
 
-- dsh 側の `token-meter` と `tool-result-pruner` の発火条件は、設定の既定値まで読んでいない。
-- fudo の compaction が実運用の長さで期待どおり縮むかは、e2e の assert までで実測していない。
-- `bun run check` の所要時間は 9.17 秒（テストのみ）。CI は無い。
+- dsh 側の `token-meter` と `tool-result-pruner` の発火条件は、設定の既定値まで読んでいない（fudo 側の既定は token-meter が 0.8 / 65,536 / 128,000、pruner が 8,192 字で head 4,096 + tail 1,024）。
+- fudo の compaction が実運用の長さで期待どおり縮むかは、e2e の assert までで実測していない（10,000 イベントのログでの縮み方は未計測）。
+- `bun run check` の所要時間は約 18 秒（coverage 込みのテスト約 10 秒 + 静的検査 + 3 つの gate）。CI は無い。
