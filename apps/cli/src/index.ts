@@ -56,6 +56,7 @@ import {
   makeScheduleTool,
   makeWorkflowTool,
   makePluginTool,
+  makeTeamTool,
   type PluginHost,
   installScheduleRuns,
   installRepeatReminders,
@@ -355,6 +356,23 @@ const tier1ToolList = (
       }),
       ...agentTools(agents),
       makeWorkflowTool({ agents, route, parentEvents: () => agent.session.events() }),
+      makeTeamTool({
+        agents,
+        route,
+        parentEvents: () => agent.session.events(),
+        log: {
+          events: () => agent.session.events(),
+          spawnMember: (member) => agent.session.append('team/spawned', member),
+          createTask: (task) => agent.session.append('team/task/created', { task }),
+          updateTask: (task) => agent.session.append('team/task/updated', { task }),
+          nextId: () =>
+            'task-' +
+            String(
+              agent.session.events().filter((event) => event.type === 'team/task/created').length +
+                1,
+            ),
+        },
+      }),
     )
   }
   if (planMode !== undefined) {

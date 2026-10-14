@@ -36,6 +36,8 @@
 - したがって種を入れる場所は Sessions.create の側。案: Sessions.create({ cwd, seed }) とし、persistence.create で得た OpenedSession の sink に、session/header 以外の種のイベントを順に append してから Session を組み立てる。
 - subagent ツールは forkSeed(親の session.events()) を create に渡す。親の最後の user/message は forkSeed が落とすので、子には自分のタスクだけが残る。
 
+7. **team は名前つきの子と task board（2026-10-14 追加）。** `team` ツールが roster（name / role / sessionId）と board（id / title / state / owner / revision）を持ち、どちらも session のイベント（`team/spawned` / `team/task/created` / `team/task/updated`）としてログに残る。revision はタスクの更新回数から導出し、update は最新 revision を渡されたときだけ通す（compare-and-set）。inbox は新しいものを作らず、既存の `send_message`（idle なら次の turn、実行中なら次の step）が担う。子は subagent と同じく親のログから fork して起きる。
+
 ## 実装の記録
 
 - subagent: packages/core/tools-tier1/src/subagent.ts（makeSubagentTool(agents, route)）。CLI は subagents: true のとき登録する。

@@ -71,7 +71,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `str_replace_editor` | 対応済み。fudo の `edit` が同じ操作で、名前だけが違う |
 | `ralph` | 除外。dsh 固有の継続ループである。fudo の続きは `goal`（C1）と CLI の再実行が担う |
 | `create_worktree` | 除外。git worktree の管理はどの S の範囲にも無い |
-| `team_*` | 除外。fudo の委譲は親子の subagent だけで、team の編成を持たない |
+| `team_*` | **2026-10-14 改訂**: 採用。[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C8 が roster・task board・inbox を求めるので、名前つきの子（roster）と共有の task board を 1 つの `team` ツールで持つ。メッセージ（inbox）は既存の `send_message` / `list_agents` / `wait_agent` / `interrupt_agent` が担う。dsh の Lead / teammate の権限制御（team:policy）と compare-and-set の remote 面は持たない（fudo は 1 親とその子だけで、board の revision はログから導出する） |
 
 ## S1 の設計
 

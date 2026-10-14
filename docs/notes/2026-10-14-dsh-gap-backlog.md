@@ -190,7 +190,15 @@
   - 検証: `plugin-tool.test.ts` 6 本（list は run の行を出す／add は承認後に書く（質問は callId と選択肢つき）／この build に無い名前は承認前に拒否／拒否なら何も書かない／set と remove が触る行を名指しする／未知 id の set は拒否）、e2e `plugin-tool-e2e.test.ts` 2 本（実 CLI で、承認された add が settings に `id: mcp` を書き、結果が「次の起動から」と言い、この run の行は変わらない／人間が keep を選ぶと settings は空のまま）。`bun run check` 682 pass / 0 fail。
   - 学び: 既存の `settings-edit` の `set-row` が「行が無ければ足す」振る舞いだったので、profile が提供する行の無効化（上書き行の作成）がそのまま表現できた。新しい書き込み経路を作らずに済んだのは、設定ファイルの編集がすでに seam になっていたからである。
   - 未確認: 実行中の mount / unmount は無い。モデルが足した行はそのセッションでは使えず、次の起動から効く（dsh の live profile は即時）。bundle install（npm からの取得・build script・version exemption）は持たない。変更は settings に残るので全セッションに効く（dsh と同じ）。行を足した後の同じセッションの再開は、構成が変わるので `--allow-preset-change` を要する（ツールの答えにも書く）。
-- [ ] **C8 agent teams**。dsh は roster・task board・inbox を持つ（`dsh:packages/experimental/tool-agent-team/src/index.ts:175`）。
+- [x] **C8 agent teams**。dsh は roster・task board・inbox を持つ（`dsh:packages/experimental/tool-agent-team/src/index.ts:175`）。
+  - 実装（2026-10-14）:
+    - 設計文書を改訂した（B6 表の `team_*` 行を「採用」に、tier3 設計に決定 7）。roster と board を持ち、inbox は既存の `send_message` / `list_agents` / `wait_agent` / `interrupt_agent` が担う。dsh の Lead / teammate 権限制御（team:policy）と remote 越しの compare-and-set 面は持たない。
+    - `@fudo/tools-tier1` の `team-state.ts`: イベント `team/spawned`（name / role / sessionId）と `team/task/created` / `team/task/updated`（task = id / title / state / owner? / revision）、そして純粋な畳み込み `teamRoster` / `teamTasks` / `taskOf`。board はログから導出し、同じ id は revision の大きい方が勝つ。すべて log-only。
+    - `team.ts`: 1 つの `team` ツール（action = list / spawn / create / get / update）。spawn は `AgentsShape.create` で親のログから fork した子を作り roster に記録する（同名は拒否）。create は板に行を作る。update は revision を compare-and-set で検査し、古い revision は拒否する。list は roster（子の状態つき）と板を返す。子の session id は `[child session: <id>]` として roster 行に載せ、配送は既存の `send_message` が担う。
+    - CLI: `--subagents`（subagent / workflow と同じ条件）で `team` を登録し、lead の session への 3 つの書き込みを型付きで渡す。
+  - 検証: `team.test.ts` 6 本（spawn が子を作り roster に記録する／同名は拒否／畳み込みは revision の大きい方が勝ち未知 id は undefined／create と update が 1 つずつイベントを書く／古い revision と未知 id は拒否／list が roster と板を出す）、e2e `team-e2e.test.ts`（実 CLI で、lead が spawn → create → send_message → wait_agent → update を通し、lead のログに roster 1 行と revise 済みの task が残り、子のログに仕事が user メッセージとして届き、2 つの session ができる）。`bun run check` 689 pass / 0 fail。
+  - 学び: 子の turn と親の次の step は同じ LLM を奪い合う。脚本を呼び出し回数で数えると、`send_message` が待たないために競合する。**リクエストの最後の user メッセージで脚本を選ぶ**（既存の agent-control-e2e と同じ形）と決定的になり、子の id もツール結果から読める。ツール結果の綴りを subagent と揃えた（`[child session: <id>]`）のはそのためでもある。
+  - 未確認: dsh の team は Lead / teammate の権限制御と remote 越しの compare-and-set を持つ。fudo は 1 親とその子だけで、板の CAS は revision の比較としてツール内にある。task の owner 欄と send_message の宛先は自動では結びつかない（dsh は owner への配送を持つ）。子は lead のログから fork するので、teammate 自身も spawn できる。
 - [ ] **C9 subagent の seam**。fudo は route を構築時に固定した fire-and-forget の子を1つ作るだけ（`fudo:packages/core/tools-tier1/src/subagent.ts:56`）。dsh は provider を差し替えられ（fresh / fork / 他製品への委譲）、継続可能な子を選べる（`dsh:packages/subagent/tool-subagent-control/src/index.ts:29`）。
 
 ## D. 安全・耐久

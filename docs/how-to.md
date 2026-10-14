@@ -114,6 +114,19 @@ plugins:
 fudo --patch sessions.yml "…"
 ```
 
+## チームで分担させる
+
+`--subagents` を付けると、モデルは `team` ツールで名前つきの子（teammate）と共有の板（board）を持てる。teammate は `subagent` と同じ子 agent で、仕事を渡すのは既存の `send_message`、待つのは `wait_agent` である。
+
+```
+team spawn name=builder role="writes the guide"
+team create title="write the guide" owner=builder
+send_message id=<roster に出た session id> message="write the guide"
+team update id=task-1 state=done revision=1
+```
+
+`team list` が roster（子の状態つき）と板を出す。板の revision は更新のたびに増え、古い revision での update は拒否される。
+
 ## モデルにプラグイン行を直させる
 
 モデルは `plugin` ツールで settings の `plugins` 行を list / add / remove / disable できる。1 回ごとに承認を求められ、効くのは**次の起動から**である（走っているプロセスの構成は変わらない）。足せるのは同梱のパッケージ名だけ。
