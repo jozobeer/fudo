@@ -74,6 +74,12 @@ export interface LlmCapabilities {
   readonly reasoningEffort: ReadonlyArray<string> | null
   readonly images: 'base64' | 'none'
   readonly promptCacheControl: boolean
+  /**
+   * The routed model's context window in tokens, when the adapter knows it. The
+   * agent loop measures request pressure against it; absent leaves the loop's
+   * configured default.
+   */
+  readonly contextWindow?: number
 }
 
 /** A tool declaration as it reaches the provider. */

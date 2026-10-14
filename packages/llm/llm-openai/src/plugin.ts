@@ -10,6 +10,8 @@ export const llmOpenAiConfig = Schema.Struct({
   apiKeyEnv: Schema.String,
   /** Idle budget for one provider attempt, in milliseconds. */
   streamIdleTimeoutMs: Schema.optionalKey(Schema.Int),
+  /** The routed model's context window in tokens, for compaction pressure. */
+  contextWindow: Schema.optionalKey(Schema.Int),
 })
 
 /**
@@ -32,6 +34,7 @@ export const llmOpenAiPlugin: Plugin<typeof llmOpenAiConfig.Type, Llm, never> = 
           reasoningEffort: null,
           images: 'none',
           promptCacheControl: false,
+          ...(config.contextWindow === undefined ? {} : { contextWindow: config.contextWindow }),
         },
         ...(config.streamIdleTimeoutMs === undefined
           ? {}

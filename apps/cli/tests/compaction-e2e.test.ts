@@ -1,7 +1,7 @@
 import { agentPlugin } from '@fudo/agent'
 import { agentLoopPlugin } from '@fudo/agent-loop'
 import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
+import { Llm, type LlmAdapter, type LlmUsage, type StreamChunk } from '@fudo/llm'
 import { askPlugin, safetyPlugin } from '@fudo/safety'
 import { deriveMessages, sessionPlugin } from '@fudo/session'
 import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
@@ -41,8 +41,11 @@ const asSeen = (
       .join('\n'),
   }))
 
-/** Captures every request the model made. */
-const spy = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
+/** Captures every request the model made, with the usage it reported when given. */
+const spy = (
+  seen: Array<ReadonlyArray<SentMessage>>,
+  usage?: LlmUsage,
+): Plugin<{}, Llm, never> => ({
   name: 'stub-llm',
   config: Schema.Struct({}),
   provides: [Llm],
@@ -58,7 +61,10 @@ const spy = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> =>
       },
       stream: (request) => {
         seen.push(asSeen(request.messages))
-        return Stream.fromIterable(textTurn('ok'))
+        return Stream.fromIterable([
+          ...(usage === undefined ? [] : [{ type: 'usage' as const, usage }]),
+          ...textTurn('ok'),
+        ])
       },
     } satisfies LlmAdapter),
 })
@@ -122,6 +128,7 @@ const runTasks = async (
   root: string,
   tasks: ReadonlyArray<string>,
   loopConfig?: string,
+  usage?: LlmUsage,
 ): Promise<{
   readonly sent: ReadonlyArray<SentMessage>
   readonly opened: Awaited<ReturnType<typeof open>>['opened']
@@ -133,7 +140,7 @@ const runTasks = async (
     const code = await Effect.runPromise(
       runCommand({
         profiles: [profile(root, loopConfig)],
-        plugins: plugins(spy(seen)),
+        plugins: plugins(spy(seen, usage)),
         cwd: '/tmp',
         route: 'stub/model',
         task,
@@ -152,15 +159,12 @@ const runTasks = async (
 describe('compaction through the command', () => {
   test('the log alone reconstructs the request the model was sent', async () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
-    const { sent, opened } = await runTasks(root, [
-      BIG,
-      'two',
-      'three',
-      'four',
-      'five',
-      'six',
-      'seven',
-    ])
+    const { sent, opened } = await runTasks(
+      root,
+      [BIG, 'two', 'three', 'four', 'five', 'six', 'seven'],
+      // A window small enough that this conversation is over the threshold.
+      'contextWindow: 8000\nheadroomTokens: 0',
+    )
 
     const texts = sent.map((message) => message.text)
     expect(texts.some((text) => text.startsWith('[earlier output of 40000 bytes]'))).toBe(true)
@@ -180,12 +184,62 @@ describe('compaction through the command', () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
     const small = 'y'.repeat(100)
 
-    const { sent, opened } = await runTasks(root, [small, 'second'], 'keepLast: 1\nmaxBytes: 10')
+    const { sent, opened } = await runTasks(
+      root,
+      [small, 'second'],
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+    )
 
     const prune = opened.events.find((event) => event.type === 'compaction/prune')
     expect(prune?.type === 'compaction/prune' ? prune.data.shadowedBytes : 0).toBeGreaterThan(0)
     expect(sent.some((message) => message.text === small)).toBe(false)
 
     await rm(root, { recursive: true, force: true })
+  })
+
+  test('a conversation with room left is sent untouched', async () => {
+    const roomy = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const tight = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const first = 'the first thing the model was told'
+    const tasks = [first, 'second']
+
+    const under = await runTasks(
+      roomy,
+      tasks,
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100000\nheadroomTokens: 0',
+    )
+    const over = await runTasks(
+      tight,
+      tasks,
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+    )
+
+    // The same history, the same prune price: only the budget decides.
+    expect(under.opened.events.some((event) => event.type === 'compaction/prune')).toBe(false)
+    expect(under.sent.some((message) => message.text === first)).toBe(true)
+    expect(over.opened.events.some((event) => event.type === 'compaction/prune')).toBe(true)
+    expect(over.sent.some((message) => message.text === first)).toBe(false)
+
+    await rm(roomy, { recursive: true, force: true })
+    await rm(tight, { recursive: true, force: true })
+  })
+
+  test('what the provider counted is what pushes the request over', async () => {
+    const roomy = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const tight = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const first = 'the first thing the model was told'
+    const tasks = [first, 'second']
+    const budget =
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 1000\nthresholdRatio: 0.9\nheadroomTokens: 0'
+
+    // The bytes are tiny in both runs; only the reported usage differs.
+    const under = await runTasks(roomy, tasks, budget, { inputTokens: 5, outputTokens: 5 })
+    const over = await runTasks(tight, tasks, budget, { inputTokens: 900, outputTokens: 50 })
+
+    expect(under.opened.events.some((event) => event.type === 'compaction/prune')).toBe(false)
+    expect(over.opened.events.some((event) => event.type === 'compaction/prune')).toBe(true)
+
+    await rm(roomy, { recursive: true, force: true })
+    await rm(tight, { recursive: true, force: true })
   })
 })

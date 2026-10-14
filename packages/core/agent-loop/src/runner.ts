@@ -18,11 +18,13 @@ import {
   deriveMessages,
   lastRequestHeader,
   lastRuntimeContext,
+  meterOf,
   pruneFor,
   type CompactOptions,
   type RequestHeaderData,
   type Session,
   type SessionEventMap,
+  type TokenBudget,
 } from '@fudo/session'
 import { SystemPrompt } from '@fudo/system-prompt'
 import { applySpill, makeSpillWriter, type SpillOptions } from '@fudo/tools'
@@ -52,6 +54,13 @@ const COMPACT_DEFAULTS: CompactOptions = {
   keepLast: DEFAULT_COMPACT_KEEP_LAST,
   maxBytes: DEFAULT_COMPACT_MAX_BYTES,
 }
+
+/** The context window assumed when neither the profile nor the adapter names one. */
+export const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000
+/** The share of the window a request may reach before compaction fires. */
+export const DEFAULT_COMPACT_THRESHOLD_RATIO = 0.8
+/** The tokens kept free under the window whatever the ratio says. */
+export const DEFAULT_COMPACT_HEADROOM_TOKENS = 65_536
 
 /** Results larger than this are written to a file; only their head stays in the log. */
 const SPILL_BYTES = 32_000
@@ -93,6 +102,12 @@ const agentLoopEffect = (
     const compact: CompactOptions = {
       keepLast: config.keepLast ?? COMPACT_DEFAULTS.keepLast,
       maxBytes: config.maxBytes ?? COMPACT_DEFAULTS.maxBytes,
+    }
+    const budget: TokenBudget = {
+      contextWindow:
+        config.contextWindow ?? llm.capabilities.contextWindow ?? DEFAULT_CONTEXT_WINDOW_TOKENS,
+      thresholdRatio: config.thresholdRatio ?? DEFAULT_COMPACT_THRESHOLD_RATIO,
+      headroomTokens: config.headroomTokens ?? DEFAULT_COMPACT_HEADROOM_TOKENS,
     }
 
     // A session that cannot be written stops the agent: `orDie` turns the failure into
@@ -217,13 +232,16 @@ const agentLoopEffect = (
       })
 
     /**
-     * Records what this request stops carrying, before it is sent: a request over the
-     * price keeps every message in the log and replaces the content of the old ones.
-     * Recording first makes the request and the log the same thing.
+     * Records what this request stops carrying, before it is sent: a request over
+     * the price keeps every message in the log and replaces the content of the old
+     * ones. The price is the token pressure of the request, so a conversation with
+     * room left is sent as it is and only one past the threshold is pruned.
      */
     const recordCompaction = (agent: Agent): Effect.Effect<void> =>
       Effect.gen(function* () {
-        const prune = pruneFor(agent.session.events(), compact)
+        const events = agent.session.events()
+        if (!meterOf(events, budget).compacts) return
+        const prune = pruneFor(events, compact)
         if (prune !== undefined) yield* append(agent, 'compaction/prune', prune)
       })
 
@@ -477,6 +495,12 @@ export const agentLoopConfigSchema = Schema.Struct({
   keepLast: Schema.optionalKey(Schema.Int),
   /** One text block larger than this many bytes is stubbed, outside the retention. */
   maxBytes: Schema.optionalKey(Schema.Int),
+  /** The routed model's context window in tokens. Defaults to the adapter's, or 128000. */
+  contextWindow: Schema.optionalKey(Schema.Int),
+  /** Compact once the estimate reaches this share of the window. Defaults to 0.8. */
+  thresholdRatio: Schema.optionalKey(Schema.Number),
+  /** Tokens kept free under the window. Defaults to 65536. */
+  headroomTokens: Schema.optionalKey(Schema.Int),
 })
 
 export type AgentLoopConfig = Schema.Schema.Type<typeof agentLoopConfigSchema>
