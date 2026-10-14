@@ -35,6 +35,33 @@ describe('normalizeLog', () => {
       description: "like '08:30'",
     })
   })
+
+  test('zeroes the per-chunk delays of a stream record', () => {
+    const line = normalizeLog(
+      [
+        {
+          seq: 1,
+          time: 1728912345678,
+          type: 'assistant/message',
+          data: {
+            stream: [
+              { type: 'text-chunks', time0: 12, index: 1, dt: [0, 1, 2], texts: ['a', 'b'] },
+            ],
+          },
+        },
+      ],
+      [],
+    )
+    const parsed = JSON.parse(line) as {
+      readonly data: {
+        readonly stream: ReadonlyArray<{ dt: ReadonlyArray<number>; time0: number }>
+      }
+    }
+
+    // A delay that moves by a millisecond must not decide whether a replay matches.
+    expect(parsed.data.stream[0]?.dt).toEqual([0, 0, 0])
+    expect(parsed.data.stream[0]?.time0).toBe(0)
+  })
 })
 
 describe('replayAdapter', () => {
