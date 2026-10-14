@@ -83,15 +83,19 @@ describe('the settings file through the command', () => {
     await rm(directory, { recursive: true, force: true })
   })
 
-  test('--dump-config names the settings file it read', async () => {
+  test('--dump-config names the settings file and shows what it holds', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-path-'))
     const path = join(directory, 'config.yaml')
+    await Bun.write(path, 'model: my-cloud/some-model\n')
 
     const out: Array<string> = []
     const code = await Effect.runPromise(main(['--dump-config', '--config', path], io(out, [])))
 
+    const text = out.join('')
     expect(code).toBe(0)
-    expect(out.join('')).toContain('settings (' + path + '):')
+    expect(text).toContain('settings (' + path + '):')
+    expect(text).toContain('  - model: my-cloud/some-model ')
+    expect(text).toContain('model in effect: my-cloud/some-model')
     await rm(directory, { recursive: true, force: true })
   })
 

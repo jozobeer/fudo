@@ -177,7 +177,7 @@ describe('renderConfig', () => {
       row('gamma', 'gamma', undefined, true),
     ])
     expect(text).toBe(
-      'plugins:\n  - id=alpha name=alpha config={"label":"x"}\n  - id=beta name=beta config={}\n  - id=gamma name=gamma disabled\n',
+      'plugin rows in effect (profiles + settings file + --patch):\n  - id=alpha name=alpha config={"label":"x"}\n  - id=beta name=beta config={}\n  - id=gamma name=gamma disabled\n',
     )
   })
 })

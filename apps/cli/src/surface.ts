@@ -1,5 +1,6 @@
 import { FLAG_NAMES } from './args.ts'
 import { CONFIG_HOME_ENV, configPaths } from './config.ts'
+import type { FudoConfig } from './config-file.ts'
 import { SEARCH_KEY_ENV } from './search-env.ts'
 
 /** Row keys the command reads from a row's config itself; no plugin declares them. */
@@ -33,21 +34,47 @@ export const ROW_KEYS: ReadonlyArray<RowKeyNote> = [
 
 interface SettingsNote {
   readonly name: string
+  /** What the key takes, for a reader deciding whether to write it. */
   readonly summary: string
+  /** What the settings file holds now, so the dump shows the state. */
+  readonly value: (settings: FudoConfig | undefined) => string
 }
 
+const countText = (count: number, noun: string): string =>
+  String(count) + ' ' + noun + (count === 1 ? '' : 's')
+
+const countOr = (fallback: string, count: number | undefined, noun: string): string =>
+  count === undefined ? fallback : countText(count, noun)
+
 export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
-  { name: 'model', summary: 'the route to use, as provider/model; --model wins over it' },
+  {
+    name: 'model',
+    summary: 'provider/model',
+    value: (settings) => settings?.model ?? 'not set',
+  },
   {
     name: 'profile',
-    summary: 'one bundled profile to add (base, headless, repl); --profile wins over it',
+    summary: 'a bundled profile name; --profile wins over it',
+    value: (settings) => settings?.profile ?? 'not set, so headless is used',
   },
   {
     name: 'skills',
-    summary: 'directories that hold <name>/SKILL.md; without one the skill tool is off',
+    summary: 'directories that hold <name>/SKILL.md',
+    value: (settings) =>
+      countOr('not set, so the skill tool is off', settings?.skills?.length, 'directory'),
   },
-  { name: 'plugins', summary: 'rows merged by id, between the profile and --patch' },
+  {
+    name: 'plugins',
+    summary: 'rows merged by id, between the profile and --patch',
+    value: (settings) => countOr('not set', settings?.plugins?.length, 'row'),
+  },
 ]
+
+/** The route the command resolved, and the layers it looked through. */
+export const renderModelInEffect = (route: string): string =>
+  route === ''
+    ? 'model in effect: none; a run stops with "no model is set"\n'
+    : 'model in effect: ' + route + ' (--model > the settings file > a plugin row)\n'
 
 /** The keys no plugin schema declares. */
 export const renderRowKeys = (): string =>
@@ -56,10 +83,12 @@ export const renderRowKeys = (): string =>
     ...ROW_KEYS.map((key) => '  - ' + key.name + ' (' + key.where + '): ' + key.summary),
   ].join('\n') + '\n'
 
-const renderSettings = (path: string): string =>
+const renderSettings = (path: string, settings: FudoConfig | undefined): string =>
   [
     'settings (' + path + '):',
-    ...SETTINGS_KEYS.map((key) => '  - ' + key.name + ': ' + key.summary),
+    ...SETTINGS_KEYS.map(
+      (key) => '  - ' + key.name + ': ' + key.value(settings) + ' — ' + key.summary,
+    ),
   ].join('\n') + '\n'
 
 const renderFlags = (): string =>
@@ -72,9 +101,12 @@ const renderEnvironment = (): string =>
     '  - ' + SEARCH_KEY_ENV + ': with it the web_search tool is registered',
   ].join('\n') + '\n'
 
-/** What `--dump-config` prints after the effective rows: where the rest is set. */
-export const renderSurface = (settingsPath: string | undefined): string =>
+/** What `--dump-config` prints after the rows: where the rest is set and what it holds. */
+export const renderSurface = (
+  settingsPath: string | undefined,
+  settings: FudoConfig | undefined,
+): string =>
   renderRowKeys() +
-  renderSettings(settingsPath ?? configPaths().config) +
+  renderSettings(settingsPath ?? configPaths().config, settings) +
   renderFlags() +
   renderEnvironment()

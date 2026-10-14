@@ -149,6 +149,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   cwd: io.cwd,
   route: inputs.route,
   settingsPath: inputs.settingsPath,
+  settings: inputs.settings,
   stdout: io.stdout,
   stderr: io.stderr,
   ...optional('extraRows', inputs.settings.plugins),

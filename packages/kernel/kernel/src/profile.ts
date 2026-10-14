@@ -66,12 +66,12 @@ export function parseProfile(text: string): Effect.Effect<Profile, PluginError> 
   })
 }
 
-/** Renders the effective rows for `--dump-config`. */
+/** Renders the rows the command will run for `--dump-config`. */
 export function renderConfig(rows: ReadonlyArray<PluginRow>): string {
   const lines = rows.map((row) => {
     const config = row.config === undefined ? '' : ` config=${JSON.stringify(row.config)}`
     const disabled = row.disabled === true ? ' disabled' : ''
     return `  - id=${row.id} name=${row.name}${config}${disabled}`
   })
-  return ['plugins:', ...lines].join('\n') + '\n'
+  return ['plugin rows in effect (profiles + settings file + --patch):', ...lines].join('\n') + '\n'
 }

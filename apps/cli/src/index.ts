@@ -52,7 +52,14 @@ import { runTui, type TuiIo } from '@fudo/tui'
 import { makeUiHost, type UiHost } from '@fudo/ui-host'
 import { defaultStaticRoot, serveWeb } from '@fudo/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
-import { MODEL_KEY, PLAN_MODE_KEY, SPILL_BYTES_KEY, renderSurface } from './surface.ts'
+import {
+  MODEL_KEY,
+  PLAN_MODE_KEY,
+  SPILL_BYTES_KEY,
+  renderModelInEffect,
+  renderSurface,
+} from './surface.ts'
+import type { FudoConfig } from './config-file.ts'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -63,6 +70,8 @@ export interface CommandOptions {
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
   /** The settings file the command read; without one the dump names the default. */
   readonly settingsPath?: string
+  /** What that file held, so the dump can show the state. */
+  readonly settings?: FudoConfig
   /** One-shot task. */
   readonly task?: string
   /** Lines of a batch session, used when stdin is not a terminal. */
@@ -494,10 +503,14 @@ const runSession = (
 export function runCommand(options: CommandOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
     const rows = yield* profileRows(options)
+    const route = options.route !== '' ? options.route : routeFromRows(rows)
 
     if (options.dumpConfig === true) {
       const text =
-        renderConfig(rows) + renderPluginKeys(options.plugins) + renderSurface(options.settingsPath)
+        renderModelInEffect(route) +
+        renderConfig(rows) +
+        renderPluginKeys(options.plugins) +
+        renderSurface(options.settingsPath, options.settings)
       options.stdout(text)
       return 0
     }
@@ -508,7 +521,6 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
       return 2
     }
 
-    const route = options.route !== '' ? options.route : routeFromRows(rows)
     if (route === '') {
       options.stderr(`fudo: ${NO_MODEL}\n`)
       return 1

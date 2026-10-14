@@ -14,14 +14,28 @@ describe('the notes the dump prints', () => {
   })
 
   test('renderSurface tells where the settings live and what else is read', () => {
-    const text = renderSurface('/tmp/fudo/config.yaml')
+    const text = renderSurface('/tmp/fudo/config.yaml', undefined)
 
     expect(text).toContain('settings (/tmp/fudo/config.yaml):')
-    expect(text).toContain('  - model: ')
-    expect(text).toContain('  - plugins: ')
+    expect(text).toContain('  - model: not set')
+    expect(text).toContain('  - plugins: not set')
     expect(text).toContain(FLAG_NAMES.join(' '))
     expect(text).toContain('XDG_CONFIG_HOME')
     expect(text).toContain('BRAVE_API_KEY')
     expect(text).toContain('  - planMode ')
+  })
+
+  test('renderSurface shows the value each settings key holds', () => {
+    const text = renderSurface('/tmp/fudo/config.yaml', {
+      model: 'my-cloud/some-model',
+      profile: 'repl',
+      skills: ['/tmp/skills'],
+      plugins: [{ id: 'safety', name: '@fudo/safety' }],
+    })
+
+    expect(text).toContain('  - model: my-cloud/some-model ')
+    expect(text).toContain('  - profile: repl ')
+    expect(text).toContain('  - skills: 1 directory ')
+    expect(text).toContain('  - plugins: 1 row ')
   })
 })

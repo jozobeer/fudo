@@ -70,6 +70,7 @@ describe('main', () => {
 
     const text = out.join('')
     expect(code).toBe(0)
+    expect(text).toContain('model in effect:')
     expect(text).toContain(
       '@fudo/safety: preset (required, one of read-only|workspace-write|full), sandbox (optional, one of none|seatbelt), writableRoots (optional, string[])',
     )
