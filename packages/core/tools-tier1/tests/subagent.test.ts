@@ -81,6 +81,7 @@ describe('subagent tool', () => {
 
     expect(result?.isError).toBe(false)
     expect(result?.value).toEqual({ sessionId: 'child-1', text: 'child says hi' })
+    expect(JSON.stringify(result?.content)).toContain('[child session: child-1]')
     expect(seen).toEqual([{ cwd: '/work', task: 'look around' }])
   })
 

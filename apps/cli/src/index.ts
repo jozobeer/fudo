@@ -27,6 +27,7 @@ import { ToolError, type ToolExecution } from '@fudo/tools'
 import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import {
+  agentTools,
   jobTools,
   makeJobs,
   mcpTools,
@@ -268,6 +269,7 @@ const tier1ToolList = (
         route,
         parentEvents: () => agent.session.events(),
       }),
+      ...agentTools(agents),
     )
   }
   return list

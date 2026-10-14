@@ -56,7 +56,10 @@ export const makeSubagentTool = ({
   parameters: Parameters,
   output: {
     schema: Schema.Struct({ sessionId: Schema.String, text: Schema.String }),
-    render: (_args, value) => [{ type: 'text', text: value.text }],
+    // The session id rides along, so the parent can send the child more work or wait for it.
+    render: (_args, value) => [
+      { type: 'text', text: value.text + '\n\n[child session: ' + value.sessionId + ']' },
+    ],
   },
   execute: (args, context) =>
     Effect.gen(function* () {

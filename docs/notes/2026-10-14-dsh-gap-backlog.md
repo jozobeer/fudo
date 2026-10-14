@@ -116,9 +116,13 @@
   - 学び: 「失敗が失敗として読める」は、エラー結果にすることではなく、失敗を出力に書くことでも満たせる。むしろツール呼び出しの失敗とコマンドの失敗を分けた方が、エージェントループの再試行判断を汚さない。
   - 未確認: 時間切れの kill は直接の子（ラッパーや bash）にしか届かない。コマンドが SIGTERM を無視して孫プロセスを残す場合の後始末は sandbox 側の領分で、このチェックアウトでは確認していない。背景実行は tier1 の job_start/job_output/job_kill が担う（`bash` 自身の昇格は持たない）。
 - [ ] **B6 欠けているツール**。
-  - 実装（2026-10-14、採用 4 群のうち 1/4）: `job_list`。`JobsShape.list` をそのまま使い、id・実行中か・コマンドを返す。空なら `(no background jobs)`。モデルに見える宣言の一覧（e2e）も更新した。
+  - 実装（2026-10-14、採用のうち 1 群目）: `job_list`。`JobsShape.list` をそのまま使い、id・実行中か・コマンドを返す。空なら `(no background jobs)`。モデルに見える宣言の一覧（e2e）も更新した。
   - 検証: `packages/core/tools-tier1/tests/job-tools.test.ts` に 1 本（2 つ起動し、1 つは走ったまま 1 つは終了 → 一覧と状態、そして空の一覧の文言）。`bun run check` 594 pass / 0 fail。
-  - 残り（採用済み・未実装）: subagent 制御（send_message / interrupt_agent / list_agents / wait_agent）、`subagent_fork`、`exit_plan_mode`。設計文書の表が正本。
+  - 実装（2026-10-14、採用のうち 2 群目）: subagent 制御の 4 つ（`list_agents` / `send_message` / `interrupt_agent` / `wait_agent`）を `packages/core/tools-tier1/src/agent-tools.ts` に足した。`list_agents` は自分自身を除いた子の id と状態、`send_message` は idle なら `followup`（次の turn を起こす）・実行中なら `steer`（次の step 境界で読ませる）、`interrupt_agent` は `cancel('parent-cancelled')`、`wait_agent` は `whenIdle` を timeout と race して「まだ動いている」を返す。自分の session id と知らない id は拒否する。CLI は `--subagents` のときだけこれらを登録する。`subagent` の結果に `[child session: <id>]` を足した（これが無いと親は子に話しかけられない）。
+  - 検証: `packages/core/tools-tier1/tests/agent-tools.test.ts` 5 本（一覧は自分を出さない／idle へは followup・実行中へは steer／自分と不明な id の拒否／interrupt は parent-cancelled／wait の時間切れは still working）、`subagent.test.ts` に子の id が結果に載ることを追加。e2e `apps/cli/tests/agent-control-e2e.test.ts`（実 CLI 経路で、親が `subagent` → `list_agents` → `send_message` → `wait_agent` と進み、子のログに 2 回目の答え `child says again` が残る＝メッセージが実在の child agent に届いて turn が走った）。`bun run check` 600 pass / 0 fail。
+  - 学び: `subagent` の結果が子の本文だけで id を返していなかったので、親は子を名指しできなかった。制御ツールを足して初めて、結果の形が制御の前提を満たしていないことが露見した。
+  - 未確認: 実行中の子を親が interrupt/wait する経路は、親の turn が `subagent` の待ちの中でキャンセルされ、その子が動き続けている場合に限られる（REPL / TUI / Web の同一 scope 内）。同じ run の中では `subagent` が子の完了まで待つので、この経路は e2e で踏んでいない（単体テストのみ）。
+  - 残り（採用済み・未実装）: `exit_plan_mode`。`subagent_fork` は `subagent` の `forkSeed` が既に担っていたので、設計文書の表を「対応済み」に直した（実装は不要）。
   - 方針（2026-10-14）: どのツールを採るかを設計文書に決めた（`docs/superpowers/specs/2026-10-13-fudo-kernel-design.md` の「dsh にあって fudo が持たないツール」表）。採用は `job_list`、subagent 制御（send_message / interrupt_agent / list_agents / wait_agent）、`subagent_fork`、`exit_plan_mode` の 4 群。除外は pwsh、list_subagent_models、present、lsp、terminal、computer/browser、plugin_manager、ralph、create_worktree、team_*、MCP resources。`workflow` はツールにせず、S6 の決定 4（同じ turn の並列ツール呼び出し）が担う。`str_replace_editor` は `edit` が対応済み。session query 5 種は D4、schedule 4 種は C2 が引き受ける。pwsh、`job_list`、subagent 制御（send_message / interrupt_agent / list_agents / wait_agent）、subagent_fork、list_subagent_models、exit_plan_mode、present、lsp、workflow、MCP resources、session query 5種、schedule 4種、terminal 6種、computer/browser use、plugin_manager、str_replace_editor、ralph、create_worktree、team_*。
 
 ## C. 自律性・委譲

@@ -7,6 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
+  agentTools,
   jobTools,
   makeJobs,
   makeSubagentTool,
@@ -35,6 +36,7 @@ describe('tier 1 tool schemas', () => {
       ...jobTools(jobs),
       makeWorkingDirectoryTool({ root, change: () => Effect.void }),
       makeSubagentTool({ agents, route: 'stub/model', parentEvents: () => [] }),
+      ...agentTools(agents),
     ]
 
     const issues = tools.flatMap((tool) => toolSchemaIssues(toolDeclaration(tool)))
