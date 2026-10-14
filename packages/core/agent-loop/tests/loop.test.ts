@@ -14,13 +14,7 @@ import {
   type SessionSummary,
 } from '@fudo/session'
 import { SystemPrompt, makeSystemPrompt, type SystemPromptShape } from '@fudo/system-prompt'
-import {
-  Tools,
-  makeTools,
-  type ToolDefinition,
-  type ToolError,
-  type ToolRegistry,
-} from '@fudo/tools'
+import { Tools, ToolError, makeTools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
 import { Effect, Layer, Schema, Scope, Stream } from 'effect'
 import { AgentLoop, agentLoopLayer } from '../src/index.ts'
 
@@ -210,6 +204,60 @@ describe('agent loop', () => {
     expect(eventTypes).toContain('tool/result')
     expect(eventTypes.indexOf('tool/call')).toBeLessThan(eventTypes.indexOf('tool/result'))
     expect(reason(events)).toEqual([{ kind: 'completed' }])
+  })
+
+  test('input queued while a tool runs joins the next step', async () => {
+    const note = crypto.randomUUID()
+    const events = await scenario(
+      [
+        chunks([
+          {
+            type: 'block-end',
+            index: 0,
+            block: { type: 'tool-call', id: 'c1', name: 'poke', arguments: '{}' },
+          },
+          { type: 'finish', kind: 'tool-calls' },
+        ]),
+        chunks(textTurn('done')),
+      ],
+      (ctx) =>
+        Effect.gen(function* () {
+          const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+          const poke: ToolDefinition<{}, { readonly ok: boolean }> = {
+            name: 'poke',
+            description: 'Queues one note while it runs',
+            parameters: Schema.Struct({}),
+            output: {
+              schema: Schema.Struct({ ok: Schema.Boolean }),
+              render: () => [{ type: 'text', text: 'poked' }],
+            },
+            execute: () =>
+              agent.inject({ text: note, source: 'inject' }).pipe(
+                Effect.mapError(
+                  () => new ToolError({ code: 'execution', message: 'cannot queue the note' }),
+                ),
+                Effect.as({ ok: true }),
+              ),
+          }
+          yield* ctx.tools.register(poke)
+          yield* agent.followup({ text: 'go', source: 'user' })
+          yield* agent.whenIdle
+          return agent
+        }),
+    )
+
+    const kinds = types(events)
+    const stored = events.session.events()
+    const result = kinds.indexOf('tool/result')
+    const injected = stored.findIndex(
+      (event) => event.type === 'user/message' && event.data.source === 'inject',
+    )
+    const request = kinds.indexOf('request/header', result)
+
+    expect(kinds.filter((type) => type === 'step/start')).toHaveLength(2)
+    expect(injected).toBeGreaterThan(result)
+    expect(injected).toBeLessThan(request)
+    expect(stored[injected]?.type === 'user/message' ? stored[injected].data.text : '').toBe(note)
   })
 
   test('retries a failed attempt without repeating the request header', async () => {

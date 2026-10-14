@@ -166,13 +166,10 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
       build: { readonly system: string },
       input: ReadonlyArray<UserMessage>,
       cwd: string,
+      opening: boolean,
     ): Effect.Effect<void> =>
       Effect.gen(function* () {
-        if (input.length === 0) {
-          yield* recordRuntimeContext(agent, cwd)
-          return
-        }
-        yield* append(agent, 'system/message', { text: build.system })
+        if (opening) yield* append(agent, 'system/message', { text: build.system })
         yield* recordRuntimeContext(agent, cwd)
         for (const message of input) {
           yield* append(agent, 'user/message', { text: message.text, source: message.source })
@@ -209,12 +206,19 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
     const requestStep = (
       agent: Agent,
       input: ReadonlyArray<UserMessage>,
+      opening: boolean,
     ): Effect.Effect<StepOutcome> =>
       Effect.gen(function* () {
         const build = yield* promptService
           .build({ variables: {} })
           .pipe(Effect.provideService(Tools, tools), Effect.orDie)
-        yield* recordInput(agent, build, input, cwdOf(agent.session.events(), agent.session.header))
+        yield* recordInput(
+          agent,
+          build,
+          input,
+          cwdOf(agent.session.events(), agent.session.header),
+          opening,
+        )
         const base = requestOf(agent, build)
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
         yield* append(agent, 'request/header', {
@@ -314,11 +318,14 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
       turn: number,
       input: ReadonlyArray<UserMessage>,
     ): Effect.Effect<boolean> => {
-      const loop = (pending: ReadonlyArray<UserMessage>): Effect.Effect<boolean> =>
+      const loop = (
+        pending: ReadonlyArray<UserMessage>,
+        opening: boolean,
+      ): Effect.Effect<boolean> =>
         Effect.gen(function* () {
           const step = countEvents(agent.session, 'step/start') + 1
           yield* append(agent, 'step/start', { step })
-          const outcome = yield* requestStep(agent, pending)
+          const outcome = yield* requestStep(agent, pending, opening)
           if (!outcome.ok) {
             yield* append(agent, 'step/end', { step })
             yield* append(agent, 'turn/end', {
@@ -331,13 +338,14 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
           if (calls.length === 0) {
             yield* append(agent, 'step/end', { step })
             if (agent.inbox.nextStep.length === 0) return true
-            return yield* loop([])
+            return yield* loop(yield* agent.inbox.claim(false).pipe(Effect.orDie), false)
           }
           yield* executeCalls(agent, calls)
           yield* append(agent, 'step/end', { step })
-          return yield* loop([])
+          // Input queued while the tools ran (steer, inject) joins the next request.
+          return yield* loop(yield* agent.inbox.claim(false).pipe(Effect.orDie), false)
         })
-      return loop(input)
+      return loop(input, true)
     }
 
     const runTurn = (agent: Agent): Effect.Effect<void> => {
