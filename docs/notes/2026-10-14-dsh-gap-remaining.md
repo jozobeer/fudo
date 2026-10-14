@@ -15,7 +15,7 @@
 | ツール実行面 | 20% | 95% | 説明文の総量は DSH より少ないが、回復手順は全 tool にある |
 | 自律性・委譲 | 20% | 95% | repeat は配線済み、workflow は決定で充足 |
 | 安全・耐久 | 10% | 80% | zstd 圧縮・lease・export・trace は持たない（v1 の規模の外） |
-| UI・提示・検証 | 5% | 95% | なし（A/B は 3 タスク × n=3 の範囲。長いタスクは未測） |
+| UI・提示・検証 | 5% | 95% | なし（A/B は 4 タスク × n=3 の範囲。長いタスクは発火点 16,000 で測った） |
 
 ## 0. 作ったのに効いていない（先に片付ける）
 
@@ -66,6 +66,6 @@
 
 ## 未確認
 
-- dsh 側の `token-meter` と `tool-result-pruner` の発火条件は、設定の既定値まで読んでいない（fudo 側の既定は token-meter が 0.8 / 65,536 / 128,000、pruner が 8,192 字で head 4,096 + tail 1,024）。
-- fudo の compaction が実運用の長さで期待どおり縮むかは、e2e の assert までで実測していない（10,000 イベントのログでの縮み方は未計測）。
+- fudo の compaction が実際の窓の大きさで期待どおり縮むかは、実測していない。発火点を 16,000 に縮めた A/B では、両ハーネスとも要約の直後に線の下へ戻りきらず、続けて発火した（[A/B の記録](2026-10-14-ab-measurement.md)の長いタスク）。fudo は保持をメッセージ数（末尾 12 件）で決め、圧縮後の大きさの目標を持たない。
+- dsh の発火条件の既定は fudo と同じ（threshold 0.8、headroom 65,536、pruner 8,192 / 4,096 / 1,024。`dsh:packages/compaction/compaction-basic/src/config.ts`、`dsh:packages/compaction/compaction-tool-result-pruner/src/config.ts`）。違いは、dsh が出力予約（リクエストの maxTokens）も窓から差し引くこと、保持をトークン（窓の 16%）で決めることである。
 - `bun run check` の所要時間は約 18 秒（coverage 込みのテスト約 10 秒 + 静的検査 + 3 つの gate）。CI は無い。
