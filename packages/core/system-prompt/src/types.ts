@@ -1,7 +1,11 @@
 import type { ToolSchema } from '@fudo/llm'
-import { Data } from 'effect'
+import { Data, type Effect } from 'effect'
 
-export type PromptErrorCode = 'duplicate-section' | 'multiple-complete' | 'unknown-variable'
+export type PromptErrorCode =
+  | 'duplicate-section'
+  | 'duplicate-context'
+  | 'multiple-complete'
+  | 'unknown-variable'
 
 /** A failure of prompt registration or assembly. */
 export class PromptError extends Data.TaggedError('PromptError')<{
@@ -14,6 +18,24 @@ export interface AssembleContext {
   readonly variables: Readonly<Record<string, string>>
   /** The model-facing tools of this assembly; absent when only the text renders. */
   readonly tools?: ReadonlyArray<ToolSchema>
+}
+
+/** What a runtime context provider may read when the loop renders a snapshot. */
+export interface RuntimeContextSubject {
+  readonly cwd: string
+}
+
+/**
+ * One fact that can change between requests. The loop renders the entries into a
+ * user message with `source: 'runtime-context'` and appends it only when it differs
+ * from the newest one in the log.
+ */
+export interface RuntimeContextEntry {
+  readonly name: string
+  /** Ascending. Entries with the same order sort by name code-unit. */
+  readonly order: number
+  /** The line body, e.g. `cwd: /work`. Returning undefined or '' omits the fact. */
+  readonly text: (subject: RuntimeContextSubject) => Effect.Effect<string | undefined>
 }
 
 export interface PromptSection {

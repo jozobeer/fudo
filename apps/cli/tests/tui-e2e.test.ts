@@ -163,7 +163,9 @@ describe('terminal UI through the command', () => {
     expect(screen).toContain('ok')
     expect(tui.raw).toEqual([true, false])
     expect(
-      opened.events.flatMap((event) => (event.type === 'user/message' ? [event.data.text] : [])),
+      opened.events.flatMap((event) =>
+        event.type === 'user/message' && event.data.source === 'user' ? [event.data.text] : [],
+      ),
     ).toEqual(['hi'])
     expect(opened.events.filter((event) => event.type === 'turn/end')).toHaveLength(1)
     await rm(root, { recursive: true, force: true })

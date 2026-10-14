@@ -1,4 +1,5 @@
 import { kernelPlugin, loadProfile } from '@fudo/kernel'
+import { systemPromptPlugin } from '@fudo/system-prompt'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { Policy, Sandbox, safetyPlugin } from '../src/index.ts'
@@ -7,10 +8,11 @@ const build = (config: unknown) =>
   Effect.scoped(
     Effect.gen(function* () {
       const layer = yield* loadProfile({
-        plugins: [kernelPlugin, safetyPlugin],
+        plugins: [kernelPlugin, systemPromptPlugin, safetyPlugin],
         layers: [
           [
             { id: 'kernel', name: '@fudo/kernel', config: {} },
+            { id: 'system-prompt', name: '@fudo/system-prompt', config: {} },
             { id: 'safety', name: '@fudo/safety', config },
           ],
         ],

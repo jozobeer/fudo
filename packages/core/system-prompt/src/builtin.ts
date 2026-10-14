@@ -1,9 +1,26 @@
 import type { ToolSchema } from '@fudo/llm'
-import type { AssembleContext, PromptSection } from './types.ts'
+import { Effect } from 'effect'
+import type {
+  AssembleContext,
+  PromptSection,
+  RuntimeContextEntry,
+  RuntimeContextSubject,
+} from './types.ts'
 
 /** Built-in sections sort before user sections; the AGENTS.md sections sit at 900. */
 export const IDENTITY_ORDER = 0
 export const TOOL_GUIDANCE_ORDER = 100
+
+/** The facts the harness owns itself, between the plugin ones. */
+export const CWD_CONTEXT_ORDER = 10
+export const TIME_CONTEXT_ORDER = 30
+
+/** The recorded clock moves in these steps, so an idle session adds no snapshot per step. */
+export const TIME_BUCKET_MS = 10 * 60 * 1000
+
+/** The time line of a snapshot: one ISO instant per bucket, not per request. */
+export const timeLine = (now: number): string =>
+  'time: ' + new Date(Math.floor(now / TIME_BUCKET_MS) * TIME_BUCKET_MS).toISOString()
 
 export const IDENTITY_SECTION = 'fudo:identity'
 export const TOOL_GUIDANCE_SECTION = 'fudo:tool-guidance'
@@ -63,6 +80,8 @@ export interface BuiltinOptions {
   readonly includeHarnessIdentity?: boolean
   /** Tool usage lines, shown only for tools this assembly can call. */
   readonly includeToolGuidance?: boolean
+  /** The workspace and the clock, always present in a runtime snapshot. */
+  readonly includeRuntimeContext?: boolean
 }
 
 /** Guidance for the tools of this assembly, in the table's fixed order. */
@@ -71,6 +90,23 @@ export function toolGuidance(context: AssembleContext): string {
   return TOOL_GUIDANCE.filter(([name]) => visible.has(name))
     .map(([, line]) => line)
     .join('\n')
+}
+
+/** The runtime facts every fudo snapshot starts from: where the work is, and when. */
+export function builtinContexts(options: BuiltinOptions = {}): ReadonlyArray<RuntimeContextEntry> {
+  if (!(options.includeRuntimeContext ?? true)) return []
+  return [
+    {
+      name: 'cwd',
+      order: CWD_CONTEXT_ORDER,
+      text: (subject: RuntimeContextSubject) => Effect.succeed('cwd: ' + subject.cwd),
+    },
+    {
+      name: 'time',
+      order: TIME_CONTEXT_ORDER,
+      text: () => Effect.sync(() => timeLine(Date.now())),
+    },
+  ]
 }
 
 /** The sections every fudo prompt starts from. */

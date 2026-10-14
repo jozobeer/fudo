@@ -156,7 +156,9 @@ describe('the browser UI through the command', () => {
     expect(observed.status).toBe(200)
     expect(observed.home).toContain('<title>fudo</title>')
     expect(
-      opened.events.flatMap((event) => (event.type === 'user/message' ? [event.data.text] : [])),
+      opened.events.flatMap((event) =>
+        event.type === 'user/message' && event.data.source === 'user' ? [event.data.text] : [],
+      ),
     ).toEqual(['ping'])
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })

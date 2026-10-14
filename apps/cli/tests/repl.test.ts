@@ -90,7 +90,7 @@ describe('repl', () => {
     expect(sessions).toHaveLength(1)
     const opened = await Effect.runPromise(jsonlSessions({ root }).open(sessions[0]?.id ?? ''))
     const users = opened.events.flatMap((event) =>
-      event.type === 'user/message' ? [event.data.text] : [],
+      event.type === 'user/message' && event.data.source === 'user' ? [event.data.text] : [],
     )
     const turns = opened.events.filter((event) => event.type === 'turn/start')
     const ends = opened.events.filter((event) => event.type === 'turn/end')

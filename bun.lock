@@ -96,6 +96,7 @@
       "dependencies": {
         "@fudo/kernel": "workspace:*",
         "@fudo/session": "workspace:*",
+        "@fudo/system-prompt": "workspace:*",
         "@fudo/tools": "workspace:*",
         "effect": "4.0.3",
       },
@@ -145,6 +146,7 @@
         "@fudo/kernel": "workspace:*",
         "@fudo/safety": "workspace:*",
         "@fudo/session": "workspace:*",
+        "@fudo/system-prompt": "workspace:*",
         "@fudo/tools": "workspace:*",
         "effect": "4.0.3",
       },

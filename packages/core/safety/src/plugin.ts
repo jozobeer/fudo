@@ -1,12 +1,13 @@
 import type { Plugin } from '@fudo/kernel'
-import { Layer, Schema } from 'effect'
+import { SystemPrompt } from '@fudo/system-prompt'
+import { Effect, Layer, Schema } from 'effect'
 import { Sandbox } from './sandbox.ts'
 import { noneSandboxLayer } from './sandbox.ts'
 import { seatbeltSandbox } from './seatbelt.ts'
 import { Ask } from './ask.ts'
 import { askServiceLayer } from './ask.ts'
-import { Policy } from './policy-service.ts'
-import { policyLayer } from './policy-service.ts'
+import { Policy, type PolicyShape } from './policy-service.ts'
+import { decide, type PermissionPreset } from './policy.ts'
 
 export const safetyConfigSchema = Schema.Struct({
   preset: Schema.Literals(['read-only', 'workspace-write', 'full']),
@@ -16,6 +17,10 @@ export const safetyConfigSchema = Schema.Struct({
 })
 
 export type SafetyConfig = Schema.Schema.Type<typeof safetyConfigSchema>
+
+/** The permissions sort after the workspace the loop owns and before the clock. */
+const APPROVAL_CONTEXT_ORDER = 20
+const SANDBOX_CONTEXT_ORDER = 21
 
 const sandboxLayer = (config: SafetyConfig): Layer.Layer<Sandbox, never> =>
   (config.sandbox ?? 'none') === 'seatbelt'
@@ -27,13 +32,39 @@ const sandboxLayer = (config: SafetyConfig): Layer.Layer<Sandbox, never> =>
       )
     : noneSandboxLayer
 
+/**
+ * Policy with the runtime facts that name this profile's permissions. The model
+ * reads them from the snapshot instead of inferring what a call would be allowed
+ * to do. A duplicate fact name is a programming error, not input.
+ */
+const policyLayerWithContexts = (config: SafetyConfig): Layer.Layer<Policy, never, SystemPrompt> =>
+  Layer.effect(
+    Policy,
+    Effect.gen(function* () {
+      const prompt = yield* SystemPrompt
+      yield* prompt.context({
+        name: 'approval',
+        order: APPROVAL_CONTEXT_ORDER,
+        text: () => Effect.succeed('approval: ' + config.preset),
+      })
+      yield* prompt.context({
+        name: 'sandbox',
+        order: SANDBOX_CONTEXT_ORDER,
+        text: () => Effect.succeed('sandbox: ' + (config.sandbox ?? 'none')),
+      })
+      const preset: PermissionPreset = config.preset
+      const shape: PolicyShape = { preset, decide: (needs) => decide(preset, needs) }
+      return shape
+    }).pipe(Effect.orDie),
+  )
+
 /** Loader definition for the permission preset and the sandbox provider. */
-export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, never> = {
+export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, SystemPrompt> = {
   name: '@fudo/safety',
   config: safetyConfigSchema,
   provides: [Policy, Sandbox],
-  requires: [],
-  layer: (config) => Layer.mergeAll(policyLayer(config.preset), sandboxLayer(config)),
+  requires: [SystemPrompt],
+  layer: (config) => Layer.mergeAll(policyLayerWithContexts(config), sandboxLayer(config)),
 }
 
 /** Loader definition for the ask holder: questions wait for an answer. */

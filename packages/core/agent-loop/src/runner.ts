@@ -15,6 +15,7 @@ import {
   compactMessages,
   cwdOf,
   deriveMessages,
+  lastRuntimeContext,
   type CompactOptions,
   type Session,
   type SessionEventMap,
@@ -143,15 +144,36 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         )
       })
 
-    /** Appends the settled system prompt and the input that started the step. */
+    /**
+     * Records the runtime facts only when they changed. The log is the only memory:
+     * a resumed session compares against the newest snapshot it already holds, so
+     * the same workspace and permission state is not restated every step.
+     */
+    const recordRuntimeContext = (agent: Agent, cwd: string): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const text = yield* promptService.runtimeContext({ cwd })
+        if (text === '' || text === lastRuntimeContext(agent.session.events())) return
+        yield* append(agent, 'user/message', { text, source: 'runtime-context' })
+      })
+
+    /**
+     * Appends the settled system prompt and the input that started the step; the
+     * runtime snapshot follows the prompt and precedes the input, and is recorded
+     * on every step so a mid-turn change reaches the next request.
+     */
     const recordInput = (
       agent: Agent,
       build: { readonly system: string },
       input: ReadonlyArray<UserMessage>,
+      cwd: string,
     ): Effect.Effect<void> =>
       Effect.gen(function* () {
-        if (input.length === 0) return
+        if (input.length === 0) {
+          yield* recordRuntimeContext(agent, cwd)
+          return
+        }
         yield* append(agent, 'system/message', { text: build.system })
+        yield* recordRuntimeContext(agent, cwd)
         for (const message of input) {
           yield* append(agent, 'user/message', { text: message.text, source: message.source })
         }
@@ -192,7 +214,7 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         const build = yield* promptService
           .build({ variables: {} })
           .pipe(Effect.provideService(Tools, tools), Effect.orDie)
-        yield* recordInput(agent, build, input)
+        yield* recordInput(agent, build, input, cwdOf(agent.session.events(), agent.session.header))
         const base = requestOf(agent, build)
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
         yield* append(agent, 'request/header', {

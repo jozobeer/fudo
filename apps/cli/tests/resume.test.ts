@@ -107,7 +107,7 @@ describe('resume', () => {
     const reopened = await Effect.runPromise(jsonlSessions({ root }).open(id))
     const turns = reopened.events.filter((event) => event.type === 'turn/start')
     const users = reopened.events.flatMap((event) =>
-      event.type === 'user/message' ? [event.data.text] : [],
+      event.type === 'user/message' && event.data.source === 'user' ? [event.data.text] : [],
     )
 
     expect(turns).toHaveLength(2)

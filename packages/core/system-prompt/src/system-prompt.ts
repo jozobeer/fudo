@@ -1,20 +1,42 @@
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Layer, type Scope } from 'effect'
-import { builtinSections, type BuiltinOptions } from './builtin.ts'
-import { PromptError, type AssembleContext, type PromptBuild, type PromptSection } from './types.ts'
+import { builtinContexts, builtinSections, type BuiltinOptions } from './builtin.ts'
+import {
+  PromptError,
+  type AssembleContext,
+  type PromptBuild,
+  type PromptSection,
+  type RuntimeContextEntry,
+  type RuntimeContextSubject,
+} from './types.ts'
 
 export interface SystemPromptShape {
   /** Registers a section until the surrounding scope closes. Duplicate names fail. */
   section(section: PromptSection): Effect.Effect<void, PromptError, Scope.Scope>
   sections(): ReadonlyArray<PromptSection>
+  /** Registers one runtime fact until the surrounding scope closes. Duplicate names fail. */
+  context(entry: RuntimeContextEntry): Effect.Effect<void, PromptError, Scope.Scope>
+  contexts(): ReadonlyArray<RuntimeContextEntry>
   render(context: AssembleContext): Effect.Effect<string, PromptError>
+  /**
+   * The runtime snapshot of this subject: the registered facts in order, or '' when
+   * none has a value. What changes between requests reaches the model here, not in
+   * the system prompt.
+   */
+  runtimeContext(subject: RuntimeContextSubject): Effect.Effect<string>
   /** The system text plus the model-facing tools of the current context. */
   build(context: AssembleContext): Effect.Effect<PromptBuild, PromptError, Tools>
 }
 
 const VARIABLE = /\{\{([A-Za-z0-9_-]+)\}\}/g
 
-const compareSections = (left: PromptSection, right: PromptSection): number => {
+/** The first line of every runtime snapshot. */
+export const RUNTIME_CONTEXT_HEADER = 'Current runtime context:'
+
+const compareEntries = (
+  left: { readonly name: string; readonly order: number },
+  right: { readonly name: string; readonly order: number },
+): number => {
   if (left.order !== right.order) return left.order - right.order
   if (left.name === right.name) return 0
   return left.name < right.name ? -1 : 1
@@ -43,9 +65,10 @@ const interpolate = (
       )
 }
 
-/** Builds an in-memory prompt section registry. */
+/** Builds an in-memory prompt section and runtime context registry. */
 export function makeSystemPrompt(): SystemPromptShape {
   const registered = new Map<string, PromptSection>()
+  const contexts = new Map<string, RuntimeContextEntry>()
 
   const render = (context: AssembleContext): Effect.Effect<string, PromptError> =>
     Effect.gen(function* () {
@@ -59,7 +82,7 @@ export function makeSystemPrompt(): SystemPromptShape {
         )
       }
       const chosen =
-        complete[0] !== undefined ? complete : [...registered.values()].sort(compareSections)
+        complete[0] !== undefined ? complete : [...registered.values()].sort(compareEntries)
       const texts: Array<string> = []
       for (const section of chosen) {
         const raw = typeof section.text === 'function' ? section.text(context) : section.text
@@ -91,6 +114,36 @@ export function makeSystemPrompt(): SystemPromptShape {
 
     sections: () => [...registered.values()],
 
+    context: (entry) =>
+      Effect.gen(function* () {
+        if (contexts.has(entry.name)) {
+          return yield* Effect.fail(
+            new PromptError({
+              code: 'duplicate-context',
+              message: `runtime context ${entry.name} is already registered`,
+            }),
+          )
+        }
+        contexts.set(entry.name, entry)
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            if (contexts.get(entry.name) === entry) contexts.delete(entry.name)
+          }),
+        )
+      }),
+
+    contexts: () => [...contexts.values()],
+
+    runtimeContext: (subject) =>
+      Effect.gen(function* () {
+        const lines: Array<string> = []
+        for (const entry of [...contexts.values()].sort(compareEntries)) {
+          const text = yield* entry.text(subject)
+          if (text !== undefined && text !== '') lines.push('- ' + text)
+        }
+        return lines.length === 0 ? '' : [RUNTIME_CONTEXT_HEADER, ...lines].join('\n')
+      }),
+
     render,
 
     build: (context) =>
@@ -109,7 +162,8 @@ export class SystemPrompt extends Context.Service<SystemPrompt, SystemPromptShap
 
 /**
  * The registry the application runs with: a fresh registry that already holds the
- * built-in sections. A duplicate built-in name is a programming error, not input.
+ * built-in sections and runtime contexts. A duplicate built-in name is a
+ * programming error, not input.
  */
 export const systemPromptLayerWith = (options: BuiltinOptions = {}): Layer.Layer<SystemPrompt> =>
   Layer.effect(
@@ -117,6 +171,7 @@ export const systemPromptLayerWith = (options: BuiltinOptions = {}): Layer.Layer
     Effect.gen(function* () {
       const prompt = makeSystemPrompt()
       for (const section of builtinSections(options)) yield* prompt.section(section)
+      for (const entry of builtinContexts(options)) yield* prompt.context(entry)
       return prompt
     }).pipe(Effect.orDie),
   )
