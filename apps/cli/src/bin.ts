@@ -9,6 +9,7 @@ import { parseArgs, type ParsedArgs } from './args.ts'
 import { configPaths, loadSecrets } from './config.ts'
 import { loadConfigFile, type FudoConfig } from './config-file.ts'
 import { loadEnvFrom } from './env-file.ts'
+import { resolveSettings, type SettingsSurface } from './settings.ts'
 import { listModels, modelEndpointOf } from './models.ts'
 import { bundledPlugins } from './plugins.ts'
 import { searchFromEnv } from './search-env.ts'
@@ -48,6 +49,8 @@ interface CommandInputs {
   readonly settings: FudoConfig
   /** The file the settings came from, so `--dump-config` can name it. */
   readonly settingsPath: string
+  /** What is in effect and which file filled each credential. */
+  readonly surface: SettingsSurface
   readonly route: string
   readonly documents: ReadonlyArray<string>
   readonly patches: ReadonlyArray<string>
@@ -64,12 +67,20 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
   Effect.gen(function* () {
     // The nearest .env fills what the environment does not define; the
     // secrets file is separate so it can stay unreadable.
-    loadEnvFrom(io.cwd)
-    loadSecrets(configPaths().secrets, process.env, io.stderr)
+    const fromDotenv = loadEnvFrom(io.cwd)
+    const fromSecrets = loadSecrets(configPaths().secrets, process.env, io.stderr)
     const settingsPath = parsed.config ?? configPaths().config
     const settings = yield* loadConfigFile(settingsPath)
-    const profileName = parsed.profileFlag ?? settings.profile ?? parsed.profile
-    const route = parsed.modelFlag ?? settings.model ?? parsed.model
+    // One resolver answers what is in effect, for the run and for --dump-config.
+    const effective = resolveSettings({
+      flags: { profile: parsed.profileFlag, model: parsed.modelFlag },
+      settings,
+      settingsPath,
+      fallbackProfile: parsed.profile,
+      fallbackRoute: parsed.model,
+    })
+    const profileName = effective.profile.value
+    const route = effective.route.value
     const base = yield* readText(
       loadBundledProfile,
       (cause) => `cannot read the bundled profile: ${String(cause)}`,
@@ -87,6 +98,7 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     return {
       settings,
       settingsPath,
+      surface: { effective, filled: { fromDotenv, fromSecrets } },
       route,
       documents: [base, named],
       patches,
@@ -140,6 +152,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   ...optional('resume', parsed.resume),
   ...(parsed.allowPresetChange ? { allowPresetChange: true } : {}),
   ...(inputs.patches.length === 0 ? {} : { patches: inputs.patches }),
+  surface: inputs.surface,
   ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
   ...(parsed.json ? { json: true } : {}),
   ...optional('interrupt', io.interrupt),

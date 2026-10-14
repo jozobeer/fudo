@@ -239,7 +239,14 @@
   - 検証: `durability.test.ts` 9 本（v0 のログが開いて現在の形になる／`cwd` は `(not recorded)` で `createdAt` はディスクから／現在より新しい世代は「newer fudo」と言って拒否／切れた末尾は prefix を読み `session/repaired` が入り `tornBytes` が正しく、ファイルが直り、2 回目の読みでは修復が起きない／header の前に切れたログは開けない／一覧は古いログを見せてファイルを触らない／`splitTornTail` の境界（空・完備・途中・改行なし）／`upgradeHeader` が現在の世代を素通しする）。`bun run check` 717 pass / 1 skip / 0 fail。
   - 学び: 修復の注記を**ファイルに書いただけ**にしたら、メモリ上の events とファイルが食い違い、次の append が同じ seq を二重に使うところだった。ログは唯一の記憶なので、書いたものは返り値にも入れる（ファイルとセッションが同じものを見る）——テストがこの食い違いを捕まえた。
   - 未確認: 圧縮・lease・export・検索は無い。`session/repaired` は log-only なので会話 view には notice として出ない（人間はログで見る）。世代の表はいまのところ v0 → v1 の 1 段だけで、互換性の無い変更が生じたらここに足す。修復は「最後の行が切れている」場合だけで、途中の壊れた行は今も拒否する（本当の破損は黙って飛ばさない）。
-- [ ] **D5 settings / credentials / identity / telemetry**。fudo は config.yaml と secrets.env のみ（`fudo:apps/cli/src/config.ts:16`）。dsh は設定の seam、資格情報の優先順位、匿名 id、mount するまで送らない OTLP を持つ。
+- [x] **D5 settings / credentials / identity / telemetry**。fudo は config.yaml と secrets.env のみ（`fudo:apps/cli/src/config.ts:16`）。dsh は設定の seam、資格情報の優先順位、匿名 id、mount するまで送らない OTLP を持つ。
+  - 実装（2026-10-14）:
+    - 設計文書を改訂（除外表の「OpenTelemetry、credentials と authorization の各サービス」行に追記）: **方針は変えない**——credential サービスも OTLP も匿名 id も持たない（記録はセッションログが担い、キーは 1 行で足りる）。代わりに**優先順位を 1 か所に固定して見えるようにした**。
+    - `apps/cli/src/settings.ts`: `resolveSettings` が値と**出どころ**（`source` と `from`）を返す（フラグ > `config.yaml` > 既定）。`credentialSource` は「どのファイルがそのキーを埋めたか」を返す（シェル > 近い `.env` > `secrets.env`。loader は空いているキーだけを埋めるので、埋めた側が分かる）。
+    - `bin.ts` の走行経路がこの resolver を使う（挙動は同じで、`--profile` / `--model` の解決が 1 か所になる）。`--dump-config` が「in effect for a run from here:」を出し、profile / route / skills / plugins の値と出どころ、そして profile の llm 行が要求するキー（`apiKeyEnv`）がどのファイルで埋まったかを並べる。
+  - 検証: `settings.test.ts` 7 本（フラグ > ファイル > 既定／ファイルは自分のパスを名乗る／既定は default と言う／リストはファイルが源／空文字のフラグは無いのと同じ／資格情報はシェル > dotenv > secrets／何も定義しないキーは source なし）、`bin.test.ts` の `--dump-config` が実経路で「in effect for a run from here:」「profile: headless — default」「OLLAMA_API_KEY:」を出す、`profile-flag.test.ts`（フラグのときは `profile: repl — flag (…)`、既定のときは `default`。**行の部分は同じ**で、出どころのブロックだけが違う）。`bun run check` 724 pass / 1 skip / 0 fail。
+  - 学び: 出どころを表示した瞬間、`--profile repl` と素の dump を「出力が同一」で比較していた 2 本のテストが落ちた。落ちたのはテストが「行の内容」ではなく「全文」を比較していたからで、比較の対象を意味に合わせると（出どころのブロックを除いて行だけ比べる）、差分は「出どころが見えるようになった」という新しい証拠に変わった。表示を足す変更は、既存テストの比較範囲の広さを炙り出す。
+  - 未確認: credential サービスは無い（キーは環境変数 1 つ。複数 provider の資格情報をまとめて管理する仕組みは持たない）。OTLP / telemetry / 匿名 id は無い（記録はセッションログが唯一）。`fudo config`（サブコマンド）は従来どおりファイルの中身を出すだけで、解決後の値と出どころは `--dump-config` に出る。`--json` と併用したときは JSON の外に出どころの行が混ざる（併用時の既存の扱いのまま）。
 
 ## E. UI・提示・検証
 

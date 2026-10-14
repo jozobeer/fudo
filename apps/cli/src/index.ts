@@ -35,6 +35,8 @@ import {
 } from '@fudo/session'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
+import { modelEndpointOf } from './models.ts'
+import { credentialSource, type SettingsSurface } from './settings.ts'
 import { configPaths } from './config.ts'
 import { bundledPlugins } from './plugins.ts'
 import { makePluginHost } from './plugin-host.ts'
@@ -91,6 +93,7 @@ import {
   MODEL_KEY,
   PLAN_MODE_KEY,
   SPILL_BYTES_KEY,
+  renderEffective,
   renderModelInEffect,
   renderSurface,
 } from './surface.ts'
@@ -125,6 +128,8 @@ export interface CommandOptions {
   readonly skills?: ReadonlyArray<string>
   /** The fudo home: user-global AGENTS.md and skills live here. */
   readonly fudoHome?: string
+  /** What is in effect for this run and which file filled each credential. */
+  readonly surface?: SettingsSurface
   /** Continue even when this run's composition differs from the one the session recorded. */
   readonly allowPresetChange?: boolean
   /** Lets the model run tasks in child agents. */
@@ -812,11 +817,26 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     const route = options.route !== '' ? options.route : routeFromRows(rows)
 
     if (options.dumpConfig === true) {
+      // The profile's llm row names the variable the key comes from; the surface
+      // says which file filled it.
+      const endpoint = modelEndpointOf(rows)
+      const credential =
+        endpoint === undefined || options.surface === undefined
+          ? undefined
+          : {
+              name: endpoint.apiKeyEnv,
+              source: credentialSource({
+                name: endpoint.apiKeyEnv,
+                environment: process.env,
+                ...options.surface.filled,
+              }),
+            }
       const text =
         renderModelInEffect(route) +
         renderConfig(rows) +
         renderPluginKeys(options.plugins) +
-        renderSurface(options.settingsPath, options.settings)
+        renderSurface(options.settingsPath, options.settings) +
+        renderEffective(options.surface, credential)
       options.stdout(text)
       return 0
     }

@@ -15,6 +15,9 @@ const run = async (argv: ReadonlyArray<string>) => {
   return { code, out: out.join(''), err: err.join('') }
 }
 
+/** The rows a profile builds; the block after it names what the run resolved. */
+const rowsOf = (text: string): string => text.split('in effect for a run from here:')[0] ?? text
+
 describe('--profile', () => {
   test('the named profile is layered over the base profile', async () => {
     const base = await run(['--dump-config'])
@@ -22,8 +25,11 @@ describe('--profile', () => {
 
     expect(base.code).toBe(0)
     expect(repl.code).toBe(0)
-    expect(repl.out).toBe(base.out)
+    // The rows are the same; only the block that says where the name came from differs.
+    expect(rowsOf(repl.out)).toBe(rowsOf(base.out))
     expect(repl.out).toContain('id=agent-loop')
+    expect(repl.out).toContain('profile: repl — flag (the --profile on the command line)')
+    expect(base.out).toContain('profile: headless — default')
   })
 
   test('an unknown profile fails with a clear message', async () => {

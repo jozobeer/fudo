@@ -43,6 +43,8 @@ describe('compiled binary', () => {
 
     expect(base).toMatchObject({ code: 0, err: '' })
     expect(base.out).toContain('id=agent-loop')
-    expect(repl).toEqual(base)
+    // The rows match; the block that names the resolved profile is meant to differ.
+    const rowsOf = (text: string): string => text.split('in effect for a run from here:')[0] ?? text
+    expect(rowsOf(repl.out)).toBe(rowsOf(base.out))
   })
 })

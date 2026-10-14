@@ -71,6 +71,10 @@ describe('main', () => {
     const text = out.join('')
     expect(code).toBe(0)
     expect(text).toContain('model in effect:')
+    // What a run resolves and why, in the same place as the keys themselves.
+    expect(text).toContain('in effect for a run from here:')
+    expect(text).toContain('profile: headless — default')
+    expect(text).toContain('OLLAMA_API_KEY:')
     expect(text).toContain(
       '@fudo/safety: preset (required, one of read-only|workspace-write|full), sandbox (optional, one of none|seatbelt), writableRoots (optional, string[])',
     )

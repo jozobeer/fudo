@@ -116,7 +116,9 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | `BRAVE_API_KEY` | あると `web_search` tool が付く |
 | `XDG_CONFIG_HOME` | `config.yaml` と `secrets.env` を置くディレクトリ |
 
-優先順位はシェル環境、作業ディレクトリに近い `.env`、`secrets.env` の順である。先に値がある場所が勝ち、後ろは空いているキーだけを埋める。
+優先順位はシェル環境、作業ディレクトリに近い `.env`、`secrets.env` の順である。先に値がある場所が勝ち、後ろは空いているキーだけを埋める。どのファイルがそのキーを埋めたかは `fudo --dump-config` の `in effect for a run from here:` に出る。
+
+設定値そのものの優先順位は、コマンドラインのフラグ、`config.yaml`、コマンドラインの既定（`--profile` 省略時の `headless` など）の順で、同じく `--dump-config` が値と出どころを並べる。解決は 1 か所（`apps/cli/src/settings.ts`）で行うので、走行時の値と表示が食い違わない。
 
 ## ファイルの置き場
 

@@ -2,6 +2,7 @@ import type { PluginRow } from '@fudo/kernel'
 import { FLAG_NAMES } from './args.ts'
 import { CONFIG_HOME_ENV, configPaths } from './config.ts'
 import type { FudoConfig } from './config-file.ts'
+import type { CredentialSource, Resolved, SettingsSurface } from './settings.ts'
 import { SEARCH_KEY_ENV } from './search-env.ts'
 
 /** Row keys the command reads from a row's config itself; no plugin declares them. */
@@ -144,6 +145,56 @@ const renderEnvironment = (): string =>
     '  - ' + CONFIG_HOME_ENV + ': moves the directory that holds config.yaml and secrets.env',
     '  - ' + SEARCH_KEY_ENV + ': with it the web_search tool is registered',
   ].join('\n') + '\n'
+
+const describeValue = (value: unknown): string =>
+  Array.isArray(value)
+    ? String(value.length) + (value.length === 1 ? ' item' : ' items')
+    : String(value)
+
+const credentialLine = (credential: {
+  readonly name: string
+  readonly source: CredentialSource | undefined
+}): string => {
+  if (credential.source === undefined) {
+    return '  - ' + credential.name + ': not set, and the profile asks for it'
+  }
+  const where =
+    credential.source === 'environment'
+      ? 'the shell'
+      : credential.source === 'dotenv'
+        ? 'the nearest .env'
+        : 'secrets.env'
+  return '  - ' + credential.name + ': ' + credential.source + ' (' + where + ')'
+}
+
+/** What a run from here would resolve, and where each value came from. */
+export const renderEffective = (
+  surface: SettingsSurface | undefined,
+  credential: { readonly name: string; readonly source: CredentialSource | undefined } | undefined,
+): string => {
+  if (surface === undefined) return ''
+  const { effective } = surface
+  const setting = (name: string, resolved: Resolved<unknown>): string =>
+    '  - ' +
+    name +
+    ': ' +
+    describeValue(resolved.value) +
+    ' — ' +
+    resolved.source +
+    ' (' +
+    resolved.from +
+    ')'
+  return (
+    [
+      'in effect for a run from here:',
+      setting('profile', effective.profile),
+      setting('route', effective.route),
+      setting('skills', effective.skills),
+      setting('plugins', effective.plugins),
+      ...(credential === undefined ? [] : [credentialLine(credential)]),
+    ].join('\n') + '\n'
+  )
+}
 
 /** What `--dump-config` prints after the rows: where the rest is set and what it holds. */
 export const renderSurface = (
