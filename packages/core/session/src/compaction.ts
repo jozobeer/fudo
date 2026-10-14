@@ -1,6 +1,12 @@
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock, RequestMessage } from '@fudo/llm'
 import { deriveMessagesWithSeqs, prunedSeqs, type DerivedMessage } from './derive.ts'
-import type { CompactReplacement, CompactionPrune, SessionEvent } from './events.ts'
+import type {
+  CompactReplacement,
+  CompactionCheckpoint,
+  CompactionPrune,
+  SessionEvent,
+  SessionSeq,
+} from './events.ts'
 import { registerMessageProjection, type MessageProjection } from './projections.ts'
 
 export interface CompactOptions {
@@ -64,6 +70,12 @@ const applyReplacements = (
   })
 }
 
+/** The line a checkpoint message opens with: the model reads it as background. */
+export const CHECKPOINT_PREAMBLE =
+  'This is an automatically generated checkpoint condensing an earlier span of the ' +
+  'conversation. Treat it as established background and continue from the messages ' +
+  'that follow, without acknowledging it.\n\n'
+
 /**
  * The projection the session actually uses: a recorded prune rewrites the content
  * of the events it shadows, so the request and the log stay the same thing.
@@ -96,11 +108,22 @@ export function pruneFor(
   const frame = new Set(
     events.filter((event) => event.type === 'system/message').map((event) => event.seq),
   )
+  // A checkpoint is already the condensed form; stubbing it would hide the summary.
+  const checkpoints = new Set(
+    events.filter((event) => event.type === 'compaction/checkpoint').map((event) => event.seq),
+  )
   const replacements: Array<CompactReplacement> = []
   let shadowedBytes = 0
 
   derived.forEach((entry, index) => {
-    if (index >= boundary || alreadyPruned.has(entry.seq) || frame.has(entry.seq)) return
+    if (
+      index >= boundary ||
+      alreadyPruned.has(entry.seq) ||
+      frame.has(entry.seq) ||
+      checkpoints.has(entry.seq)
+    ) {
+      return
+    }
     const pruned = pruneBlocks(entry.message.content, options.maxBytes)
     if (!pruned.changed) return
     shadowedBytes += pruned.replacedBytes
@@ -114,5 +137,116 @@ export function pruneFor(
     shadowedRange: { start: Math.min(...seqs), end: Math.max(...seqs) },
     shadowedBytes,
     replacements,
+  }
+}
+
+/**
+ * The messages a summary would stand for: everything outside the retention, in
+ * order, without the system prompt (the request's frame, not history). Already
+ * checkpointed or pruned messages are gone from the fold and never come back here.
+ */
+export function summarizableMessages(
+  events: ReadonlyArray<SessionEvent>,
+  options: CompactOptions,
+): ReadonlyArray<DerivedMessage> {
+  const derived = deriveMessagesWithSeqs(events)
+  const boundary = Math.max(0, derived.length - options.keepLast)
+  const frame = new Set(
+    events.filter((event) => event.type === 'system/message').map((event) => event.seq),
+  )
+  return derived.slice(0, boundary).filter((entry) => !frame.has(entry.seq))
+}
+
+/** The range as the request would carry it: a recorded prune's replacements applied. */
+export const messagesWithPrune = (
+  messages: ReadonlyArray<DerivedMessage>,
+  prune: CompactionPrune | undefined,
+): ReadonlyArray<RequestMessage> =>
+  (prune === undefined ? messages : applyReplacements(messages, prune.replacements)).map(
+    (entry) => entry.message,
+  )
+
+const summaryMessage = (seq: SessionSeq, summary: string): DerivedMessage => ({
+  seq,
+  message: {
+    role: 'user',
+    content: [{ type: 'text', text: CHECKPOINT_PREAMBLE + summary }],
+  },
+})
+
+/**
+ * Replaces the summarized span with the one checkpoint message, where the span
+ * began. A span an earlier checkpoint already replaced is left alone, so folding
+ * the log twice cannot stack two summaries.
+ */
+const applyCheckpoint = (
+  derived: ReadonlyArray<DerivedMessage>,
+  event: SessionEvent & { readonly type: 'compaction/checkpoint' },
+): ReadonlyArray<DerivedMessage> => {
+  const shadowed = new Set(event.data.shadowedSeqs)
+  if (!derived.some((entry) => shadowed.has(entry.seq))) return derived
+  const kept: Array<DerivedMessage> = []
+  let placed = false
+  for (const entry of derived) {
+    if (!shadowed.has(entry.seq)) {
+      kept.push(entry)
+      continue
+    }
+    if (!placed) {
+      kept.push(summaryMessage(event.seq, event.data.summary))
+      placed = true
+    }
+  }
+  return kept
+}
+
+/** Rewrites the folded history so a recorded checkpoint stands for its span. */
+export const checkpointProjection: MessageProjection = {
+  type: 'compaction/checkpoint',
+  name: 'compaction/checkpoint',
+  project: (event, derived) =>
+    event.type === 'compaction/checkpoint' ? applyCheckpoint(derived, event) : derived,
+}
+
+registerMessageProjection(checkpointProjection)
+
+/** The instruction the auxiliary summarizer call answers with the checkpoint. */
+export const COMPACT_SUMMARY_INSTRUCTION = [
+  'You are now acting as a compaction engine for this coding assistant. Condense the',
+  'conversation ABOVE into a structured checkpoint that lets another model resume the',
+  'work without losing essential context.',
+  '',
+  'Output exactly this Markdown structure, keeping every section in order; write',
+  '"(none)" for an empty section and never drop one:',
+  '',
+  '## Primary Request and Intent',
+  '## Files and Code',
+  '## Errors and Fixes',
+  '## Pending Jobs',
+  '## Current Work',
+  '## Next Step',
+  '## Critical Context',
+  '',
+  'Rules:',
+  '- Preserve exact file paths, commands, error strings, identifiers, and numbers.',
+  '- Do not mention this summarization request or that the context was compacted.',
+  '- Answer with the checkpoint text only; call no tool and take no other action.',
+].join('\n')
+
+/** The event data one summarized range becomes. */
+export const checkpointOf = (
+  range: ReadonlyArray<DerivedMessage>,
+  summary: string,
+  model: { readonly provider: string; readonly model: string },
+): CompactionCheckpoint | undefined => {
+  const first = range[0]
+  const last = range[range.length - 1]
+  if (first === undefined || last === undefined || summary.trim() === '') return undefined
+  return {
+    shadowedSeqs: range.map((entry) => entry.seq),
+    shadowedRange: { start: first.seq, end: last.seq },
+    summary,
+    provider: model.provider,
+    model: model.model,
   }
 }

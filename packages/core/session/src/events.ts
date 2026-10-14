@@ -74,6 +74,7 @@ export interface SessionEventMap {
   'session/cwd/changed': CwdChanged
   'session/repaired': SessionRepaired
   'compaction/prune': CompactionPrune
+  'compaction/checkpoint': CompactionCheckpoint
   'turn/start': { readonly turn: number }
   'turn/end': { readonly turn: number; readonly reason: TurnEndReason }
   'step/start': { readonly step: number }
@@ -150,6 +151,20 @@ export interface RequestHeaderData {
 export interface CompactReplacement {
   readonly seq: SessionSeq
   readonly content: ReadonlyArray<ContentBlock>
+}
+
+/**
+ * An auxiliary model condensed this span of the history into one summary. The
+ * events stay in the log untouched, so the replaced span is traceable; the fold
+ * carries the summary in their place.
+ */
+export interface CompactionCheckpoint {
+  /** The events whose messages the summary stands for, oldest first. */
+  readonly shadowedSeqs: ReadonlyArray<SessionSeq>
+  readonly shadowedRange: { readonly start: SessionSeq; readonly end: SessionSeq }
+  readonly summary: string
+  readonly provider: string
+  readonly model: string
 }
 
 /**

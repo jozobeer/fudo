@@ -7,22 +7,29 @@ import {
   compactAssistantStream,
   encodeLlmFailure,
   type ContentBlock,
+  type RequestMessage,
   type StreamChunk,
   type TimedStreamChunk,
   type ToolSchema,
 } from '@fudo/llm'
 import {
+  COMPACT_SUMMARY_INSTRUCTION,
   DEFAULT_COMPACT_KEEP_LAST,
   DEFAULT_COMPACT_MAX_BYTES,
+  checkpointOf,
   cwdOf,
   deriveMessages,
   lastRequestHeader,
   lastRuntimeContext,
+  messagesWithPrune,
   meterOf,
   pruneFor,
+  summarizableMessages,
   type CompactOptions,
+  type CompactionCheckpoint,
   type RequestHeaderData,
   type Session,
+  type SessionEvent,
   type SessionEventMap,
   type TokenBudget,
 } from '@fudo/session'
@@ -237,15 +244,65 @@ const agentLoopEffect = (
      * ones. The price is the token pressure of the request, so a conversation with
      * room left is sent as it is and only one past the threshold is pruned.
      */
-    const recordCompaction = (agent: Agent): Effect.Effect<void> =>
+    /**
+     * The one auxiliary call that turns the summarized span into words. It reuses
+     * the routed model and the conversation prefix, appends its instruction, and
+     * answers with text only. Anything but a usable summary leaves the log without
+     * a checkpoint: the prune below still bounds the request.
+     */
+    const summarize = (
+      envelope: Omit<AgentRequest, 'messages'>,
+      messages: ReadonlyArray<RequestMessage>,
+    ): Effect.Effect<string> =>
+      llm
+        .stream({
+          provider: envelope.provider,
+          model: envelope.model,
+          params: envelope.params,
+          tools: [],
+          messages: [
+            ...messages,
+            { role: 'user', content: [{ type: 'text', text: COMPACT_SUMMARY_INSTRUCTION }] },
+          ],
+        })
+        .pipe(
+          Stream.runFold(
+            () => '',
+            (text: string, chunk: StreamChunk) =>
+              chunk.type === 'text-delta' ? text + chunk.text : text,
+          ),
+          Effect.map((text) => text.trim()),
+          Effect.catchCause(() => Effect.succeed('')),
+        )
+
+    /** The checkpoint this span earns, or nothing when there is no word for it. */
+    const checkpointFor = (
+      envelope: Omit<AgentRequest, 'messages'>,
+      events: ReadonlyArray<SessionEvent>,
+    ): Effect.Effect<CompactionCheckpoint | undefined> =>
+      Effect.gen(function* () {
+        const range = summarizableMessages(events, compact)
+        if (range.length === 0) return undefined
+        const bound = messagesWithPrune(range, pruneFor(events, compact))
+        const summary = yield* summarize(envelope, bound)
+        return checkpointOf(range, summary, envelope)
+      })
+
+    const recordCompaction = (
+      agent: Agent,
+      envelope: Omit<AgentRequest, 'messages'>,
+    ): Effect.Effect<void> =>
       Effect.gen(function* () {
         const events = agent.session.events()
         if (!meterOf(events, budget).compacts) return
-        const prune = pruneFor(events, compact)
+        const checkpoint = yield* checkpointFor(envelope, events)
+        if (checkpoint !== undefined) yield* append(agent, 'compaction/checkpoint', checkpoint)
+        const prune = pruneFor(agent.session.events(), compact)
         if (prune !== undefined) yield* append(agent, 'compaction/prune', prune)
       })
 
-    const requestOf = (agent: Agent, build: PromptBuild): AgentRequest => {
+    /** The request envelope of this step, before the history is folded into it. */
+    const envelopeOf = (agent: Agent, build: PromptBuild): Omit<AgentRequest, 'messages'> => {
       const route = splitRoute(agent.options.route)
       return {
         provider: route.provider,
@@ -254,11 +311,15 @@ const agentLoopEffect = (
           agent.options.reasoningEffort === undefined
             ? {}
             : { reasoningEffort: agent.options.reasoningEffort },
-        // The log is what was sent: recorded prunes are part of the fold.
-        messages: deriveMessages(agent.session.events()),
         tools: build.tools,
       }
     }
+
+    const requestOf = (agent: Agent, build: PromptBuild): AgentRequest => ({
+      ...envelopeOf(agent, build),
+      // The log is what was sent: recorded compaction is part of the fold.
+      messages: deriveMessages(agent.session.events()),
+    })
 
     /** Sends the settled request until a hook says to stop retrying. */
     const streamUntilSettled = (agent: Agent, request: AgentRequest): Effect.Effect<StepOutcome> =>
@@ -288,7 +349,7 @@ const agentLoopEffect = (
           cwdOf(agent.session.events(), agent.session.header),
           opening,
         )
-        yield* recordCompaction(agent)
+        yield* recordCompaction(agent, envelopeOf(agent, build))
         const base = requestOf(agent, build)
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
         yield* recordRequestHeader(agent, request)

@@ -43,6 +43,16 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
       ),
     }) as Schema.Schema<unknown>,
   ],
+  [
+    'compaction/checkpoint',
+    Schema.Struct({
+      shadowedSeqs: Schema.Array(Schema.Int),
+      shadowedRange: Schema.Struct({ start: Schema.Int, end: Schema.Int }),
+      summary: Schema.String,
+      provider: Schema.String,
+      model: Schema.String,
+    }) as Schema.Schema<unknown>,
+  ],
   ['turn/start', Schema.Struct({ turn: Schema.Int })],
   ['turn/end', Schema.Struct({ turn: Schema.Int, reason: TurnEndReasonSchema })],
   ['step/start', Schema.Struct({ step: Schema.Int })],

@@ -60,7 +60,13 @@ const spy = (
         promptCacheControl: false,
       },
       stream: (request) => {
-        seen.push(asSeen(request.messages))
+        const messages = asSeen(request.messages)
+        const last = messages[messages.length - 1]?.text ?? ''
+        // The compaction engine's own call is answered, but it is not an agent request.
+        if (last.includes('compaction engine')) {
+          return Stream.fromIterable(textTurn('the earlier span, condensed'))
+        }
+        seen.push(messages)
         return Stream.fromIterable([
           ...(usage === undefined ? [] : [{ type: 'usage' as const, usage }]),
           ...textTurn('ok'),
@@ -115,6 +121,10 @@ const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, an
   agentLoopPlugin,
 ]
 
+/** Whether the log records any compaction: a summary, a prune, or both. */
+const compacted = (events: ReadonlyArray<{ readonly type: string }>): boolean =>
+  events.some((event) => event.type.startsWith('compaction/'))
+
 const open = async (root: string) => {
   const listed = await Effect.runPromise(jsonlSessions({ root }).list())
   return {
@@ -128,7 +138,7 @@ const runTasks = async (
   root: string,
   tasks: ReadonlyArray<string>,
   loopConfig?: string,
-  usage?: LlmUsage,
+  llmOf: (seen: Array<ReadonlyArray<SentMessage>>) => Plugin<{}, Llm, never> = (seen) => spy(seen),
 ): Promise<{
   readonly sent: ReadonlyArray<SentMessage>
   readonly opened: Awaited<ReturnType<typeof open>>['opened']
@@ -140,7 +150,7 @@ const runTasks = async (
     const code = await Effect.runPromise(
       runCommand({
         profiles: [profile(root, loopConfig)],
-        plugins: plugins(spy(seen, usage)),
+        plugins: plugins(llmOf(seen)),
         cwd: '/tmp',
         route: 'stub/model',
         task,
@@ -167,20 +177,20 @@ describe('compaction through the command', () => {
     )
 
     const texts = sent.map((message) => message.text)
-    expect(texts.some((text) => text.startsWith('[earlier output of 40000 bytes]'))).toBe(true)
+    expect(texts.some((text) => text.includes('the earlier span, condensed'))).toBe(true)
     expect(texts.some((text) => text === BIG)).toBe(false)
 
     // The request is derived from the log: the logged events, folded with the
-    // recorded prune, are exactly what the model was sent (plus its answer).
+    // recorded compaction, are exactly what the model was sent (plus its answer).
     const derived = asSeen(deriveMessages(opened.events))
-    expect(opened.events.some((event) => event.type === 'compaction/prune')).toBe(true)
+    expect(compacted(opened.events)).toBe(true)
     expect(sent.length).toBeGreaterThan(0)
     expect(derived.slice(0, sent.length)).toEqual([...sent])
 
     await rm(root, { recursive: true, force: true })
   })
 
-  test('the profile row decides when a message is pruned', async () => {
+  test('the profile row decides when a message is compacted', async () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
     const small = 'y'.repeat(100)
 
@@ -190,8 +200,10 @@ describe('compaction through the command', () => {
       'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
     )
 
-    const prune = opened.events.find((event) => event.type === 'compaction/prune')
-    expect(prune?.type === 'compaction/prune' ? prune.data.shadowedBytes : 0).toBeGreaterThan(0)
+    const checkpoint = opened.events.find((event) => event.type === 'compaction/checkpoint')
+    expect(checkpoint?.type === 'compaction/checkpoint' ? checkpoint.data.summary : '').toContain(
+      'condensed',
+    )
     expect(sent.some((message) => message.text === small)).toBe(false)
 
     await rm(root, { recursive: true, force: true })
@@ -215,9 +227,9 @@ describe('compaction through the command', () => {
     )
 
     // The same history, the same prune price: only the budget decides.
-    expect(under.opened.events.some((event) => event.type === 'compaction/prune')).toBe(false)
+    expect(compacted(under.opened.events)).toBe(false)
     expect(under.sent.some((message) => message.text === first)).toBe(true)
-    expect(over.opened.events.some((event) => event.type === 'compaction/prune')).toBe(true)
+    expect(compacted(over.opened.events)).toBe(true)
     expect(over.sent.some((message) => message.text === first)).toBe(false)
 
     await rm(roomy, { recursive: true, force: true })
@@ -233,13 +245,126 @@ describe('compaction through the command', () => {
       'keepLast: 1\nmaxBytes: 10\ncontextWindow: 1000\nthresholdRatio: 0.9\nheadroomTokens: 0'
 
     // The bytes are tiny in both runs; only the reported usage differs.
-    const under = await runTasks(roomy, tasks, budget, { inputTokens: 5, outputTokens: 5 })
-    const over = await runTasks(tight, tasks, budget, { inputTokens: 900, outputTokens: 50 })
+    const under = await runTasks(roomy, tasks, budget, (seen) =>
+      spy(seen, { inputTokens: 5, outputTokens: 5 }),
+    )
+    const over = await runTasks(tight, tasks, budget, (seen) =>
+      spy(seen, { inputTokens: 900, outputTokens: 50 }),
+    )
 
-    expect(under.opened.events.some((event) => event.type === 'compaction/prune')).toBe(false)
-    expect(over.opened.events.some((event) => event.type === 'compaction/prune')).toBe(true)
+    expect(compacted(under.opened.events)).toBe(false)
+    expect(compacted(over.opened.events)).toBe(true)
 
     await rm(roomy, { recursive: true, force: true })
     await rm(tight, { recursive: true, force: true })
+  })
+
+  test('a summarizer that cannot answer leaves the prune as the fallback', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const first = 'the first thing the model was told'
+
+    const noSummary = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
+      name: 'stub-llm',
+      config: Schema.Struct({}),
+      provides: [Llm],
+      requires: [],
+      layer: () =>
+        Layer.succeed(Llm, {
+          name: 'stub',
+          capabilities: {
+            toolChoice: false,
+            reasoningEffort: null,
+            images: 'none',
+            promptCacheControl: false,
+          },
+          stream: (request) => {
+            const messages = asSeen(request.messages)
+            const last = messages[messages.length - 1]?.text ?? ''
+            if (last.includes('compaction engine')) {
+              return Stream.fromIterable(textTurn(''))
+            }
+            seen.push(messages)
+            return Stream.fromIterable(textTurn('ok'))
+          },
+        } satisfies LlmAdapter),
+    })
+
+    const { sent, opened } = await runTasks(
+      root,
+      [first, 'second'],
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      noSummary,
+    )
+
+    // No summary was written, so the recorded prune is what the request carries.
+    expect(opened.events.some((event) => event.type === 'compaction/checkpoint')).toBe(false)
+    const prune = opened.events.find((event) => event.type === 'compaction/prune')
+    expect(prune?.type === 'compaction/prune' ? prune.data.shadowedBytes : 0).toBeGreaterThan(0)
+    expect(sent.some((message) => message.text === first)).toBe(false)
+    expect(sent.some((message) => message.text.startsWith('[earlier output of'))).toBe(true)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('an old span becomes one summary the next request carries', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const first = 'the first thing the model was told'
+    const summary = 'SUMMARY-OF-THE-OLD-SPAN-7413'
+    const summarized: Array<string> = []
+
+    const summaryLlm = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
+      name: 'stub-llm',
+      config: Schema.Struct({}),
+      provides: [Llm],
+      requires: [],
+      layer: () =>
+        Layer.succeed(Llm, {
+          name: 'stub',
+          capabilities: {
+            toolChoice: false,
+            reasoningEffort: null,
+            images: 'none',
+            promptCacheControl: false,
+          },
+          stream: (request) => {
+            const messages = asSeen(request.messages)
+            const last = messages[messages.length - 1]?.text ?? ''
+            // The compaction engine's call is answered with the checkpoint text.
+            if (last.includes('compaction engine')) {
+              summarized.push(messages.map((message) => message.text).join('\n'))
+              return Stream.fromIterable(textTurn(summary))
+            }
+            seen.push(messages)
+            return Stream.fromIterable(textTurn('ok'))
+          },
+        } satisfies LlmAdapter),
+    })
+
+    const { sent, opened } = await runTasks(
+      root,
+      [first, 'second'],
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      summaryLlm,
+    )
+
+    // The auxiliary call read the span it was asked to condense.
+    expect(summarized).toHaveLength(1)
+    expect(summarized[0]).toContain(first)
+
+    // The log records the summary and the span it stands for, so it is traceable.
+    const checkpoint = opened.events.find((event) => event.type === 'compaction/checkpoint')
+    const data = checkpoint?.type === 'compaction/checkpoint' ? checkpoint.data : undefined
+    expect(data?.summary).toBe(summary)
+    expect(data?.shadowedSeqs.length).toBeGreaterThan(0)
+    expect(data?.shadowedRange.start).toBeLessThanOrEqual(data?.shadowedRange.end ?? 0)
+
+    // The next request carries the summary, not the span it replaced.
+    expect(sent.some((message) => message.text.includes(summary))).toBe(true)
+    expect(sent.some((message) => message.text === first)).toBe(false)
+    const derived = asSeen(deriveMessages(opened.events))
+    expect(derived.some((message) => message.text.includes(summary))).toBe(true)
+    expect(derived.some((message) => message.text === first)).toBe(false)
+
+    await rm(root, { recursive: true, force: true })
   })
 })
