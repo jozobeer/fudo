@@ -6,10 +6,12 @@
  *
  *   bun run scripts/ab/run.ts
  *
- * fudo reads its key from ~/.config/fudo/secrets.env on its own. dsh reads the
- * credential store in ~/.dsh, copied into a workspace-local home (a harness
- * session may not write outside its workspace), or a DEEPSEEK_API_KEY in the
- * environment. A harness that cannot answer is reported, not hidden.
+ * Both harnesses are pointed at the same Ollama Cloud model. fudo reads the key
+ * from ~/.config/fudo/secrets.env on its own; dsh is given it here (from the
+ * environment, or from that same file) and runs from a workspace-local DSH_HOME
+ * with scripts/ab/dsh-provider.patch.yml as its profile patch, because a harness
+ * session may not write outside its workspace. A harness that cannot answer is
+ * reported, not hidden.
  */
 
 import { readFileSync } from 'node:fs'
@@ -20,10 +22,13 @@ import { dshMetrics, fudoMetrics, type AbMetrics } from './metrics.ts'
 import { TASKS, type AbTask } from './tasks.ts'
 
 const ROUTE = process.env.FUDO_AB_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
+const MODEL = ROUTE.includes('/') ? ROUTE.slice(ROUTE.indexOf('/') + 1) : ROUTE
 const TIMEOUT_MS = Number(process.env.FUDO_AB_TIMEOUT_MS ?? '300000')
+/** How many times each cell runs; one run cannot tell a harness difference from noise. */
+const REPEATS = Math.max(1, Number(process.env.FUDO_AB_REPEATS ?? '1'))
 const root = process.cwd()
 const abRoot = join(root, '.tmp', 'ab')
-const dshHome = join(abRoot, 'dsh-home')
+const dshTemplate = join(abRoot, 'dsh-template')
 const dshEnv = Object.fromEntries(
   Object.entries(process.env).flatMap(([key, value]) =>
     value === undefined || ['DSH_SESSION_ID', 'DSH_PROFILE', 'DSH_PROFILE_DIR'].includes(key)
@@ -35,10 +40,24 @@ const dshEnv = Object.fromEntries(
 interface Cell {
   readonly harness: 'fudo' | 'dsh'
   readonly task: string
+  readonly repeat: number
   readonly code: number | undefined
   readonly done: boolean
   readonly metrics: AbMetrics | undefined
   readonly note: string | undefined
+}
+
+/** The key the Ollama Cloud route needs: the environment first, then fudo's own file. */
+const ollamaKey = (): string | undefined => {
+  if (process.env.OLLAMA_API_KEY !== undefined && process.env.OLLAMA_API_KEY !== '') {
+    return process.env.OLLAMA_API_KEY
+  }
+  try {
+    const text = readFileSync(join(homedir(), '.config', 'fudo', 'secrets.env'), 'utf8')
+    return /^OLLAMA_API_KEY=(.+)$/m.exec(text)?.[1]?.trim()
+  } catch {
+    return undefined
+  }
 }
 
 /** The newest file under a directory, matching a name and written after `since`. */
@@ -114,7 +133,11 @@ const fudoPatch = (sessions: string): string =>
     '',
   ].join('\n')
 
-const runFudo = async (task: AbTask, workspace: string, sessions: string): Promise<Cell> => {
+const runFudo = async (
+  task: AbTask,
+  workspace: string,
+  sessions: string,
+): Promise<Omit<Cell, 'repeat'>> => {
   const patch = join(workspace, '.ab-patch.yml')
   await writeFile(patch, fudoPatch(sessions))
   const started = Date.now()
@@ -148,11 +171,17 @@ const runFudo = async (task: AbTask, workspace: string, sessions: string): Promi
   }
 }
 
-const runDsh = async (task: AbTask, workspace: string): Promise<Cell> => {
+const runDsh = async (
+  task: AbTask,
+  workspace: string,
+  dshHome: string,
+): Promise<Omit<Cell, 'repeat'>> => {
   const started = Date.now()
+  const key = ollamaKey()
   const { code, output } = spawn(['dsh', 'headless', task.prompt], workspace, {
     ...dshEnv,
     DSH_HOME: dshHome,
+    ...(key === undefined ? {} : { OLLAMA_API_KEY: key }),
   })
   const log = await newestFile(
     join(dshHome, 'sessions'),
@@ -169,39 +198,54 @@ const runDsh = async (task: AbTask, workspace: string): Promise<Cell> => {
   }
 }
 
-const prepare = async (): Promise<void> => {
-  await rm(abRoot, { recursive: true, force: true })
-  await mkdir(abRoot, { recursive: true })
+/** One dsh home per run: a profile copy plus the route both harnesses share. */
+const prepareDshHome = async (dshHome: string): Promise<void> => {
   const home = join(homedir(), '.dsh')
+  await mkdir(dshHome, { recursive: true })
   await cp(join(home, 'profiles'), join(dshHome, 'profiles'), { recursive: true }).catch(
-    () => undefined,
-  )
-  await cp(join(home, '.credentials.yaml'), join(dshHome, '.credentials.yaml')).catch(
     () => undefined,
   )
   await cp(join(home, '.anonymous-user-id'), join(dshHome, '.anonymous-user-id')).catch(
     () => undefined,
   )
+  // The route both harnesses run on, written over the profile the copy brought.
+  const patch = (await readFile(join(root, 'scripts', 'ab', 'dsh-provider.patch.yml'), 'utf8'))
+    .split('deepseek-v4.1-flash')
+    .join(MODEL)
+  await writeFile(join(dshHome, 'cordis.patch.yml'), patch)
 }
 
-const cellOf = async (harness: 'fudo' | 'dsh', task: AbTask): Promise<Cell> => {
-  const runRoot = join(abRoot, 'runs', harness + '-' + task.name)
+const prepare = async (): Promise<void> => {
+  await rm(abRoot, { recursive: true, force: true })
+  await mkdir(abRoot, { recursive: true })
+  await prepareDshHome(dshTemplate)
+}
+
+const cellOf = async (harness: 'fudo' | 'dsh', task: AbTask, repeat: number): Promise<Cell> => {
+  const runRoot = join(abRoot, 'runs', harness + '-' + task.name + '-' + String(repeat + 1))
   const workspace = join(runRoot, 'workspace')
   const sessions = join(runRoot, 'sessions')
   await mkdir(workspace, { recursive: true })
   await mkdir(sessions, { recursive: true })
+  if (harness === 'dsh') await cp(dshTemplate, join(runRoot, 'dsh-home'), { recursive: true })
   for (const [path, text] of Object.entries(task.files)) {
     await mkdir(dirname(join(workspace, path)), { recursive: true })
     await writeFile(join(workspace, path), text)
   }
-  return harness === 'fudo' ? runFudo(task, workspace, sessions) : runDsh(task, workspace)
+  const result =
+    harness === 'fudo'
+      ? await runFudo(task, workspace, sessions)
+      : await runDsh(task, workspace, join(runRoot, 'dsh-home'))
+  return { ...result, repeat }
 }
 
+/** One line per cell run, with the run number so repeats stay visible. */
 const cellLine = (cell: Cell): string => {
   const metrics = cell.metrics
   const columns = [
     cell.harness,
     cell.task,
+    String(cell.repeat + 1),
     cell.done ? 'yes' : 'no',
     metrics === undefined ? '-' : String(metrics.toolCalls),
     metrics === undefined ? '-' : String(metrics.failedEdits),
@@ -213,22 +257,69 @@ const cellLine = (cell: Cell): string => {
   return '| ' + columns.join(' | ') + ' |'
 }
 
+/** Runs of one harness and task, as the numbers they produced. */
+const summaryLine = (group: ReadonlyArray<Cell>): string => {
+  const numbers = group.flatMap((cell) => (cell.metrics === undefined ? [] : [cell.metrics]))
+  const span = (values: ReadonlyArray<number>): string => {
+    if (values.length === 0) return '-'
+    const low = Math.min(...values)
+    const high = Math.max(...values)
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+    return low === high
+      ? String(low)
+      : String(low) + '-' + String(high) + ' (' + mean.toFixed(1) + ')'
+  }
+  const columns = [
+    group[0]?.harness ?? '',
+    group[0]?.task ?? '',
+    String(group.length),
+    String(group.filter((cell) => cell.done).length),
+    span(numbers.map((metrics) => metrics.toolCalls)),
+    span(numbers.map((metrics) => metrics.turns)),
+    span(numbers.map((metrics) => metrics.failedEdits)),
+    span(numbers.map((metrics) => metrics.reReads)),
+  ]
+  return '| ' + columns.join(' | ') + ' |'
+}
+
 const HARNESSES: ReadonlyArray<'fudo' | 'dsh'> = ['fudo', 'dsh']
 
 await prepare()
 const cells: Array<Cell> = []
 for (const task of TASKS) {
   for (const harness of HARNESSES) {
-    process.stdout.write('running ' + harness + ' on ' + task.name + '...\n')
-    cells.push(await cellOf(harness, task))
+    for (let repeat = 0; repeat < REPEATS; repeat += 1) {
+      process.stdout.write(
+        'running ' +
+          harness +
+          ' on ' +
+          task.name +
+          ' (' +
+          String(repeat + 1) +
+          '/' +
+          String(REPEATS) +
+          ')...\n',
+      )
+      cells.push(await cellOf(harness, task, repeat))
+    }
   }
 }
 
+const groups = TASKS.flatMap((task) =>
+  HARNESSES.map((harness) =>
+    cells.filter((cell) => cell.harness === harness && cell.task === task.name),
+  ),
+)
+
 process.stdout.write(
   [
-    '| harness | task | done | tool calls | failed edits | re-reads | turns | exit | note |',
-    '|---|---|---|---|---|---|---|---|---|',
+    '| harness | task | run | done | tool calls | failed edits | re-reads | turns | exit | note |',
+    '|---|---|---|---|---|---|---|---|---|---|',
     ...cells.map(cellLine),
+    '',
+    '| harness | task | runs | done | tool calls | turns | failed edits | re-reads |',
+    '|---|---|---|---|---|---|---|---|',
+    ...groups.map(summaryLine),
     '',
   ].join('\n'),
 )

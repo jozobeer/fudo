@@ -1,0 +1,21 @@
+# The route dsh is measured on: the same Ollama Cloud model fudo uses, spoken
+# through dsh's pi-ai adapter. The harness copies this into the workspace-local
+# DSH_HOME as cordis.patch.yml, so both harnesses run the same model on the same
+# endpoint and only the harness differs.
+- id: llm-pi-ai
+  config:
+    providers:
+      ollama-cloud:
+        apiKeyEnv: OLLAMA_API_KEY
+        api: openai-completions
+        baseURL: https://ollama.com/v1
+        models:
+          - id: deepseek-v4.1-flash
+            name: deepseek-v4.1-flash
+            contextWindow: 262144
+            maxTokens: 32768
+            input: [text]
+- id: agent-default-model
+  config:
+    provider: ollama-cloud
+    model: deepseek-v4.1-flash

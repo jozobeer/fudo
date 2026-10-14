@@ -4,9 +4,9 @@
 
 - `dsh:` は DSH リポジトリ（`/Users/hondazn/git/github.com/hondazn/deepseek-harness`）のルートからのパス。
 - `fudo:` はこのリポジトリのルートからのパス。
-- 起票時の実測は 2026-10-14 22:50 で、`bun run check` は 742 pass / 1 skip / 0 fail（743 テスト / 189 ファイル）。このリストを片付けた後の `bun run check` は 798 pass / 1 skip / 0 fail（799 テスト / 195 ファイル）、coverage は lines 94.60% / functions 93.52%（床は 93% / 92%）。
+- 起票時の実測は 2026-10-14 22:50 で、`bun run check` は 742 pass / 1 skip / 0 fail（743 テスト / 189 ファイル）。このリストを片付けた後の `bun run check` は 798 pass / 1 skip / 0 fail（799 テスト / 195 ファイル）、coverage は lines 94.61% / functions 93.53%（床は 93% / 92%）。
 
-## 実装度（重み付き 約90%、A/B は fudo 側のみ）
+## 実装度（重み付き 約95%）
 
 | 層 | 重み | 実装度 | 主な残り |
 |---|---|---|---|
@@ -15,7 +15,7 @@
 | ツール実行面 | 20% | 95% | 説明文の総量は DSH より少ないが、回復手順は全 tool にある |
 | 自律性・委譲 | 20% | 95% | repeat は配線済み、workflow は決定で充足 |
 | 安全・耐久 | 10% | 80% | zstd 圧縮・lease・export・trace は持たない（v1 の規模の外） |
-| UI・提示・検証 | 5% | 80% | A/B が fudo 側のみ（dsh の資格情報待ち） |
+| UI・提示・検証 | 5% | 95% | なし（A/B は 3 タスク × n=3 の範囲。長いタスクは未測） |
 
 ## 0. 作ったのに効いていない（先に片付ける）
 
@@ -60,9 +60,9 @@
   - real-API lane: `fudo:apps/cli/tests/real-api-e2e.test.ts` が `OLLAMA_API_KEY` の無い環境では skip し、あるときは出荷 profile で 1 turn を走らせ、外部状態（書かれたファイル）だけを判定する。鍵は CLI と同じく環境変数から取る（`~/.config/fudo/secrets.env` は読まない）ので、既定の `bun run check` をネットワークに触らせない。この環境では未設定なので skip のままである（A/B の fudo 走は CLI 経由なので secrets.env の鍵で動いた）。
 - [x] **提示層**。v1 はカードを持たない、と [S8 の設計](../superpowers/specs/2026-10-13-fudo-web-design.md) に書いた。理由は、1 行要約がログに残って TUI・Web・replay が同じ行を読むこと、カードはクライアントごとの描画契約を増やすこと、差分は edit の要約と read の行番号で足りること。見直す条件（1 行では追えない・markdown をそのまま読みたい）も書いた。
 
-## 6. 挙動の実測（fudo 側のみ実施）
+## 6. 挙動の実測（実施済み）
 
-- [ ] **同一タスクの A/B**（半実施）。harness は `fudo:scripts/ab/run.ts` にあり、3 タスク × 2 ハーネスを回して両形式のログからツール呼び出し・失敗 edit・読み直し・turn を数える（計数は `fudo:scripts/ab/metrics.test.ts` で両形式とも検証済み）。2026-10-14 に fudo 側 3 タスクを実測した（fix-add 3 calls / write-notes 3 / rename-function 12、失敗 edit 0、読み直し 1・0・2、各 1 turn、3 タスクとも done）。dsh 側は 3 走ともモデルに届く前に資格情報で止まった: `AUTH: Authentication Fails, Your api key: ****ci1Q is invalid`。dsh の headless は Messages 互換の `llm-deepseek` を使うので、fudo が使う Ollama Cloud のキーでは代用できない。受入（3 タスク × 2 ハーネスで数値）は dsh の有効な資格情報が入るまで未達である。記録と再実行手順は [A/B の記録](2026-10-14-ab-measurement.md)。
+- [x] **同一タスクの A/B**。harness は `fudo:scripts/ab/run.ts` にあり、3 タスク × 2 ハーネス × 3 回（計 18 走）を同じモデルで走らせ、ツール呼び出し・失敗 edit・読み直し・turn をログから数える。両ログの request/header が `deepseek-v4.1-flash` を記録していることを確認した（dsh は `fudo:scripts/ab/dsh-provider.patch.yml` の pi-ai 経路で同じ baseURL・同じモデル名に載せ、DSH_HOME は走ごとの workspace 内に置く）。結果: 6 セルすべて 3/3 完了、どの走も 1 turn、失敗 edit 0。tool calls は fix-add 3-4（fudo 平均 3.3 / dsh 3.7）、write-notes 2-3（2.3）/ 2-4（3.0）、rename-function 7-14（10.3）/ 8-12（10.0）で、ハーネス間の平均差より各ハーネス内の走間の幅が大きい。読み直しは fix-add が両方 1（read → edit → read の確認）、rename-function が 0-2 で、型は同じ。つまりこの 3 タスク・n=3 ではハーネス由来の系統差は観測されない。計数の途中経過: 最初の集計は dsh の read 引数が `file_path` なのに `path` だけを見て re-reads を 0 と数えていた（計測の不具合）ので、両綴りを読むよう直して `fudo:scripts/ab/metrics.test.ts` に dsh 綴りの回帰を足し、同じ 18 走のログを数え直した。記録と再実行手順、限界は [A/B の記録](2026-10-14-ab-measurement.md)。
 
 ## 未確認
 

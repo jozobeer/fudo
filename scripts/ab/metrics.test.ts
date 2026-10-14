@@ -14,9 +14,15 @@ const fudoEvents = [
 
 const dshEvents = [
   { type: 'turn/start', data: { turn: 1 } },
-  { type: 'tool/call', data: { callId: 'd1', name: 'read', arguments: '{"path":"src/b.ts"}' } },
+  {
+    type: 'tool/call',
+    data: { callId: 'd1', name: 'read', arguments: '{"file_path":"src/b.ts"}' },
+  },
   { type: 'tool/result', data: { message: { toolCallId: 'd1', isError: false } } },
-  { type: 'tool/call', data: { callId: 'd2', name: 'read', arguments: '{"path":"src/b.ts"}' } },
+  {
+    type: 'tool/call',
+    data: { callId: 'd2', name: 'read', arguments: '{"file_path":"src/b.ts"}' },
+  },
   { type: 'tool/result', data: { message: { toolCallId: 'd2', isError: false } } },
   { type: 'tool/call', data: { callId: 'd3', name: 'edit', arguments: '{"path":"src/b.ts"}' } },
   { type: 'tool/result', data: { message: { toolCallId: 'd3', isError: true } } },
