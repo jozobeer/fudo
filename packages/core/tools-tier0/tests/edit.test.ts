@@ -124,6 +124,35 @@ describe('edit tool', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
+  test('keeps the CRLF line endings of the file it edits', async () => {
+    const { dir, call } = await withReadFile('one\r\ntwo\r\nthree\r\n')
+
+    const result = await Effect.runPromise(
+      call('edit', { path: 'a.txt', oldString: 'two', newString: 'TWO' }),
+    )
+
+    expect(result?.isError).toBe(false)
+    expect(await Bun.file(join(dir, 'a.txt')).text()).toBe('one\r\nTWO\r\nthree\r\n')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('refuses a binary file before it changes anything', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    const path = join(dir, 'bin.txt')
+    await Bun.write(path, new Uint8Array([0x41, 0x00, 0x42]))
+    const call = makeSession(dir)
+    await Effect.runPromise(call('read', { path: 'bin.txt' }))
+
+    const result = await Effect.runPromise(
+      call('edit', { path: 'bin.txt', oldString: 'A', newString: 'Z' }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('binary')
+    expect((await Bun.file(path).arrayBuffer()).byteLength).toBe(3)
+    await rm(dir, { recursive: true, force: true })
+  })
+
   test('a file that is not UTF-8 cannot be read, so it cannot be edited', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
     const path = join(dir, 'a.txt')

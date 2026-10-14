@@ -1,7 +1,7 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
-import { normalizeNewlines, readUtf8 } from './text.ts'
+import { readForEdit, restoreLineEndings } from './text.ts'
 import { changedLines } from './present.ts'
 import { resolveInside } from './workspace.ts'
 
@@ -64,8 +64,8 @@ export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, 
     Effect.gen(function* () {
       const path = yield* resolveInside(context.cwd, args.path)
       yield* guardEdit(observed, context.sessionId, path)
-      const text = normalizeNewlines(yield* readUtf8(path))
-      const found = countOf(text, args.oldString)
+      const source = yield* readForEdit(path)
+      const found = countOf(source.text, args.oldString)
       if (found === 0) {
         return yield* Effect.fail(
           new ToolError({ code: 'execution', message: 'no match for the old text in ' + path }),
@@ -81,10 +81,10 @@ export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, 
         )
       }
       const updated = all
-        ? text.split(args.oldString).join(args.newString)
-        : text.replace(args.oldString, args.newString)
+        ? source.text.split(args.oldString).join(args.newString)
+        : source.text.replace(args.oldString, args.newString)
       yield* Effect.tryPromise({
-        try: () => Bun.write(path, updated),
+        try: () => Bun.write(path, restoreLineEndings(updated, source.lineEndings)),
         catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
       })
       const written = yield* look(path)
