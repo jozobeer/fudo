@@ -81,6 +81,8 @@ const profile = (root: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: workspace-write',
+    // The browser acceptance drives a bash call; run as they are.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

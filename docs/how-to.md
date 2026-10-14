@@ -114,6 +114,22 @@ plugins:
 fudo --patch sessions.yml "…"
 ```
 
+## コマンドを sandbox の外で走らせる
+
+`@fudo/safety` の `sandbox` は既定で `seatbelt`（macOS の `sandbox-exec`）である。コマンドは自分が走るディレクトリと一時ディレクトリにだけ書ける。それ以外の場所に書こうとすると `Operation not permitted` になる。
+
+```yaml
+  - id: safety
+    name: '@fudo/safety'
+    config:
+      preset: workspace-write
+      sandbox: none          # 明示的に外すときだけ
+      writableRoots:         # 足したいディレクトリ（既定は cwd と一時ディレクトリ）
+        - ~/work/shared
+```
+
+`seatbelt` を指定した platform で sandbox が使えないときは、無制限に切り替えず起動が失敗する。
+
 ## チームで分担させる
 
 `--subagents` を付けると、モデルは `team` ツールで名前つきの子（teammate）と共有の板（board）を持てる。teammate は `subagent` と同じ子 agent で、仕事を渡すのは既存の `send_message`、待つのは `wait_agent` である。

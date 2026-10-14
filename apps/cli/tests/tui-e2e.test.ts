@@ -75,6 +75,8 @@ const profile = (root: string, preset: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: ' + preset,
+    // The TUI test drives a bash call; the sandbox has its own test.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

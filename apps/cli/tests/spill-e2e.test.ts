@@ -82,6 +82,8 @@ const profile = (root: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: full',
+    // This test watches what a big output leaves behind, not the sandbox.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

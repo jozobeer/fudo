@@ -97,6 +97,8 @@ const profile = (root: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: full',
+    // This test watches a spilled result, not the sandbox.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

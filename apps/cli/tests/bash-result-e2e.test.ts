@@ -101,6 +101,8 @@ const profile = (root: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: full',
+    // This test watches bash itself, not the sandbox: run as they are.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

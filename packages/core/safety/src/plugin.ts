@@ -1,4 +1,4 @@
-import type { Plugin } from '@fudo/kernel'
+import { PluginError, type Plugin } from '@fudo/kernel'
 import { SystemPrompt } from '@fudo/system-prompt'
 import { Effect, Layer, Schema } from 'effect'
 import { Sandbox } from './sandbox.ts'
@@ -22,14 +22,38 @@ export type SafetyConfig = Schema.Schema.Type<typeof safetyConfigSchema>
 const APPROVAL_CONTEXT_ORDER = 20
 const SANDBOX_CONTEXT_ORDER = 21
 
-const sandboxLayer = (config: SafetyConfig): Layer.Layer<Sandbox, never> =>
-  (config.sandbox ?? 'none') === 'seatbelt'
-    ? Layer.succeed(
-        Sandbox,
-        seatbeltSandbox({
-          writableRoots: config.writableRoots ?? [],
-        }),
-      )
+/**
+ * The sandbox this platform can actually run. Seatbelt is the default: commands
+ * run contained unless the profile says `sandbox: none`, and a platform without
+ * the provider fails the loader instead of quietly running unrestricted. The
+ * network stays open because the permission policy, not the sandbox, is what
+ * decides whether a call may reach out; the sandbox contains the filesystem.
+ */
+export const sandboxLayerFor = (
+  config: SafetyConfig,
+  platform: string,
+): Layer.Layer<Sandbox, PluginError> =>
+  (config.sandbox ?? 'seatbelt') === 'seatbelt'
+    ? platform === 'darwin'
+      ? Layer.succeed(
+          Sandbox,
+          seatbeltSandbox({
+            writableRoots: config.writableRoots ?? [],
+            allowNetwork: true,
+          }),
+        )
+      : Layer.effect(
+          Sandbox,
+          Effect.fail(
+            new PluginError({
+              code: 'unavailable',
+              message:
+                'the seatbelt sandbox runs on macOS only; this is ' +
+                platform +
+                '. Pass sandbox: none to run commands without one.',
+            }),
+          ),
+        )
     : noneSandboxLayer
 
 /**
@@ -50,7 +74,7 @@ const policyLayerWithContexts = (config: SafetyConfig): Layer.Layer<Policy, neve
       yield* prompt.context({
         name: 'sandbox',
         order: SANDBOX_CONTEXT_ORDER,
-        text: () => Effect.succeed('sandbox: ' + (config.sandbox ?? 'none')),
+        text: () => Effect.succeed('sandbox: ' + (config.sandbox ?? 'seatbelt')),
       })
       const preset: PermissionPreset = config.preset
       const shape: PolicyShape = { preset, decide: (needs) => decide(preset, needs) }
@@ -64,7 +88,8 @@ export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, SystemPrompt> 
   config: safetyConfigSchema,
   provides: [Policy, Sandbox],
   requires: [SystemPrompt],
-  layer: (config) => Layer.mergeAll(policyLayerWithContexts(config), sandboxLayer(config)),
+  layer: (config) =>
+    Layer.mergeAll(policyLayerWithContexts(config), sandboxLayerFor(config, process.platform)),
 }
 
 /** Loader definition for the ask holder: questions wait for an answer. */

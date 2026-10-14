@@ -80,6 +80,8 @@ const profile = (root: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: full',
+    // This test watches the working directory, not the sandbox.
+    '      sandbox: none',
     '  - id: ask',
     "    name: '@fudo/ask'",
     '  - id: tier0',

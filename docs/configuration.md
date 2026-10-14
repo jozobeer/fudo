@@ -56,14 +56,14 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | plugin | キー |
 |---|---|
 | `@fudo/session-jsonl` | `root`（必須）— セッションログのディレクトリ |
-| `@fudo/safety` | `preset`（必須）— `read-only` / `workspace-write` / `full`、`sandbox` — `none` / `seatbelt`（macOS の sandbox-exec）、`writableRoots` — sandbox が書き込めるディレクトリ |
+| `@fudo/safety` | `preset`（必須）— `read-only` / `workspace-write` / `full`、`sandbox` — `none` / `seatbelt`（macOS の sandbox-exec。**既定は `seatbelt`**）、`writableRoots` — sandbox が書き込めるディレクトリ（既定はコマンドの cwd と一時ディレクトリ。ここに足す） |
 | `@fudo/llm-openai` | `baseUrl`（必須）、`apiKeyEnv`（必須）— キーを持つ環境変数の名前、`streamIdleTimeoutMs` — 1回の試行が無応答でいられる上限（ミリ秒、既定 300000） |
 | `@fudo/agent-loop` | `keepLast` — 末尾で内容を置き換えないメッセージ数（既定 12）、`maxBytes` — これを超える text block を、末尾 `keepLast` の外でスタブに置き換える（バイト、既定 32000） |
 | `@fudo/mcp` | `command`（必須）、`prefix` |
 
 同梱の `base` profile は `root` に `~/.fudo/sessions`、`preset` に `workspace-write`、`baseUrl` に `https://ollama.com/v1`、`apiKeyEnv` に `OLLAMA_API_KEY` を置いている。
 
-`preset` が許す能力は `read-only` が読むだけ、`workspace-write` が読み書き、`full` が読み書きと実行とネットワークである。preset の外に出る呼び出しは承認要求になる。端末 UI と Web UI は y/n を尋ね、答える者がいない実行は拒否される。
+`preset` が許す能力は `read-only` が読むだけ、`workspace-write` が読み書き、`full` が読み書きと実行とネットワークである。`sandbox` の既定は `seatbelt` で、コマンドはファイルシステム的に閉じ込められる（ネットワークは preset の判断に任せる）。無制限で走らせたいときは `sandbox: none` と明示する。`seatbelt` が使えない platform では、黙って無制限にするのではなく起動が失敗する。preset の外に出る呼び出しは承認要求になる。端末 UI と Web UI は y/n を尋ね、答える者がいない実行は拒否される。
 
 `@fudo/mcp` の行は MCP サーバを起動し、その tool を `prefix`（既定 `mcp__`）を頭に付けて登録する。
 

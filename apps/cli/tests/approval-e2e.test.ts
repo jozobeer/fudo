@@ -75,6 +75,8 @@ const profile = (root: string, preset: string): string =>
     "    name: '@fudo/safety'",
     '    config:',
     '      preset: ' + preset,
+    // These tests watch the permission preset, not the sandbox: run as they are.
+    '      sandbox: none',
     '  - id: tier0',
     "    name: '@fudo/tools-tier0'",
     '  - id: llm',

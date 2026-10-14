@@ -16,6 +16,8 @@ plugins:
     name: '@fudo/safety'
     config:
       preset: workspace-write
+      # Commands run contained by default; sandbox: none runs them as they are.
+      sandbox: seatbelt
   - id: tier0
     name: '@fudo/tools-tier0'
   - id: ask

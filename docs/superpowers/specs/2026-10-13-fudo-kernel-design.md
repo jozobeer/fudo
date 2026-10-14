@@ -332,6 +332,8 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 
 ログの append に失敗した Agent を止めるのは、記録されない状態で作業を続けると、model に見えたものとログが食い違うからである。observer の例外を隔離するのは、observer がログの下流にあり、その失敗がログの正しさに影響しないからである。
 
+**sandbox は既定で効く（2026-10-14 追記）**: S2 の sandbox provider は当初 `sandbox ?? 'none'` で、同梱 profile もキーを書かなかったため既定は無制限だった。いまは `sandbox ?? 'seatbelt'` とし、`bundle/base` も `sandbox: seatbelt` を明示する。書き込めるのは**コマンドが走るディレクトリと一時ディレクトリ**、それに `writableRoots` の追加分で、読めるのは system のパス（`/usr`、`/bin`、`/System`、`/private/etc`、`/dev`、`/opt` など）と書き込み可能な根である——ここを空にすると bash が自分の interpreter を読めず、sandbox を既定にしても何も動かない。ネットワークは開けたままにする: 呼び出しが外へ出てよいかを決めるのは `preset` と承認であり、sandbox の仕事はファイルシステムの封じ込めである。`seatbelt` が使えない platform では、無制限に落とさず loader を失敗させる（`PluginError{ code: 'unavailable' }`）。無制限は `sandbox: none` の明示的な選択になる。
+
 **approval の不在をどう拒否にするか（2026-10-14 追記）**: 表の「不在・例外 → 拒否」は当初 `Approval.request` が実装しておらず、answerer が無いと `Deferred.await` で永久に待っていた（同梱 profile は `denyApproval` を配線していたので CLI では表面化しない）。いまは**待つことを opt-in** にした: 誰かが `listen()` して初めて `request` は待ち、それ以外は**その場で false を返す**。answerer の例外は bridge が `catchCause` で false に正規化し、呼び出しは拒否になる（開いたままにはならない）。承認は 1 call 幅で、記憶しない（`answer` は保留を消すだけ。dsh の「1 回限りの escalation」に当たる）。
 
 失敗は Effect のエラーチャネルに `_tag` か `code` を持つ判別 union として流し、consumer は文面ではなく `_tag` か `code` で分岐する。想定外の例外（defect）は、担当の境界で上の表の保証に従って変換する。ユーザーへの報告は、起きたことと次に取る行動を一文ずつ書く。

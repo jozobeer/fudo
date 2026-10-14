@@ -142,7 +142,7 @@ describe('the runtime context through the command', () => {
     expect(first).toContain('Current runtime context:')
     expect(first).toContain('cwd: ' + workspace)
     expect(first).toContain('approval: workspace-write')
-    expect(first).toContain('sandbox: none')
+    expect(first).toContain('sandbox: seatbelt')
     expect(first).toMatch(/time: \d{4}-\d{2}-\d{2}T/)
     expect(second).toContain('cwd: ' + sub)
 
