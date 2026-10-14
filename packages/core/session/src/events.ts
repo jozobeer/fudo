@@ -54,6 +54,7 @@ export interface AssistantAttemptData {
 export interface SessionEventMap {
   'session/header': SessionHeader
   'session/cwd/changed': CwdChanged
+  'compaction/prune': CompactionPrune
   'turn/start': { readonly turn: number }
   'turn/end': { readonly turn: number; readonly reason: TurnEndReason }
   'step/start': { readonly step: number }
@@ -97,4 +98,26 @@ declare module '@fudo/kernel/hook' {
 /** The working directory moved. The newest one wins. */
 export interface CwdChanged {
   readonly cwd: string
+}
+
+/** The content one request carries in place of a shadowed event's own content. */
+export interface CompactReplacement {
+  readonly seq: SessionSeq
+  readonly content: ReadonlyArray<ContentBlock>
+}
+
+/**
+ * The request stops carrying the content of these events and carries their
+ * replacements instead. Log-only: no surface change, and the shadowed events keep
+ * their own content, so the request is what the log says it was.
+ */
+export interface CompactionPrune {
+  /** The events whose message content the request replaces, oldest first. */
+  readonly shadowedSeqs: ReadonlyArray<SessionSeq>
+  /** First and last of those seqs. */
+  readonly shadowedRange: { readonly start: SessionSeq; readonly end: SessionSeq }
+  /** The price of the content the request no longer carries, in UTF-8 bytes. */
+  readonly shadowedBytes: number
+  /** What the request carries for each shadowed seq. */
+  readonly replacements: ReadonlyArray<CompactReplacement>
 }

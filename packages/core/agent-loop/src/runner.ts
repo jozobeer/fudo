@@ -12,10 +12,12 @@ import {
   type ToolSchema,
 } from '@fudo/llm'
 import {
-  compactMessages,
+  DEFAULT_COMPACT_KEEP_LAST,
+  DEFAULT_COMPACT_MAX_BYTES,
   cwdOf,
   deriveMessages,
   lastRuntimeContext,
+  pruneFor,
   type CompactOptions,
   type Session,
   type SessionEventMap,
@@ -42,8 +44,11 @@ interface PromptBuild {
   readonly tools: ReadonlyArray<ToolSchema>
 }
 
-/** The newest messages stay intact; older output is shortened before every request. */
-const COMPACT_MESSAGES: CompactOptions = { keepLast: 12, maxBytes: 32_000 }
+/** What a profile that names no threshold gets: the newest stay intact, old output is stubbed. */
+const COMPACT_DEFAULTS: CompactOptions = {
+  keepLast: DEFAULT_COMPACT_KEEP_LAST,
+  maxBytes: DEFAULT_COMPACT_MAX_BYTES,
+}
 
 /** Results larger than this are written to a file; only their head stays in the log. */
 const SPILL_BYTES = 32_000
@@ -73,12 +78,18 @@ const countEvents = (session: Session, type: 'turn/start' | 'step/start'): numbe
 const recordedTurnEnd = (session: Session, turn: number): boolean =>
   session.events().some((event) => event.type === 'turn/end' && event.data.turn === turn)
 
-const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemPrompt | Llm> =
+const agentLoopEffect = (
+  config: AgentLoopConfig = {},
+): Effect.Effect<AgentRunner, never, Hooks | Tools | SystemPrompt | Llm> =>
   Effect.gen(function* () {
     const hooks = yield* Hooks
     const tools = yield* Tools
     const promptService = yield* SystemPrompt
     const llm = yield* Llm
+    const compact: CompactOptions = {
+      keepLast: config.keepLast ?? COMPACT_DEFAULTS.keepLast,
+      maxBytes: config.maxBytes ?? COMPACT_DEFAULTS.maxBytes,
+    }
 
     // A session that cannot be written stops the agent: `orDie` turns the failure into
     // a defect, which `runTurn` records as an error turn and which kills the runner.
@@ -176,6 +187,17 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
         }
       })
 
+    /**
+     * Records what this request stops carrying, before it is sent: a request over the
+     * price keeps every message in the log and replaces the content of the old ones.
+     * Recording first makes the request and the log the same thing.
+     */
+    const recordCompaction = (agent: Agent): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const prune = pruneFor(agent.session.events(), compact)
+        if (prune !== undefined) yield* append(agent, 'compaction/prune', prune)
+      })
+
     const requestOf = (agent: Agent, build: PromptBuild): AgentRequest => {
       const route = splitRoute(agent.options.route)
       return {
@@ -185,8 +207,8 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
           agent.options.reasoningEffort === undefined
             ? {}
             : { reasoningEffort: agent.options.reasoningEffort },
-        messages: compactMessages(deriveMessages(agent.session.events()), COMPACT_MESSAGES)
-          .messages,
+        // The log is what was sent: recorded prunes are part of the fold.
+        messages: deriveMessages(agent.session.events()),
         tools: build.tools,
       }
     }
@@ -219,6 +241,7 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
           cwdOf(agent.session.events(), agent.session.header),
           opening,
         )
+        yield* recordCompaction(agent)
         const base = requestOf(agent, build)
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
         yield* append(agent, 'request/header', {
@@ -406,13 +429,26 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
   })
 
 export const agentLoopLayer: Layer.Layer<AgentLoop, never, Hooks | Tools | SystemPrompt | Llm> =
-  Layer.effect(AgentLoop, agentLoopEffect)
+  Layer.effect(AgentLoop, agentLoopEffect())
+
+export const agentLoopConfigSchema = Schema.Struct({
+  /** Messages at the tail this profile never prunes. */
+  keepLast: Schema.optionalKey(Schema.Int),
+  /** One text block larger than this many bytes is stubbed, outside the retention. */
+  maxBytes: Schema.optionalKey(Schema.Int),
+})
+
+export type AgentLoopConfig = Schema.Schema.Type<typeof agentLoopConfigSchema>
 
 /** Loader definition for the turn runner. */
-export const agentLoopPlugin: Plugin<{}, AgentRunnerService, Hooks | Tools | SystemPrompt | Llm> = {
+export const agentLoopPlugin: Plugin<
+  AgentLoopConfig,
+  AgentRunnerService,
+  Hooks | Tools | SystemPrompt | Llm
+> = {
   name: '@fudo/agent-loop',
-  config: Schema.Struct({}),
+  config: agentLoopConfigSchema,
   provides: [AgentRunnerService],
   requires: [Hooks, Tools, SystemPrompt, Llm],
-  layer: () => Layer.effect(AgentRunnerService, agentLoopEffect),
+  layer: (config) => Layer.effect(AgentRunnerService, agentLoopEffect(config)),
 }

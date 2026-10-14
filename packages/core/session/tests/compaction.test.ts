@@ -1,49 +1,176 @@
+import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { compactMessages } from '../src/index.ts'
+import {
+  SessionError,
+  decodeSessionEvent,
+  deriveMessages,
+  pruneFor,
+  type CompactionPrune,
+} from '../src/index.ts'
+import { event, headerEvent } from './support.ts'
 
-const user = (text: string) => ({
-  role: 'user' as const,
-  content: [{ type: 'text' as const, text }],
-})
-const tool = (text: string) => ({
-  role: 'tool' as const,
-  content: [{ type: 'text' as const, text }],
-  toolCallId: 'c1',
-})
+/** Content the test makes up, so the rule cannot be satisfied by memorising an input. */
+const longText = (size: number): string => crypto.randomUUID() + 'x'.repeat(size)
 
-describe('compactMessages', () => {
-  test('leaves a short history alone', () => {
-    const result = compactMessages([user('hi'), tool('small')], { keepLast: 1, maxBytes: 100 })
+const options = { keepLast: 1, maxBytes: 100 }
 
-    expect(result.shortened).toBe(0)
-    expect(result.messages[0]).toEqual(user('hi'))
+/** One assistant tool call, its oversized result, and the newest user message. */
+const history = (size: number) => {
+  const text = longText(size)
+  return {
+    text,
+    events: [
+      headerEvent(),
+      event(2, 'assistant/message', {
+        provider: 'p',
+        model: 'm',
+        content: [{ type: 'tool-call' as const, id: 'c1', name: 'echo', arguments: '{}' }],
+        stream: [],
+      }),
+      event(3, 'tool/result', {
+        callId: 'c1',
+        isError: false,
+        content: [{ type: 'text' as const, text }],
+      }),
+      event(4, 'user/message', { text: 'go', source: 'user' as const }),
+    ],
+  }
+}
+
+const textOf = (message: {
+  readonly content: ReadonlyArray<{ type: string; text?: string }>
+}): string =>
+  message.content.flatMap((block) => (block.type === 'text' ? [block.text ?? ''] : [])).join('\n')
+
+const stubOf = (content: ReadonlyArray<{ type: string; text?: string }>): string => {
+  const [block] = content
+  return block?.type === 'text' ? (block.text ?? '') : ''
+}
+
+describe('pruneFor', () => {
+  test('a short history has nothing to prune', () => {
+    const { events } = history(20)
+
+    expect(pruneFor(events, options)).toBeUndefined()
   })
 
-  test('shortens old output and drops reasoning', () => {
-    const long = 'x'.repeat(500)
-    const withReasoning = {
-      role: 'assistant' as const,
-      content: [
-        { type: 'reasoning' as const, text: 'thinking' },
-        { type: 'text' as const, text: long },
-      ],
-    }
+  test('names the events whose content the request stops carrying', () => {
+    const { text, events } = history(500)
 
-    const result = compactMessages([withReasoning, user('go')], { keepLast: 1, maxBytes: 100 })
+    const prune = pruneFor(events, options)
 
-    expect(result.shortened).toBe(1)
-    const first = result.messages[0]
-    expect(first?.content).toHaveLength(1)
-    expect(first?.content[0]?.type === 'text' ? first.content[0].text : '').toContain(
-      '[earlier output of 500 bytes]',
+    expect(prune?.shadowedSeqs).toEqual([3])
+    expect(prune?.shadowedRange).toEqual({ start: 3, end: 3 })
+    expect(prune?.shadowedBytes).toBe(Buffer.byteLength(text, 'utf8'))
+    expect(prune?.replacements.map((replacement) => replacement.seq)).toEqual([3])
+  })
+
+  test('the replacement keeps the head of the content and names its price', () => {
+    const { text, events } = history(500)
+
+    const prune = pruneFor(events, options)
+    const stub = stubOf(prune?.replacements[0]?.content ?? [])
+
+    expect(
+      stub.startsWith('[earlier output of ' + Buffer.byteLength(text, 'utf8') + ' bytes]'),
+    ).toBe(true)
+    expect(stub).toContain(text.slice(0, 40))
+  })
+
+  test('never hides the system prompt', () => {
+    const events = [
+      headerEvent(),
+      event(2, 'system/message', { text: longText(500) }),
+      event(3, 'user/message', { text: 'go', source: 'user' as const }),
+    ]
+
+    expect(pruneFor(events, options)).toBeUndefined()
+  })
+
+  test('drops reasoning from an old message and records that too', () => {
+    const events = [
+      headerEvent(),
+      event(2, 'assistant/message', {
+        provider: 'p',
+        model: 'm',
+        content: [
+          { type: 'reasoning' as const, text: 'thinking' },
+          { type: 'text' as const, text: 'the answer' },
+        ],
+        stream: [],
+      }),
+      event(3, 'user/message', { text: 'go', source: 'user' as const }),
+    ]
+
+    const prune = pruneFor(events, { keepLast: 1, maxBytes: 10_000 })
+
+    expect(prune?.shadowedSeqs).toEqual([2])
+    expect(prune?.replacements[0]?.content.map((block) => block.type)).toEqual(['text'])
+  })
+})
+
+describe('deriveMessages with a recorded prune', () => {
+  test('carries the replacement instead of the shadowed content', () => {
+    const { text, events } = history(500)
+    const prune = pruneFor(events, options) as CompactionPrune
+    const recorded = [...events, event(5, 'compaction/prune', prune)]
+
+    const messages = deriveMessages(recorded)
+    const tool = messages.find((message) => message.role === 'tool')
+
+    expect(tool?.toolCallId).toBe('c1')
+    expect(textOf(tool ?? { content: [] })).toContain('[earlier output of')
+    expect(JSON.stringify(messages)).not.toContain(text)
+    expect(messages.map((message) => message.role)).toEqual(['assistant', 'tool', 'user'])
+  })
+
+  test('the recorded log is pruned once, not again', () => {
+    const { events } = history(500)
+    const prune = pruneFor(events, options) as CompactionPrune
+    const recorded = [...events, event(5, 'compaction/prune', prune)]
+
+    expect(pruneFor(recorded, options)).toBeUndefined()
+  })
+
+  test('only the pruned message changes', () => {
+    const { events } = history(500)
+    const prune = pruneFor(events, options) as CompactionPrune
+    const recorded = [...events, event(5, 'compaction/prune', prune)]
+
+    expect(deriveMessages(recorded)).toEqual(
+      deriveMessages(events).map((message) =>
+        message.role === 'tool'
+          ? { ...message, content: prune.replacements[0]?.content ?? [] }
+          : message,
+      ),
     )
   })
+})
 
-  test('never touches the newest messages', () => {
-    const long = 'y'.repeat(500)
-    const result = compactMessages([user('a'), tool(long)], { keepLast: 1, maxBytes: 10 })
+describe('the prune event in the log', () => {
+  test('decodes from JSONL', async () => {
+    const { events } = history(500)
+    const prune = pruneFor(events, options) as CompactionPrune
 
-    expect(result.shortened).toBe(0)
-    expect(result.messages[1]).toEqual(tool(long))
+    const decoded = await Effect.runPromise(
+      decodeSessionEvent({ seq: 5, time: 1, type: 'compaction/prune', data: prune }),
+    )
+
+    expect(decoded?.type).toBe('compaction/prune')
+  })
+
+  test('a malformed prune is refused', async () => {
+    const error = await Effect.runPromise(
+      Effect.flip(
+        decodeSessionEvent({
+          seq: 5,
+          time: 1,
+          type: 'compaction/prune',
+          data: { shadowedSeqs: 'no' },
+        }),
+      ),
+    )
+
+    expect(error).toBeInstanceOf(SessionError)
   })
 })
