@@ -11,6 +11,8 @@ export interface ParsedArgs {
   /** Port for `fudo web`; 0 asks the system for a free one. */
   readonly port: number
   readonly resume: string | undefined
+  /** Continue a resumed session even when this run's composition differs from its own. */
+  readonly allowPresetChange: boolean
   readonly model: string
   /** The raw --model, so a settings file can be overridden. */
   readonly modelFlag: string | undefined
@@ -38,6 +40,7 @@ const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--model', { kind: 'value' }],
   ['--config', { kind: 'value' }],
   ['--port', { kind: 'value' }],
+  ['--allow-preset-change', { kind: 'boolean' }],
 ])
 
 /** The flags the parser knows, in the order it declares them. */
@@ -109,6 +112,7 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     web,
     port,
     resume: first(values, '--resume'),
+    allowPresetChange: values.has('--allow-preset-change'),
     model: first(values, '--model') ?? '',
     modelFlag: first(values, '--model'),
     dumpConfig: values.has('--dump-config'),

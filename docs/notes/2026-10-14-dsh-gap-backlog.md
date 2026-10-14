@@ -174,7 +174,14 @@
   - 検証: `packages/core/session/tests/commands.test.ts` 7 本（行の解釈と非コマンド／実行が run と done を書く／知らないコマンドは一覧を返し記録しない／例外でも done が残る／同名の拒否／help の文面／宣言したイベント）、`packages/ui/view/tests/command.test.ts` 3 本（打った行と答えの notice／失敗は error／turn を開かない）、`packages/ui/host/tests/host.test.ts` の追加 1 本（submit がコマンドならモデルを起こさず、そうでなければ次の turn になる）、e2e `apps/cli/tests/commands-e2e.test.ts` 2 本（実 CLI の REPL で、`/status` がログだけから答えを出し turn を消費しないこと、`/help` と知らないコマンドの文面、その次のメッセージは 1 turn になること）。`bun run check` 667 pass / 0 fail。
   - 学び: 会話 view の `applySession` は switch の case 数がそのまま cyclomatic になり、2 つ足しただけで閾値に当たった。イベント型の集合をテーブルにして「家族ごとに 1 回判定する」形に直すと、分岐が 1 段減って読みもよくなった。
   - 未確認: dsh のコマンド定義は入力記述子・添付（画像/ファイル）・中断 signal を持つが、fudo は名前・要約・本文だけである。コマンドはモデルの turn を消費しないが、その出力もモデルの履歴には入らない（dsh と同じ）。CLI のサブコマンド（`fudo config` など）はプロセス単位のままで、セッション単位のコマンドとは別である。
-- [ ] **C6 preset**。dsh はセッション単位で構成（ツール世界）を選び、最初の turn の前に固定する（`dsh:packages/preset/agent-preset-registry/src/index.ts:341`）。fudo の「preset」は権限レベルの別名で、構成はプロセス全体で1つ。
+- [x] **C6 preset**。dsh はセッション単位で構成（ツール世界）を選び、最初の turn の前に固定する（`dsh:packages/preset/agent-preset-registry/src/index.ts:341`）。fudo の「preset」は権限レベルの別名で、構成はプロセス全体で1つ。
+  - 実装（2026-10-14）:
+    - 設計文書（kernel の loader の節）に追記した。セッションは始めた構成を覚える: 起動時に profile 文書の name と、登録された tool の一覧を `preset/selected`（log-only）として書き、このスナップショットは**制限（plan mode など）をかける前**に取る。再開時にいまの構成が記録と違えば **turn を始める前に拒否**し、違う点（profile と、消えた/増えた tool）を stderr に出す。意図して変えるときは `--allow-preset-change` を渡し、そのときは新しい構成を記録し直す。dsh のように agent ごとに構成を mount し直す registry は持たない（fudo の構成はプロセスの profile と patch が決めるので、記録と固定だけを行う）。
+    - `@fudo/session` の `preset.ts`: イベント `preset/selected`、`currentPreset`（最新を畳む）、`presetProblem`（人間が直せる言葉での差分）、`describePreset`。
+    - CLI: フラグ `--allow-preset-change`（args / bin / usage）、`installFromProfile` が構成（profile 名 + tool 名）を返し、`applyPreset` が記録・比較・拒否を行う。
+  - 検証: `packages/core/session/tests/preset.test.ts` 5 本（最新を畳む／同一なら問題なし／profile 差・消えた tool・増えた tool を名指し／1 行の説明）、e2e `apps/cli/tests/preset-e2e.test.ts`（実 CLI で、1 本目が構成を記録し、tier1 を欠く構成での再開は turn を始めずに exit 1 で差分とフラグを stderr に出し、同じ構成なら続き、`--allow-preset-change` なら続いて新しい構成を記録する）。`bun run check` 674 pass / 0 fail。
+  - 学び: 「構成を固定する」は、比較の**指紋**を何にするかで意味が変わる。profile 名だけでは patch の差を捉えられず、tool 名だけでは人間に読めない。両方を記録し、差分の表示を profile 名と tool の増減で行うのが、拒否メッセージとして意味を持つ最小の組だった。またスナップショットは制限をかける前に取らないと、plan mode のセッションが自分自身と食い違う。
+  - 未確認: dsh の preset registry は agent ごとに構成を mount し直し、セッションへ `agent-preset/selected` を書く。fudo は記録と固定だけを行う（mount の差し替えは持たない）。子 agent は親と同じ構成で走る（記録は親のセッションにだけ残る）。この変更より前に作られたセッションには記録が無いので、再開時にそのときの構成を記録する（遡及）。
 - [ ] **C7 extensions**。dsh のモデルは承認下で自分のプラグインを入れ替えられる（`dsh:packages/boot/plugin-manager/src/tools.ts:20`）。fudo の構成は起動時に凍結される。
 - [ ] **C8 agent teams**。dsh は roster・task board・inbox を持つ（`dsh:packages/experimental/tool-agent-team/src/index.ts:175`）。
 - [ ] **C9 subagent の seam**。fudo は route を構築時に固定した fire-and-forget の子を1つ作るだけ（`fudo:packages/core/tools-tier1/src/subagent.ts:56`）。dsh は provider を差し替えられ（fresh / fork / 他製品への委譲）、継続可能な子を選べる（`dsh:packages/subagent/tool-subagent-control/src/index.ts:29`）。

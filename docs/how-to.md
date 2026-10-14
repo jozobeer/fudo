@@ -114,6 +114,15 @@ plugins:
 fudo --patch sessions.yml "…"
 ```
 
+## 構成を変えてセッションを再開する
+
+セッションは、始めたときの profile 名と tool の一覧を覚えている。違う構成で再開すると、turn を始める前に拒否され、違う点が stderr に出る。
+
+```sh
+fudo --resume <sessionId> "続き"                          # 同じ構成なら続く
+fudo --resume <sessionId> --allow-preset-change "続き"     # 意図して変える（新しい構成を記録する）
+```
+
 ## セッションに話しかけずに尋ねる（コマンド）
 
 REPL・TUI・Web では、行頭が `/` の行はコマンドとしてその場で答える。モデルの turn は消費せず、`command/run` と `command/done` としてログに残る。

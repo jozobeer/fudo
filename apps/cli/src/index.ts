@@ -25,7 +25,14 @@ import {
 } from '@fudo/system-prompt'
 import { ToolError, type ToolExecution } from '@fudo/tools'
 import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
-import { makeCommands, type CommandsShape } from '@fudo/session'
+import {
+  currentPreset,
+  makeCommands,
+  presetProblem,
+  type CommandsShape,
+  type Preset,
+  type SessionError,
+} from '@fudo/session'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
 import {
@@ -112,6 +119,8 @@ export interface CommandOptions {
   readonly skills?: ReadonlyArray<string>
   /** The fudo home: user-global AGENTS.md and skills live here. */
   readonly fudoHome?: string
+  /** Continue even when this run's composition differs from the one the session recorded. */
+  readonly allowPresetChange?: boolean
   /** Lets the model run tasks in child agents. */
   readonly subagents?: boolean
   /** A search provider; without one the web_search tool is not registered. */
@@ -435,6 +444,10 @@ const serveAgent = (agent: Agent, options: CommandOptions, work: Work, commands:
       ? serveLines(agent, options, work.lines, commands)
       : Effect.succeed(0)
 
+/** The names the profile documents declare, first layer first: what the human chose. */
+const profileNamesOf = (documents: ReadonlyArray<string>): ReadonlyArray<string> =>
+  documents.map((document) => /^name:\s*(\S+)/m.exec(document)?.[1] ?? 'unnamed')
+
 /** Instruction discovery options of this run. */
 const agentsOptionsOf = (options: CommandOptions): AgentsMdOptions =>
   options.fudoHome === undefined ? {} : { home: options.fudoHome }
@@ -520,7 +533,13 @@ interface ProfileWiring {
 }
 
 /** Tiers and guards come from the profile's rows. */
-const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolError, Scope.Scope> =>
+/**
+ * Installs what the profile's rows ask for and reports the composition the session
+ * runs with: the profiles it was launched from and every tool it was given. The
+ * snapshot is taken before any restriction narrows the registry, because plan mode
+ * and the like narrow what a call may see, not what the session was built from.
+ */
+const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolError, Scope.Scope> =>
   Effect.gen(function* () {
     const tools = Context.get(wiring.context, Tools)
     // Plan mode hides every tool that could change the workspace, until the model
@@ -545,6 +564,10 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
         wiring.skills,
         planMode,
       )
+    }
+    const composition: Preset = {
+      profiles: profileNamesOf(wiring.options.profiles),
+      tools: tools.schemas().map((schema) => schema.name),
     }
     if (planMode !== undefined) {
       yield* planMode.install(tools)
@@ -571,6 +594,33 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
       // time; the third, fifth, and eighth each get a word in their own result.
       yield* installRepeatReminders(wiring.agent, wiring.hooks)
     }
+    return composition
+  })
+
+/**
+ * Records the composition of a new session, or refuses to carry on with one whose
+ * composition differs from what it recorded. True means the run may proceed.
+ */
+const applyPreset = (
+  agent: Agent,
+  composition: Preset,
+  options: CommandOptions,
+): Effect.Effect<boolean, SessionError> =>
+  Effect.gen(function* () {
+    const recorded = currentPreset(agent.session.events())
+    if (recorded === undefined) {
+      yield* agent.session.append('preset/selected', composition)
+      return true
+    }
+    const problem = presetProblem(recorded, composition)
+    if (problem === undefined) return true
+    if (options.allowPresetChange !== true) {
+      options.stderr('fudo: ' + problem + '\n')
+      return false
+    }
+    // The human said so: the new composition becomes the session's own.
+    yield* agent.session.append('preset/selected', composition)
+    return true
   })
 
 /** A UI runs the session itself instead of streaming into the caller's terminal. */
@@ -688,7 +738,7 @@ const runSession = (
       }),
     )
 
-    yield* installFromProfile({
+    const composition = yield* installFromProfile({
       rows,
       options,
       route,
@@ -698,6 +748,10 @@ const runSession = (
       ...answerersOf(ui, options),
       context,
     })
+
+    // A session keeps the composition it was started with: the tools behind its
+    // history are not something a later run may swap out without being told to.
+    if (!(yield* applyPreset(agent, composition, options))) return 1
 
     const served = serveUi(options, ui, work, route, agent)
     if (served !== undefined) return yield* served

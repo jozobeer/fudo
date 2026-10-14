@@ -38,6 +38,7 @@ fudo config [set K V|init]       settings: show them, write one key, start a fil
 fudo models                      list the models the provider offers
 fudo web [--port N]              browser UI over a local server
 fudo --resume <sessionId> [task]
+fudo --allow-preset-change         continue a session under a changed composition
 fudo --json "task"
 fudo --tui                       terminal UI even through a pipe
 `
@@ -137,6 +138,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   ...optional('search', inputs.search),
   ...workSelection(parsed, io),
   ...optional('resume', parsed.resume),
+  ...(parsed.allowPresetChange ? { allowPresetChange: true } : {}),
   ...(inputs.patches.length === 0 ? {} : { patches: inputs.patches }),
   ...(parsed.dumpConfig ? { dumpConfig: true } : {}),
   ...(parsed.json ? { json: true } : {}),
