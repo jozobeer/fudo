@@ -82,6 +82,10 @@ const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
   ['job_list', 'Look at job_list before starting work that may already be running.'],
   ['list_agents', 'Look at list_agents to find a child agent before messaging or waiting for it.'],
   [
+    'schedule',
+    'Use schedule for work that should happen later or repeatedly: create it with a rule and the instruction to deliver, and delete it when it is no longer wanted.',
+  ],
+  [
     'exit_plan_mode',
     'While plan mode is on, offer the finished plan with exit_plan_mode: only the user approving it ends plan mode.',
   ],

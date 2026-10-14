@@ -128,6 +128,7 @@ describe('the tool declarations the model receives', () => {
       'job_output',
       'job_kill',
       'job_list',
+      'schedule',
       'goal',
       'working_directory',
     ])

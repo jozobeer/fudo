@@ -41,6 +41,7 @@ export const USER_MESSAGE_SOURCES = [
   'runtime-context',
   'skill-catalog',
   'goal-round',
+  'schedule',
 ] as const
 
 export type UserMessageSource = (typeof USER_MESSAGE_SOURCES)[number]

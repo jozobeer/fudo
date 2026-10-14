@@ -41,6 +41,8 @@ import {
   makeWorkingDirectoryTool,
   makeExitPlanModeTool,
   makeGoalTool,
+  makeScheduleTool,
+  installScheduleRuns,
   startGoalRound,
   discoverSkills,
   renderSkillCatalog,
@@ -254,6 +256,30 @@ const tier1ToolList = (
   const list = [...tier1Tools(ask, skills)]
   if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
   for (const tool of jobTools(jobs)) list.push(tool)
+  list.push(
+    makeScheduleTool({
+      events: () => agent.session.events(),
+      // One id per created schedule, counted from the log so a resume never reuses one.
+      nextId: () =>
+        'sched-' +
+        String(
+          agent.session.events().filter((event) => event.type === 'schedule/created').length + 1,
+        ),
+      now: () => Date.now(),
+      write: (each) =>
+        (each.kind === 'deleted'
+          ? agent.session.append('schedule/deleted', { id: each.id })
+          : agent.session.append(
+              each.kind === 'created' ? 'schedule/created' : 'schedule/updated',
+              { schedule: each.schedule },
+            )
+        ).pipe(
+          Effect.mapError(
+            () => new ToolError({ code: 'execution', message: 'cannot record the schedule' }),
+          ),
+        ),
+    }),
+  )
   list.push(
     makeGoalTool({
       events: () => agent.session.events(),
@@ -522,6 +548,9 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
       yield* wiring.hooks.on('agent/turn-stopping', (ending: Agent) =>
         ending === wiring.agent ? startGoalRound(ending) : Effect.void,
       )
+      // Standing schedules keep their own clock; one that came due while the
+      // session was away fires as soon as this run starts.
+      yield* installScheduleRuns(wiring.agent, wiring.hooks)
     }
   })
 

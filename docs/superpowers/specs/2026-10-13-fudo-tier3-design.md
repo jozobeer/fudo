@@ -1,6 +1,6 @@
 # fudo 設計: S6 Tier 3
 
-範囲は設計文書の分割表に従う: subagent（fork を含む）、jobs、goal、workflow（PTC）、working-directory。
+範囲は設計文書の分割表に従う: subagent（fork を含む）、jobs、goal、workflow（PTC）、working-directory。schedule は分割表に無いが、[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C2 が求めるので、2026-10-14 にこの段へ足した。
 
 ## 前提（S1 から S5 までで使えるもの）
 
@@ -19,6 +19,9 @@
    - モデルは `goal` ツールの action（create / edit / pause / resume / complete / blocked）で目標を動かす。blocked は理由を要求し、直近の user/message が `goal-round`（＝自動ラウンドの中）なら 3 ラウンド未満では拒否する。
 4. **workflow（PTC）は「同じ turn で複数のツールを並べる」に留める。** isConcurrencySafe が真の連続呼び出しを並列に実行する（S1 で保留にした項目）。コードを書く/実行する新しい DSL は v1 では持たない。
 5. **subagent の fork は、親の履歴を子に渡す形で表す。** 子のセッションを親のイベントから派生させて作り、cwd と route を引き継ぐ。
+6. **schedule はログのイベントで表し、時計は 1 本の fiber が持つ（2026-10-14 追加）。** 予定は `schedule/created` / `schedule/updated` / `schedule/deleted` としてログに残し、`currentSchedules(events)` が最新の状態を畳む（goal と同じ方針）。期限到達は `schedule/fired` として記録し、発火の判定は「ルールから計算した次の時刻」と「最後に発火した時刻」の比較だけで行う。時計は起動時に一度だけ立てる scoped fiber が持ち、次の期限まで `Effect.sleep` して `followup` する。したがって予定はプロセスをまたいで生き、再開したセッションでも期限が来ていれば発火する。
+   - 種別は every（秒）・daily（ローカル時刻）・weekly（曜日 + ローカル時刻）・cron（5 フィールド）。
+   - 時間帯はプロセスのローカル 1 つだけを使う。dsh は予定ごとに IANA の zone を持つが、fudo の v1 は持たない（差分として記録する）。
 
 ## 進め方
 
