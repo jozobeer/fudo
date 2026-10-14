@@ -119,35 +119,36 @@ const applyMessage = (state: Conversation, event: MessageEvent): Conversation =>
 
 type ToolEvent = Extract<SessionEvent, { type: 'tool/call' | 'tool/result' }>
 
+/** The line the pipeline rendered, or one made here for a log written before it did. */
+const recordedOr = (summary: string | undefined, fallback: () => string): string =>
+  summary === undefined || summary === '' ? fallback() : summary
+
+const callBlock = (data: {
+  readonly callId: string
+  readonly name: string
+  readonly arguments: string
+  readonly summary?: string
+}): ConversationBlock => ({
+  kind: 'tool',
+  callId: data.callId,
+  name: data.name,
+  summary: recordedOr(data.summary, () => truncate(oneLine(data.arguments), 80)),
+  status: 'running',
+  result: '',
+})
+
 const applyTool = (state: Conversation, event: ToolEvent): Conversation => {
-  switch (event.type) {
-    case 'tool/call':
-      return {
-        ...state,
-        blocks: [
-          ...state.blocks,
-          {
-            kind: 'tool',
-            callId: event.data.callId,
-            name: event.data.name,
-            summary: truncate(oneLine(event.data.arguments), 80),
-            status: 'running',
-            result: '',
-          },
-        ],
-      }
-    case 'tool/result': {
-      const status: ToolStatus = event.data.isError ? 'error' : 'done'
-      const result = resultOf(event.data.content)
-      return {
-        ...state,
-        blocks: state.blocks.map((block) =>
-          block.kind === 'tool' && block.callId === event.data.callId
-            ? { ...block, status, result }
-            : block,
-        ),
-      }
-    }
+  if (event.type === 'tool/call') {
+    return { ...state, blocks: [...state.blocks, callBlock(event.data)] }
+  }
+  const { callId, isError } = event.data
+  const result = recordedOr(event.data.summary, () => resultOf(event.data.content))
+  const status: ToolStatus = isError ? 'error' : 'done'
+  return {
+    ...state,
+    blocks: state.blocks.map((block) =>
+      block.kind === 'tool' && block.callId === callId ? { ...block, status, result } : block,
+    ),
   }
 }
 

@@ -24,6 +24,7 @@ export interface GlobValue {
 /** Lists workspace files whose relative path matches a glob, sorted. Ignored and hidden paths are not walked. */
 export const globTool: ToolDefinition<GlobArgs, GlobValue> = {
   name: 'glob',
+  presentCall: (args) => ({ summary: 'glob ' + args.pattern }),
   description:
     'Lists workspace files matching a glob pattern, sorted by path. Use it to find files by name; use grep to search inside them. node_modules and .git are never walked.',
   parameters: Parameters,

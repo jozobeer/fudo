@@ -26,7 +26,7 @@ import {
 } from '@fudo/session'
 import { SystemPrompt } from '@fudo/system-prompt'
 import { applySpill, makeSpillWriter, type SpillOptions } from '@fudo/tools'
-import { Tools } from '@fudo/tools'
+import { Tools, resultSummary } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -298,10 +298,17 @@ const agentLoopEffect = (
           { callId: call.id, tool: call.name },
           spillOf(agent),
         )
+        // The presentation is rendered where the tool is known, and recorded with
+        // the result: every UI reads the same line out of the log instead of
+        // guessing one from the raw content.
         yield* append(agent, 'tool/result', {
           callId: call.id,
           isError: shown.isError,
           content: shown.content,
+          summary: tools.presentResult(call.name, call.arguments, {
+            isError: shown.isError,
+            summary: resultSummary(shown.content),
+          }).summary,
         })
         pending.delete(call.id)
       })
@@ -317,6 +324,7 @@ const agentLoopEffect = (
             callId: call.id,
             name: call.name,
             arguments: call.arguments,
+            summary: tools.presentCall(call.name, call.arguments).summary,
           })
           pending.set(call.id, call)
         }

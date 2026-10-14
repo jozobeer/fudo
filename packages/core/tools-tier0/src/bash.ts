@@ -1,7 +1,8 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, oneLine, type ToolDefinition } from '@fudo/tools'
 import { noneSandbox, type SandboxShape } from '@fudo/safety'
 import { resolveInside } from './workspace.ts'
+import { exitSummaryOf } from './present.ts'
 
 /** A command that has not finished by then is killed. */
 export const BASH_DEFAULT_TIMEOUT_MS = 120_000
@@ -105,6 +106,8 @@ export const makeBashTool = (
   sandbox: SandboxShape = noneSandbox,
 ): ToolDefinition<BashArgs, BashValue> => ({
   name: 'bash',
+  presentCall: (args) => ({ summary: 'bash ' + oneLine(args.command).slice(0, 120) }),
+  presentResult: (_args, result) => ({ ...result, summary: exitSummaryOf(result.summary) }),
   description:
     'Runs a shell command in the workspace through the configured sandbox and returns what it printed. Check the [exit code: N] marker: a non-zero exit means the command failed. A command still running at the timeout is killed and marked; use job_start for work that should outlive the call.',
   parameters: Parameters,

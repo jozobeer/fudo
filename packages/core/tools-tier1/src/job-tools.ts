@@ -41,6 +41,7 @@ export const makeJobOutputTool = (
   jobs: JobsShape,
 ): ToolDefinition<{ id: string }, { id: string; running: boolean; output: string }> => ({
   name: 'job_output',
+  presentCall: (args) => ({ summary: 'job_output ' + args.id }),
   description:
     'Reads the output a background job has produced so far. Poll it to follow long work; job_kill stops one that no longer matters.',
   parameters: IdParameters,

@@ -59,7 +59,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `subagent_fork` | 対応済み。S6 の範囲表の「fork を含む」は、`subagent` が `forkSeed` で親のログから子を起こすことで満たしている（証拠は `apps/cli/tests/subagent-fork-e2e.test.ts`）。**2026-10-14 改訂**: fork しない子も選べるようにした（`context: 'fresh'` で種を空にする）。あわせて `model` で子の route を呼び出しごとに指名でき、`task` を省くと子を起こして待たせる（idle のまま残し、`send_message` で続ける）。 |
 | `list_subagent_models` | 除外。fudo はモデルを起動時の `route` で選び、model registry を持たない。**2026-10-14 追記**: 子の route は呼び出しごとに `model` で指名できるが、列挙できる registry は無いのでこの道具は依然として持たない |
 | `exit_plan_mode` | 採用。S5 の plan-mode。制限を解く出口をモデルに与える |
-| `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である |
+| `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である。**2026-10-14 追記**: `presentCall` / `presentResult` は pipeline に実配線し、要約をログに記録するようにした（S1 の追記を参照）。`present` tool そのもの（client へカードを渡す経路）は持たないままである |
 | `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |
 | `workflow` | ツールとしては持たない。S6 の決定 4 により、同じ turn の並列ツール呼び出し（`isConcurrencySafe`）がこれを担う |
 | MCP resources | 除外。S5 の MCP は「ツール一覧の取り込みと実行だけ」と決めている |
@@ -351,6 +351,8 @@ fudo --json "task"               session/event を JSONL で stdout に出す
 ```
 
 アプリケーションの起動経路は `fudo` の profile だけとし、テストと demo も同じ経路で起動する。
+
+**1 行の要約は pipeline が描いてログに残す（2026-10-14 追記、E1）**: 当初 `presentCall` / `presentResult` は registry にあるだけで、走行経路は生の `arguments` と結果本文をログに書き、TUI と Web が 200 字で切って表示していた。いまは tool を呼んだその場所（runner）が要約をレンダリングし、`tool/call` / `tool/result` の `summary` として**イベントに記録する**。UI はログから同じ 1 行を読むだけなので、TUI・Web・replay が同じ見た目になり、古いログ（summary が無い）は view 側の既定（引数の 1 行・結果の 1 行を 200 字で切る）に落ちる。presenter を持たない tool も `@fudo/tools` の既定（`callSummary` / `resultSummary`）で同じ形の 1 行を持つ。行の中身は tool が決める: bash は `bash <command>` / `exit 3`、read は `read <path>:10-40`、edit は `edit <path> lines: 2 → 3`、write は `write <path>`、glob / grep はパターン、web_fetch は URL。dsh の presenters・ノードレジストリ・locale 所有の文言は持たない（カードや差分の描画はクライアントの領分で、fudo は 1 行に畳む）。
 
 S1 が出荷する profile は `headless` と `repl` の二つで、どちらも `bundle/base` を第一層にする。CLI は `agent/assistant-stream` の chunk を stdout に流し、tool call を `presentCall` の 1 行要約で示す。S2 で approval が入ると、`repl` profile は TTY の y/n answerer を登録し、`headless` profile は answerer を登録しないので承認を要する操作が拒否される。全面的な許可は S2 の permission preset を `--permission danger-full-access` で明示して選ぶ。終了コードは completed が 0、error が 1、SIGINT が 130 である。SIGINT を受けたら `cancel({ kind: 'user' })` を呼び、`turn/end` を記録してから終了する。
 

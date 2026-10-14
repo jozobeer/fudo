@@ -3,6 +3,7 @@ import type { ToolSchema } from '@fudo/llm'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import type { Scope } from 'effect'
 import { errorResult, executeTool, tryDecodeArguments } from './pipeline.ts'
+import { callSummary } from './summary.ts'
 import {
   ToolError,
   type ToolCallOutcome,
@@ -104,9 +105,10 @@ export function makeTools(hooks: HookRegistry): ToolRegistry {
 
     presentCall: (tool, argumentsJson) => {
       const definition = registered.get(tool)
-      if (definition?.presentCall === undefined) return { summary: tool }
+      const fallback = { summary: callSummary(tool, argumentsJson) }
+      if (definition?.presentCall === undefined) return fallback
       const decoded = tryDecodeArguments(definition, argumentsJson)
-      return Option.isSome(decoded) ? definition.presentCall(decoded.value) : { summary: tool }
+      return Option.isSome(decoded) ? definition.presentCall(decoded.value) : fallback
     },
 
     presentResult: (tool, argumentsJson, result) => {

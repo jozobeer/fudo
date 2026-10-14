@@ -83,11 +83,19 @@ export interface SessionEventMap {
   'user/message': { readonly text: string; readonly source: UserMessageSource }
   'assistant/message': AssistantMessageData
   'assistant/attempt': AssistantAttemptData
-  'tool/call': { readonly callId: string; readonly name: string; readonly arguments: string }
+  'tool/call': {
+    readonly callId: string
+    readonly name: string
+    readonly arguments: string
+    /** The one line a UI shows for the call, rendered by the pipeline. */
+    readonly summary?: string
+  }
   'tool/result': {
     readonly callId: string
     readonly isError: boolean
     readonly content: ReadonlyArray<ContentBlock>
+    /** The one line a UI shows for the result, rendered by the pipeline. */
+    readonly summary?: string
   }
 }
 

@@ -2,6 +2,7 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { look, type ObservedFiles } from './observed-files.ts'
 import { linesOf, readUtf8 } from './text.ts'
+import { rangeOf } from './present.ts'
 
 /** One line longer than this many characters is cut, so one line cannot fill the window. */
 export const READ_MAX_LINE_CHARS = 2000
@@ -171,6 +172,7 @@ const checkWindow = (
  */
 export const makeReadTool = (observed: ObservedFiles): ToolDefinition<ReadArgs, ReadValue> => ({
   name: 'read',
+  presentCall: (args) => ({ summary: 'read ' + rangeOf(args) }),
   description:
     'Reads a UTF-8 text file and returns its lines with 1-based line numbers. Use it instead of cat, head, or tail; page through a long file with offset and limit.',
   parameters: Parameters,

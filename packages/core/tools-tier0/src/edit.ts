@@ -2,6 +2,7 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
 import { normalizeNewlines, readUtf8 } from './text.ts'
+import { changedLines } from './present.ts'
 import { resolveInside } from './workspace.ts'
 
 const Parameters = Schema.Struct({
@@ -45,6 +46,7 @@ const countOf = (text: string, needle: string): number => {
  */
 export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, EditValue> => ({
   name: 'edit',
+  presentCall: (args) => ({ summary: 'edit ' + args.path + ' ' + changedLines(args) }),
   description:
     'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file.',
   parameters: Parameters,

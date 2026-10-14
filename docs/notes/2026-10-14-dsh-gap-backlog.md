@@ -250,7 +250,15 @@
 
 ## E. UI・提示・検証
 
-- [ ] **E1 presentation の実配線**。fudo の `presentCall`/`presentResult` はテストからしか呼ばれず、TUI と Web は 200 文字で切った素のテキストを出す（`fudo:packages/core/tools/src/types.ts:107`、`fudo:packages/ui/view/src/conversation.ts:62`）。dsh は presenters・ノードレジストリ・locale 所有の文言でカード/差分を描く（`dsh:packages/client/ui-conversation/src/client/contract/conversation.ts:203`）。
+- [x] **E1 presentation の実配線**。fudo の `presentCall`/`presentResult` はテストからしか呼ばれず、TUI と Web は 200 文字で切った素のテキストを出す（`fudo:packages/core/tools/src/types.ts:107`、`fudo:packages/ui/view/src/conversation.ts:62`）。dsh は presenters・ノードレジストリ・locale 所有の文言でカード/差分を描く（`dsh:packages/client/ui-conversation/src/client/contract/conversation.ts:203`）。
+  - 実装（2026-10-14）:
+    - 設計文書に追記した（S1 の CLI の節 + `present` 除外行）。**要約は pipeline が描いてログに残す**: tool を呼んだ場所（runner）が `presentCall` / `presentResult` を呼び、`tool/call` / `tool/result` の `summary` としてイベントに記録する。UI はログから同じ 1 行を読むだけなので、TUI・Web・replay が同じ見た目になり、summary の無い古いログは view の既定（引数 1 行・結果 1 行を 200 字で切る）に落ちる。
+    - `@fudo/tools` の `summary.ts`: 既定の `callSummary`（tool 名 + 引数 1 行、80 字）と `resultSummary`（本文 1 行、200 字）。registry の `presentCall` / `presentResult` は presenter が無い tool でもこの既定を返すので、ログの `summary` は常にある。
+    - presenter を付けた tool: bash（`bash <command>` / `exit 3`、timeout は `exit 137 after 5000ms`）、read（`read <path>:10-40`、offset だけなら `:10+`）、write（`write <path>`）、edit（`edit <path> lines: 2 → 3`）、glob / grep（パターン）、web_fetch（URL / `fetched <url>`）。**既定と同じ行を返すだけの presenter は消した**（read / write / edit / glob / grep / job_output の result 側）。
+    - view（`packages/ui/view`）は `summary` があればそれを、無ければ従来の切り詰めを使う。TUI と Web は同じ view を読むので両方に効く。
+  - 検証: `present.test.ts` 4 本（read の範囲表記（offset だけなら `:10+`）／edit の行数（`lines: 2 → 3`、all）／bash の exit とタイムアウト、そして何も走らなかったときは本文／既定の 1 行が短く改行を含まないこと）、`packages/ui/view/tests/summary.test.ts` 2 本（ログに記録された行を出す／記録が無い古いログはここで作る）、e2e `apps/cli/tests/presentation-e2e.test.ts`（実 CLI で read → edit → bash を通し、ログの `tool/call` の summary が `read notes.txt` / `edit notes.txt lines: 1 → 1` / `bash echo x; exit 3`、失敗した bash の result が `exit 3` で、ファイルも実際に変わっている）。`bun run check` 731 pass / 1 skip / 0 fail。
+  - 学び: 表示を「イベントに記録する」形にすると、UI ごとの再現が要らなくなる（TUI・Web・replay が同じ 1 行を読む）。同時に、**既定と同じものしか返さない presenter は消した**——足す前に「これは既定と何が違うか」を問うと、8 個のうち 6 個は不要だった。
+  - 未確認: dsh は presenters に加えてノードレジストリ（カードの種類）と locale 所有の文言を持つ。fudo は 1 行のテキストに畳むだけで、カードも差分の描画も持たない（`edit` は行数 `lines: 2 → 3` を出すが、diff そのものは描かない）。`summary` は schema 上の optional なので、E3 の記録 fixture（既存の session.v1.jsonl）は summary 無しのまま読める。
 - [ ] **E2 画面**。セッション一覧とブラウズ、設定ページ、デスクトップ、SDK/ACP。fudo の `list()` は CLI/TUI/Web から一度も呼ばれていない（`fudo:packages/core/session/src/sessions.ts:83`）。
 - [ ] **E3 検証機構**。fudo の記録 fixture は SSE 1 本、coverage 閾値・doc gate・重複 gate・i18n・real-API lane は無い（`fudo:packages/test-support/replay/src/index.ts:9`、`package.json:13`）。dsh は 227 シナリオをキー無しで出荷構成のまま再生し、ファイル単位 100% coverage を gate する（`dsh:vitest.snapshot.config.ts:32`、`dsh:vitest.config.ts:381`）。受け入れ: 退行が記録の再生で捕まる。
 

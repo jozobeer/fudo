@@ -27,6 +27,7 @@ export interface WriteValue {
  */
 export const makeWriteTool = (observed: ObservedFiles): ToolDefinition<WriteArgs, WriteValue> => ({
   name: 'write',
+  presentCall: (args) => ({ summary: 'write ' + args.path }),
   description:
     'Writes a UTF-8 text file inside the workspace, creating parent directories. Read a file before you overwrite it: write replaces the whole file.',
   parameters: Parameters,

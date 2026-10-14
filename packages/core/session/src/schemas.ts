@@ -94,7 +94,12 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
   ],
   [
     'tool/call',
-    Schema.Struct({ callId: Schema.String, name: Schema.String, arguments: Schema.String }),
+    Schema.Struct({
+      callId: Schema.String,
+      name: Schema.String,
+      arguments: Schema.String,
+      summary: Schema.optionalKey(Schema.String),
+    }),
   ],
   [
     'tool/result',
@@ -102,6 +107,7 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
       callId: Schema.String,
       isError: Schema.Boolean,
       content: Schema.Array(ContentBlockSchema),
+      summary: Schema.optionalKey(Schema.String),
     }),
   ],
 ])

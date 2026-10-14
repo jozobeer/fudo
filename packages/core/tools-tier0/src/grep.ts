@@ -90,6 +90,7 @@ const compile = (pattern: string): Effect.Effect<RegExp, ToolError> =>
 /** Searches workspace files line by line with a regular expression. */
 export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
   name: 'grep',
+  presentCall: (args) => ({ summary: 'grep ' + args.pattern }),
   description:
     'Searches workspace files for a regular expression and returns file, line, and text for each match. Use it instead of shelling out to grep or rg. node_modules, .git, hidden paths, and binary files are skipped.',
   parameters: Parameters,
