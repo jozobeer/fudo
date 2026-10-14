@@ -11,30 +11,30 @@
 | 層 | 重み | 実装度 | 主な残り |
 |---|---|---|---|
 | 核・実行機構 | 15% | 95% | なし（ログの忠実性は回復済み） |
-| モデルに見える文脈 | 30% | 65% | runtime context が 2/4、compaction に閾値と要約がない |
-| ツール実行面 | 20% | 80% | 説明文が DSH の 1/3、edit の CRLF・バイナリ未対応 |
+| モデルに見える文脈 | 30% | 65% | runtime context は 4 種で充足（実測）、compaction に閾値と要約がない |
+| ツール実行面 | 20% | 80% | 説明文が DSH の 1/3（edit と検索は充足） |
 | 自律性・委譲 | 20% | 85% | repeat リマインダーが未配線、workflow に編成の表現力がない |
 | 安全・耐久 | 10% | 65% | 圧縮・lease・export・検索がない |
 | UI・提示・検証 | 5% | 40% | 記録が 2 件、coverage/doc/重複 gate がない |
 
 ## 0. 作ったのに効いていない（先に片付ける）
 
-- [ ] **repeat リマインダーの配線**。`fudo:packages/core/tools-tier1/src/repeat-reminder.ts` は実装とテストがあるが、`tools/pre-execute` にも `tools.guard(` にも登録がない（production の利用はゼロ、テストのみ）。モデルは同じ呼び出しを繰り返し続ける。現在値: 登録 0 箇所。受け入れ: 同じツール・同じ引数が3回続いたとき、次のリクエストにリマインダーが入ることを e2e で観測する。
+- [x] **repeat リマインダーの配線**（実測で既に閉じていた）。`installRepeatReminders` は `fudo:apps/cli/src/index.ts:644` で agent ごとに `tools/post-execute`（prepend）へ登録され、結果を組む前に他の listener を通す。登録 0 箇所という前回の実測は誤りで、テストだけでなく出荷経路に載っている。受け入れ: e2e `fudo:apps/cli/tests/repeat-reminder-e2e.test.ts` が同じ `todo_write` を3回呼び、3回目の結果にリマインダが載り、その次のリクエスト本文にも入ることを観測する。
 
 ## 1. モデルに見える文脈（層2）
 
-- [ ] **runtime context の残り2種**。`fudo:packages/core/system-prompt/src/builtin.ts:116` の `builtinContexts` は cwd と時刻だけを返す。dsh は sandbox mode と承認ポリシーも同じ snapshot に入れる（`dsh:packages/sandbox/sandbox-policy/src/index.ts:142`、`dsh:packages/interaction/user-approval/src/index.ts:163`）。現在値: 2 種。受け入れ: runtime-context メッセージに `sandbox:` と `approval:` の行が入り、値が変わったときだけ新しい snapshot が足される。
+- [x] **runtime context の残り2種**（実測で既に閉じていた）。`builtinContexts` は cwd と時刻だけだが、`fudo:packages/core/safety/src/plugin.ts:64` の `policyLayerWithContexts` が同じ registry に `approval` と `sandbox` を order 20/21 で登録するので、出荷構成の snapshot は 4 種である。受け入れ: e2e `fudo:apps/cli/tests/runtime-context-e2e.test.ts` が `cwd:`・`time:`・`approval: workspace-write`・`sandbox: seatbelt` の4行を確かめ、`working_directory` で cwd が変わったときに snapshot が1枚だけ増えることを観測する。
 - [ ] **compaction の閾値**。`fudo:packages/core/session/src/compaction.ts` は閾値を持たず、毎リクエスト reasoning を落として 32 KB 超を 120 字のスタブに置き換える。dsh は context の 0.8（headroom 65,536、retention 0.16、モデル別 override）で発火する（`dsh:packages/compaction/compaction-basic/src/config.ts:20`）。現在値: 常時適用。受け入れ: 予算内では何も置き換えず、超えたときだけ置き換わることをテストで示す。
 - [ ] **compaction の要約**。dsh は補助 LLM の構造化要約を checkpoint メッセージとしてログに残す（`dsh:packages/compaction/compaction-basic/src/summarizer.ts:31`）。fudo は機械的な stub のみ。受け入れ: 古い範囲が要約1件に置き換わり、置き換えた範囲がログから辿れる。
 - [ ] **token meter**。dsh は usage を畳んでルートごとの予算に対する残量を持ち、compaction の入力にする（`dsh:packages/token-meter`）。fudo は usage を `assistant/message` に記録するだけ。受け入れ: 残量が閾値を切ったことが compaction の発火条件になる。
 - [ ] **tool-result pruner と image offload**。dsh は古い tool 結果の専用間引きと画像の参照化を別プラグインで持つ（`dsh:packages/compaction/tool-result-pruner`、`dsh:packages/compaction/compaction-image-offload`）。
-- [ ] **AGENTS.md の候補名**。`fudo:packages/core/system-prompt/src/agents-md.ts:31` の `names` は既定で AGENTS.md のみ。dsh は CLAUDE.md と `.local` 変種も既定の候補にする（`dsh:packages/context/agent-instructions/src/config.ts:12`）。現在値: 1 名。受け入れ: CLAUDE.md だけを置いたディレクトリで、その内容がプロンプトに入る。
+- [x] **AGENTS.md の候補名**。既定の候補を `AGENTS.md` / `CLAUDE.md`、ローカル上書きを `AGENTS.local.md` / `CLAUDE.local.md` にし、1 ディレクトリにつき base → local の順で読む（`fudo:packages/core/system-prompt/src/agents-md.ts`）。home は dsh と同じく `AGENTS.md` だけ。受け入れ: 単体テスト2本と e2e `fudo:apps/cli/tests/agents-md-e2e.test.ts` の「CLAUDE.md だけの作業ディレクトリ」で、内容がプロンプトに入る。
 
 ## 2. ツールの深さ（層3）
 
 - [ ] **説明文の量**。現在値: ツール説明 9,184 B とパラメータ説明 108 箇所（dsh は 27,194 B、パラメータは全数）。受け入れ: 失敗からの回復手順（edit は読み直し、read は offset で続き、bash は退避先を読む）が説明本文に書かれている。
-- [ ] **edit の CRLF とバイナリ**。現在値: どちらの扱いも無い（`fudo:packages/core/tools-tier0/src/edit.ts` に該当なし）。dsh は CRLF を正規化しバイナリを読む前に拒否する（`dsh:packages/fs/fs-local/src/fsio.ts:733`）。受け入れ: CRLF のファイルを編集しても改行が変わらない。バイナリは編集前にエラーになる。
-- [ ] **glob の並び順と grep の上限**。現在値: 名前順・200 件で打ち切り。dsh は更新時刻順・250 件で、超過分は退避して locator を返す（`dsh:packages/fs/tool-fs-search/src/glob.ts:25`、`grep.ts:29`）。受け入れ: 上限を超えた検索で全量への手がかりが返る。
+- [x] **edit の CRLF とバイナリ**。`readForEdit` が NUL バイトを decode の前に拒否し、LF に正規化した本文と元の ending を返す（`fudo:packages/core/tools-tier0/src/text.ts`）。edit は編集後に `restoreLineEndings` で書き戻すので、CRLF のファイルは CRLF のまま。受け入れ: `fudo:packages/core/tools-tier0/tests/edit.test.ts` に CRLF 保持と NUL 入りファイルの拒否の2本を追加（読み直せない非 UTF-8 のファイルは従来どおり read の段で止まる）。
+- [x] **glob の並び順と grep の上限**。`walkFiles` に `order: 'modified'` を足し、glob は更新時刻の古い順になった。glob / grep は既定 100 / 250 件を inline の page とし、`SEARCH_PAGE_BYTES` 30,000 の範囲で切り、超過分は `writeSpill` でセッション横のファイルに保存して locator と読み方（read の offset/limit）を返す。locator を渡す seam は `ToolRunContext.spill` で、場所は loop が持ち、何を保存するかは tool が決める。grep の一致行は 2000 字で切る。受け入れ: `fudo:packages/core/tools-tier0/tests/search.test.ts` の mtime 順・locator の2本と、e2e `fudo:apps/cli/tests/search-recovery-e2e.test.ts`（2000 件の検索で page 250 + 全量ファイル + 次のリクエストで tail を読む）。
 - [ ] **bash の退避通知**。現在値: spill 一般の通知。dsh は `[output truncated; full output: <path>]` を返し、読み方（offset/limit）まで書く（`dsh:packages/shell/tool-bash/src/render.ts:11`）。
 - [ ] **除外したツールの方針変更**（pwsh、lsp、terminal、computer/browser、MCP resources、`present`、plugin_manager、ralph、create_worktree）。現在値: 設計文書の表で除外。変えるなら `docs/superpowers/specs/2026-10-13-fudo-kernel-design.md` の表の更新が先。
 
