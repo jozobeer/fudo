@@ -19,6 +19,7 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { dshMetrics, fudoMetrics, type AbMetrics } from './metrics.ts'
+import { tableOf, type Cell } from './table.ts'
 import { TASKS, type AbTask } from './tasks.ts'
 
 const ROUTE = process.env.FUDO_AB_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
@@ -36,16 +37,6 @@ const dshEnv = Object.fromEntries(
       : [[key, value]],
   ),
 ) as Record<string, string>
-
-interface Cell {
-  readonly harness: 'fudo' | 'dsh'
-  readonly task: string
-  readonly repeat: number
-  readonly code: number | undefined
-  readonly done: boolean
-  readonly metrics: AbMetrics | undefined
-  readonly note: string | undefined
-}
 
 /** The key the Ollama Cloud route needs: the environment first, then fudo's own file. */
 const ollamaKey = (): string | undefined => {
@@ -256,49 +247,6 @@ const cellOf = async (harness: 'fudo' | 'dsh', task: AbTask, repeat: number): Pr
   return { ...result, repeat }
 }
 
-/** One line per cell run, with the run number so repeats stay visible. */
-const cellLine = (cell: Cell): string => {
-  const metrics = cell.metrics
-  const columns = [
-    cell.harness,
-    cell.task,
-    String(cell.repeat + 1),
-    cell.done ? 'yes' : 'no',
-    metrics === undefined ? '-' : String(metrics.toolCalls),
-    metrics === undefined ? '-' : String(metrics.failedEdits),
-    metrics === undefined ? '-' : String(metrics.reReads),
-    metrics === undefined ? '-' : String(metrics.turns),
-    cell.code === undefined ? '-' : String(cell.code),
-    cell.note ?? '',
-  ]
-  return '| ' + columns.join(' | ') + ' |'
-}
-
-/** Runs of one harness and task, as the numbers they produced. */
-const summaryLine = (group: ReadonlyArray<Cell>): string => {
-  const numbers = group.flatMap((cell) => (cell.metrics === undefined ? [] : [cell.metrics]))
-  const span = (values: ReadonlyArray<number>): string => {
-    if (values.length === 0) return '-'
-    const low = Math.min(...values)
-    const high = Math.max(...values)
-    const mean = values.reduce((sum, value) => sum + value, 0) / values.length
-    return low === high
-      ? String(low)
-      : String(low) + '-' + String(high) + ' (' + mean.toFixed(1) + ')'
-  }
-  const columns = [
-    group[0]?.harness ?? '',
-    group[0]?.task ?? '',
-    String(group.length),
-    String(group.filter((cell) => cell.done).length),
-    span(numbers.map((metrics) => metrics.toolCalls)),
-    span(numbers.map((metrics) => metrics.turns)),
-    span(numbers.map((metrics) => metrics.failedEdits)),
-    span(numbers.map((metrics) => metrics.reReads)),
-  ]
-  return '| ' + columns.join(' | ') + ' |'
-}
-
 const HARNESSES: ReadonlyArray<'fudo' | 'dsh'> = ['fudo', 'dsh']
 
 await prepare()
@@ -328,15 +276,4 @@ const groups = TASKS.flatMap((task) =>
   ),
 )
 
-process.stdout.write(
-  [
-    '| harness | task | run | done | tool calls | failed edits | re-reads | turns | exit | note |',
-    '|---|---|---|---|---|---|---|---|---|---|',
-    ...cells.map(cellLine),
-    '',
-    '| harness | task | runs | done | tool calls | turns | failed edits | re-reads |',
-    '|---|---|---|---|---|---|---|---|',
-    ...groups.map(summaryLine),
-    '',
-  ].join('\n'),
-)
+process.stdout.write(tableOf(cells, groups))
