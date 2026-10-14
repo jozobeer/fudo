@@ -32,17 +32,17 @@
 
 ## 2. ツールの深さ（層3）
 
-- [ ] **説明文の量**。現在値: ツール説明 9,184 B とパラメータ説明 108 箇所（dsh は 27,194 B、パラメータは全数）。受け入れ: 失敗からの回復手順（edit は読み直し、read は offset で続き、bash は退避先を読む）が説明本文に書かれている。
+- [x] **説明文の量**。失敗からの回復手順を説明本文に書いた: read は footer が続きを言ったら offset で呼び直す、edit は no match か複数一致なら読み直して正確な文字列を引く、bash は spill されたら保存先を offset/limit で読む。write・glob・grep にも同じ 1 文を足した。あわせて `toolSchemaIssues` を入れ子の object と配列 item まで降ろし（`fudo:packages/core/tools/src/schema-check.ts`）、`fudo:packages/core/tools-tier1/tests/schema.test.ts` は tier 1 の全 tool（subagent・team・workflow・schedule・goal・plugin・exit_plan_mode を含む）を検査する。前回の「9,184 B / 108 箇所」は広い集合の数字で、既定 profile の実測は 19 tool / 45 パラメータ / 3,251 B、説明の無いパラメータは 0。受け入れ: `fudo:apps/cli/tests/tool-schema-e2e.test.ts` と上記 unit test が指摘ゼロを要求する。
 - [x] **edit の CRLF とバイナリ**。`readForEdit` が NUL バイトを decode の前に拒否し、LF に正規化した本文と元の ending を返す（`fudo:packages/core/tools-tier0/src/text.ts`）。edit は編集後に `restoreLineEndings` で書き戻すので、CRLF のファイルは CRLF のまま。受け入れ: `fudo:packages/core/tools-tier0/tests/edit.test.ts` に CRLF 保持と NUL 入りファイルの拒否の2本を追加（読み直せない非 UTF-8 のファイルは従来どおり read の段で止まる）。
 - [x] **glob の並び順と grep の上限**。`walkFiles` に `order: 'modified'` を足し、glob は更新時刻の古い順になった。glob / grep は既定 100 / 250 件を inline の page とし、`SEARCH_PAGE_BYTES` 30,000 の範囲で切り、超過分は `writeSpill` でセッション横のファイルに保存して locator と読み方（read の offset/limit）を返す。locator を渡す seam は `ToolRunContext.spill` で、場所は loop が持ち、何を保存するかは tool が決める。grep の一致行は 2000 字で切る。受け入れ: `fudo:packages/core/tools-tier0/tests/search.test.ts` の mtime 順・locator の2本と、e2e `fudo:apps/cli/tests/search-recovery-e2e.test.ts`（2000 件の検索で page 250 + 全量ファイル + 次のリクエストで tail を読む）。
-- [ ] **bash の退避通知**。現在値: spill 一般の通知。dsh は `[output truncated; full output: <path>]` を返し、読み方（offset/limit）まで書く（`dsh:packages/shell/tool-bash/src/render.ts:11`）。
+- [x] **bash の退避通知**（実測で充足していた）。一般の退避通知 `[spilled to <path>: N lines, M bytes. Use the read tool with offset and limit to page through it.]`（`fudo:packages/core/tools/src/spill.ts`）は、dsh の `[output truncated; full output: <path>]` が持つ要素（退避先のパス・行数・読み方）をすべて含む。bash 専用の文言ではないが、モデルが次に取る行動は同じである。受け入れ: e2e `fudo:apps/cli/tests/spill-recovery-e2e.test.ts` が bash の 32 KB 超出力で通知のパスを取り、次の step でそのファイルを read して末尾を読む。違いは preview が末尾ではなく先頭であること（dsh は末尾を残す）。
 - [ ] **除外したツールの方針変更**（pwsh、lsp、terminal、computer/browser、MCP resources、`present`、plugin_manager、ralph、create_worktree）。現在値: 設計文書の表で除外。変えるなら `docs/superpowers/specs/2026-10-13-fudo-kernel-design.md` の表の更新が先。
 
 ## 3. 自律性（層4）
 
 - [ ] **repeat リマインダー**（0 と同じ）。
 - [ ] **workflow の編成**。現在値: フラットなタスク配列・同時実行数・`text`/`json` の期待（`fudo:packages/core/tools-tier1/src/workflow.ts:20`）。dsh はスクリプトの hooks（`agent` / `pipeline` / `parallel` / `phase` / `log` / `args`）で任意に組める（`dsh:packages/workflow/tool-workflow/src/index.ts:161`）。受け入れ: 前段の出力を後段に渡すパイプラインが要るか要らないかを設計文書で決め、要るなら1本のテストで示す。
-- [ ] **goal の権限規則**。現在値: `create/edit/pause/resume/complete/blocked` をどの turn からでも動かせる（`fudo:packages/core/tools-tier1/src/goal.ts:14`）。dsh は pause/resume を人間の turn に限り、`blocked` を N ラウンド未満では拒否する（既定3、`dsh:packages/goal/tool-goal/src/authority.ts:100`）。受け入れ: モデルだけの turn から pause/resume ができない。blocked は規定ラウンド未満で拒否される。
+- [x] **goal の権限規則**。`turnHasSource` / `inHumanTurn` / `inGoalRound` を `fudo:packages/core/tools-tier1/src/goal-state.ts` に置き、最後の `turn/start` から先だけを見る。pause / resume は human source の message がある turn でだけ動き、モデルが自分で始めた round では拒否される。blocked は自動 round で `MIN_BLOCKED_ROUNDS`（3）未満なら拒否し、人間の turn があれば round 数に関係なく許す。前回の `inAutomaticRound` は「最後の user/message が goal-round か」だけを見ていたので、round の途中に steer（source: inject）が入ると閾値をすり抜けた——いまは open turn を走査する。受け入れ: unit 9 本（pause/resume の拒否、steer が入った round の blocked 拒否、人間の turn の blocked 許可）と e2e `fudo:apps/cli/tests/goal-rounds-e2e.test.ts`（実際の round で pause が拒否され、goal は paused にならない）。
 
 ## 4. 耐久（層5）
 
