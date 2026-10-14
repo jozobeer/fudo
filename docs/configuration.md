@@ -54,7 +54,7 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 
 `preset` が許す能力は `read-only` が読むだけ、`workspace-write` が読み書き、`full` が読み書きと実行とネットワークである。preset の外に出る呼び出しは承認要求になる。端末 UI と Web UI は y/n を尋ね、答える者がいない実行は拒否される。
 
-`@fudo/mcp` は plugin として定義されているが、CLI が組み立てる plugin の一覧に入っていない。この行を書くと起動時に `row <id> names unknown plugin @fudo/mcp` で止まる。
+`@fudo/mcp` の行は MCP サーバを起動し、その tool を `prefix`（既定 `mcp__`）を頭に付けて登録する。
 
 ## plugin の schema に無い行キー
 
@@ -82,6 +82,20 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | `--help` | 使い方を出力して終わる |
 
 サブコマンドは `models`（provider のモデル一覧）、`web`（ブラウザ UI）、`config`（設定の表示と書き込み）、`auth`（秘密の保存）である。それ以外の位置引数は1 turn のタスクになる。
+
+`fudo config` は引数なしで今の設定を表示する。書き込みは次の通りで、いずれも書く前に schema で検証し、ファイルのコメントと他のキーは残す。
+
+| 書き方 | 効果 |
+|---|---|
+| `fudo config set model <provider/model>` | `model` を書く。`profile` も同じ形 |
+| `fudo config set plugins.<id>.<key> <value>` | その行のキーを書く。同梱 profile の行を指すと差分の行を作る。`disabled` は行の項目として書く |
+| `fudo config add skills <dir>` | `skills` にディレクトリを足す |
+| `fudo config add plugins <name>` | 行を足す。`id` は名前から作り（`@fudo/mcp` → `mcp`）、`--id` で決められる |
+| `fudo config remove skills <dir>` | `skills` から外す |
+| `fudo config remove plugins <id>` | 設定ファイルの行を外す。同梱 profile の行は外せない |
+| `fudo config init` | 全キーをコメントで並べたファイルを作る |
+
+値は YAML として読む。配列を書くときは flow 形式（`'["npx", "-y", "server"]'`）で1つの引数として渡す。
 
 ## 環境変数
 
@@ -121,4 +135,4 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | 1つの service を2つの行が提供する | 行の `provides` | 起動が止まる（`duplicate-provider`） |
 | 依存が循環する | 行の `requires` | 起動が止まる（`dependency-cycle`） |
 
-`--dump-config` は行を読み込んで検証しないので、未登録の plugin 名や必須キーの欠落は実行して初めて分かる。
+`--dump-config` は行を読み込んで検証しないので、未登録の plugin 名や必須キーの欠落は実行して初めて分かる。`fudo config set` は書き込む前に plugin の schema で値を検証するので、起動時に無視される行の `config` の知らないキーも、ここでは拒否される。

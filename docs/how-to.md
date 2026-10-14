@@ -36,18 +36,26 @@ fudo auth list         # 入っている名前を見る
 
 ## スキルを読ませる
 
-`skills:` に `SKILL.md` を置いたディレクトリを並べる。
+`SKILL.md` を置いたディレクトリを登録する。
 
-```yaml
-skills:
-  - ~/skills
+```sh
+fudo config add skills ~/skills     # <name>/SKILL.md を持つディレクトリ
+fudo config remove skills ~/skills  # 外す
+fudo config                         # 入ったことを確かめる
 ```
 
-`fudo config set` はリストを扱わないので、`fudo config` が出すパスのファイルを直接編集する。
+同じディレクトリを二度足しても増えない。`skills` が1つ以上あると `skill` tool が付く。
 
 ## 書き込みと実行の許可を変える
 
-`--patch` に渡すファイルで safety 行の `preset` を差し替える。
+同梱 `base` profile の `safety` 行に、変えたいキーだけを重ねる。
+
+```sh
+fudo config set plugins.safety.preset full
+fudo config                                             # 入ったことを確かめる
+```
+
+`plugins.safety.preset` は「id が `safety` の行の `preset`」の意味で、`sandbox` のような他のキーは同梱の値のまま残る。1回の実行だけ変えるなら `--patch` に渡すファイルで同じ行を書く。
 
 ```yaml
 name: full
@@ -62,6 +70,18 @@ plugins:
 fudo --patch full.yml "…"
 fudo --dump-config --patch full.yml   # 効いた行を確かめる
 ```
+
+## MCP サーバを繋ぐ
+
+行を足し、`command` に起動コマンドを配列で渡す。
+
+```sh
+fudo config add plugins @fudo/mcp
+fudo config set plugins.mcp.command '["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
+fudo config set plugins.mcp.prefix 'fs__'   # 省略すると mcp__
+```
+
+サーバの tool は `prefix` を頭に付けて登録される。行を消すときは `fudo config remove plugins mcp`。
 
 ## セッションログの置き場を変える
 
@@ -81,7 +101,7 @@ fudo --patch sessions.yml "…"
 ## 設定が効かないときに見る
 
 ```sh
-fudo config          # 設定ファイルのパスと、4キーの今の値
+fudo config          # 設定ファイルのパス、4キーの今の値、リストの中身
 fudo --dump-config   # 行、plugin ごとのキー、フラグ、環境変数
 ```
 
