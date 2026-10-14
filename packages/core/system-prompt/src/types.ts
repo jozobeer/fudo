@@ -1,5 +1,5 @@
-import { Data } from 'effect'
 import type { ToolSchema } from '@fudo/llm'
+import { Data } from 'effect'
 
 export type PromptErrorCode = 'duplicate-section' | 'multiple-complete' | 'unknown-variable'
 
@@ -9,9 +9,11 @@ export class PromptError extends Data.TaggedError('PromptError')<{
   readonly message: string
 }> {}
 
-/** Values a section may interpolate with `{{name}}`. */
+/** What a section may read when it renders. */
 export interface AssembleContext {
   readonly variables: Readonly<Record<string, string>>
+  /** The model-facing tools of this assembly; absent when only the text renders. */
+  readonly tools?: ReadonlyArray<ToolSchema>
 }
 
 export interface PromptSection {

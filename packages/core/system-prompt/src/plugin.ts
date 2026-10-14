@@ -1,12 +1,21 @@
 import type { Plugin } from '@fudo/kernel'
 import { Schema } from 'effect'
-import { SystemPrompt, systemPromptLayer } from './system-prompt.ts'
+import { SystemPrompt, systemPromptLayerWith } from './system-prompt.ts'
+
+export const systemPromptConfigSchema = Schema.Struct({
+  /** Introduces the harness in the prompt; turn it off to supply your own opener. */
+  includeHarnessIdentity: Schema.optionalKey(Schema.Boolean),
+  /** Tool usage lines, shown only for the tools the model can call. */
+  includeToolGuidance: Schema.optionalKey(Schema.Boolean),
+})
+
+export type SystemPromptConfig = Schema.Schema.Type<typeof systemPromptConfigSchema>
 
 /** Loader definition for the prompt section registry. */
-export const systemPromptPlugin: Plugin<{}, SystemPrompt, never> = {
+export const systemPromptPlugin: Plugin<SystemPromptConfig, SystemPrompt, never> = {
   name: '@fudo/system-prompt',
-  config: Schema.Struct({}),
+  config: systemPromptConfigSchema,
   provides: [SystemPrompt],
   requires: [],
-  layer: () => systemPromptLayer,
+  layer: (config) => systemPromptLayerWith(config),
 }

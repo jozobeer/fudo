@@ -59,7 +59,9 @@ describe('bundled profile assembly', () => {
           status: agent.status,
           sessions: Context.get(context, Sessions) !== undefined,
           tools: Context.get(context, Tools).schemas().length,
-          prompt: Context.get(context, SystemPrompt).sections().length,
+          prompt: Context.get(context, SystemPrompt)
+            .sections()
+            .map((section) => section.name),
           llm: Context.get(context, Llm).capabilities.toolChoice,
           preset: Context.get(context, Policy).preset,
         }
@@ -72,7 +74,8 @@ describe('bundled profile assembly', () => {
       status: 'idle',
       sessions: true,
       tools: 0,
-      prompt: 0,
+      // The prompt layer opens with the built-in identity and tool guidance.
+      prompt: ['fudo:identity', 'fudo:tool-guidance'],
       llm: false,
       preset: 'workspace-write',
     })

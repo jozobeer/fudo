@@ -173,6 +173,8 @@ describe('SystemPrompt service', () => {
       }).pipe(Effect.provide(systemPromptLayer)),
     )
 
-    expect(text).toBe('A')
+    // The layer's built-in sections sort after a section that shares order 0 by name.
+    expect(text.startsWith('A')).toBe(true)
+    expect(text).toContain('You are an AI coding agent powered by fudo.')
   })
 })

@@ -1,5 +1,6 @@
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Layer, type Scope } from 'effect'
+import { builtinSections, type BuiltinOptions } from './builtin.ts'
 import { PromptError, type AssembleContext, type PromptBuild, type PromptSection } from './types.ts'
 
 export interface SystemPromptShape {
@@ -62,7 +63,9 @@ export function makeSystemPrompt(): SystemPromptShape {
       const texts: Array<string> = []
       for (const section of chosen) {
         const raw = typeof section.text === 'function' ? section.text(context) : section.text
-        texts.push(yield* interpolate(raw, context))
+        // A section may render nothing: the tool guidance does when no visible tool has any.
+        const text = yield* interpolate(raw, context)
+        if (text !== '') texts.push(text)
       }
       return texts.join('\n\n')
     })
@@ -93,7 +96,8 @@ export function makeSystemPrompt(): SystemPromptShape {
     build: (context) =>
       Effect.gen(function* () {
         const tools = yield* Tools
-        return { system: yield* render(context), tools: tools.schemas() }
+        const schemas = tools.schemas()
+        return { system: yield* render({ ...context, tools: schemas }), tools: schemas }
       }),
   }
 }
@@ -103,7 +107,18 @@ export class SystemPrompt extends Context.Service<SystemPrompt, SystemPromptShap
   'fudo/SystemPrompt',
 ) {}
 
-export const systemPromptLayer: Layer.Layer<SystemPrompt> = Layer.succeed(
-  SystemPrompt,
-  makeSystemPrompt(),
-)
+/**
+ * The registry the application runs with: a fresh registry that already holds the
+ * built-in sections. A duplicate built-in name is a programming error, not input.
+ */
+export const systemPromptLayerWith = (options: BuiltinOptions = {}): Layer.Layer<SystemPrompt> =>
+  Layer.effect(
+    SystemPrompt,
+    Effect.gen(function* () {
+      const prompt = makeSystemPrompt()
+      for (const section of builtinSections(options)) yield* prompt.section(section)
+      return prompt
+    }).pipe(Effect.orDie),
+  )
+
+export const systemPromptLayer: Layer.Layer<SystemPrompt> = systemPromptLayerWith()
