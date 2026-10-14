@@ -1,6 +1,6 @@
 # fudo
 
-汎用コーディングエージェントのハーネス。設計は [docs/superpowers/specs/2026-10-13-fudo-kernel-design.md](docs/superpowers/specs/2026-10-13-fudo-kernel-design.md) に、設定できるものの全体は [docs/configuration.md](docs/configuration.md) にある。
+汎用コーディングエージェントのハーネス。設計は [docs/superpowers/specs/2026-10-13-fudo-kernel-design.md](docs/superpowers/specs/2026-10-13-fudo-kernel-design.md)、設定できるものの全体は [docs/configuration.md](docs/configuration.md)、作業ごとの手順は [docs/how-to.md](docs/how-to.md) にある。
 
 ## はじめかた
 
@@ -34,13 +34,7 @@ cp .env.example .env   # OLLAMA_API_KEY=... を書く
 ### 使うモデルを決める
 
 1. `fudo models` で使えるモデルを見る。プロバイダの `GET /models` を問い合わせ、`provider/model` の形で 1 行ずつ出す。
-2. `~/.config/fudo/config.yaml` に `model:` を書く。無いファイルなら作るだけでよい。
-
-   ```yaml
-   model: ollama-cloud/deepseek-v4.1-flash
-   ```
-
-3. `fudo "Reply with the single word pong"` が `pong` を返せば効いている。1 回だけ変えるなら `fudo --model ollama-cloud/glm-5.3 "..."` のように `--model` を付ける。
+2. `fudo config set model <provider/model>` で書き、`fudo config` で入ったことを確かめる。設定ファイルが無ければ作られる。
 
 ### 動かす
 

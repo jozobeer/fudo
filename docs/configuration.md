@@ -1,6 +1,6 @@
 # fudo の設定
 
-plugin ごとの config キー、フラグ、環境変数の一覧は `fudo --dump-config` がコードから出力する。
+plugin ごとの config キー、フラグ、環境変数の一覧は `fudo --dump-config` がコードから出力する。作業ごとの手順は [how-to.md](how-to.md) にある。
 
 ## 設定の層
 
@@ -15,7 +15,7 @@ plugin ごとの config キー、フラグ、環境変数の一覧は `fudo --du
 
 ## 設定ファイル
 
-既定のパスは `~/.config/fudo/config.yaml`。`--config` がパスを、`XDG_CONFIG_HOME` がディレクトリを差し替える。ファイルが無い場合は設定なしとして扱う。
+既定のパスは `~/.config/fudo/config.yaml`。`--config` がパスを、`XDG_CONFIG_HOME` がディレクトリを差し替える。ファイルが無い場合、空の場合、コメントだけの場合はいずれも設定なしとして扱う。
 
 | キー | 値 | 効果 |
 |---|---|---|
@@ -81,7 +81,7 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | `--dump-config` | 設定面を出力して終わる |
 | `--help` | 使い方を出力して終わる |
 
-位置引数は1 turn のタスク、`models`（provider のモデル一覧）、`web`（ブラウザ UI）のいずれかである。
+サブコマンドは `models`（provider のモデル一覧）、`web`（ブラウザ UI）、`config`（設定の表示と書き込み）、`auth`（秘密の保存）である。それ以外の位置引数は1 turn のタスクになる。
 
 ## 環境変数
 
