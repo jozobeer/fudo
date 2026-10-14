@@ -1,3 +1,4 @@
+import type { PluginRow } from '@fudo/kernel'
 import { FLAG_NAMES } from './args.ts'
 import { CONFIG_HOME_ENV, configPaths } from './config.ts'
 import type { FudoConfig } from './config-file.ts'
@@ -40,13 +41,35 @@ interface SettingsNote {
   readonly value: (settings: FudoConfig | undefined) => string
   /** Lines `fudo config init` comments out as the starting point for this key. */
   readonly example: ReadonlyArray<string>
+  /** What the key holds item by item; a count alone does not say which ones. */
+  readonly items?: (settings: FudoConfig | undefined) => ReadonlyArray<string>
 }
 
-const countText = (count: number, noun: string): string =>
-  String(count) + ' ' + noun + (count === 1 ? '' : 's')
+const countText = (count: number, noun: string, plural: string): string =>
+  String(count) + ' ' + (count === 1 ? noun : plural)
 
-const countOr = (fallback: string, count: number | undefined, noun: string): string =>
-  count === undefined ? fallback : countText(count, noun)
+const countOr = (
+  fallback: string,
+  count: number | undefined,
+  noun: string,
+  plural: string,
+): string => (count === undefined ? fallback : countText(count, noun, plural))
+
+/** The row's config and whether it is switched off, as one trailing note. */
+const rowNote = (row: PluginRow): string => {
+  const config = row.config
+  const keys =
+    typeof config === 'object' && config !== null && !Array.isArray(config)
+      ? Object.entries(config as Record<string, unknown>).map(
+          ([key, value]) =>
+            key + ': ' + (typeof value === 'string' ? value : JSON.stringify(value)),
+        )
+      : []
+  const parts = row.disabled === true ? ['disabled', ...keys] : keys
+  return parts.length === 0 ? '' : ' (' + parts.join(', ') + ')'
+}
+
+const rowText = (row: PluginRow): string => row.id + ' → ' + row.name + rowNote(row)
 
 export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
   {
@@ -65,13 +88,19 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
     name: 'skills',
     summary: 'directories that hold <name>/SKILL.md',
     value: (settings) =>
-      countOr('not set, so the skill tool is off', settings?.skills?.length, 'directory'),
+      countOr(
+        'not set, so the skill tool is off',
+        settings?.skills?.length,
+        'directory',
+        'directories',
+      ),
     example: ['skills:', '  - ~/skills'],
+    items: (settings) => settings?.skills ?? [],
   },
   {
     name: 'plugins',
     summary: 'rows merged by id, between the profile and --patch',
-    value: (settings) => countOr('not set', settings?.plugins?.length, 'row'),
+    value: (settings) => countOr('not set', settings?.plugins?.length, 'row', 'rows'),
     example: [
       'plugins:',
       '  - id: safety',
@@ -79,6 +108,7 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
       '    config:',
       '      preset: workspace-write',
     ],
+    items: (settings) => (settings?.plugins ?? []).map(rowText),
   },
 ]
 
@@ -95,13 +125,14 @@ export const renderRowKeys = (): string =>
     ...ROW_KEYS.map((key) => '  - ' + key.name + ' (' + key.where + '): ' + key.summary),
   ].join('\n') + '\n'
 
-/** The settings file named, with each key and what it holds now. */
+/** The settings file named, with each key, what it holds now, and what is in it. */
 export const renderSettings = (path: string, settings: FudoConfig | undefined): string =>
   [
     'settings (' + path + '):',
-    ...SETTINGS_KEYS.map(
-      (key) => '  - ' + key.name + ': ' + key.value(settings) + ' — ' + key.summary,
-    ),
+    ...SETTINGS_KEYS.flatMap((key) => [
+      '  - ' + key.name + ': ' + key.value(settings) + ' — ' + key.summary,
+      ...(key.items?.(settings) ?? []).map((item) => '      ' + item),
+    ]),
   ].join('\n') + '\n'
 
 const renderFlags = (): string =>

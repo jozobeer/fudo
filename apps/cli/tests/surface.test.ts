@@ -38,4 +38,19 @@ describe('the notes the dump prints', () => {
     expect(text).toContain('  - skills: 1 directory ')
     expect(text).toContain('  - plugins: 1 row ')
   })
+
+  test('renderSurface lists what each list key holds', () => {
+    const text = renderSurface('/tmp/fudo/config.yaml', {
+      skills: ['/tmp/skills', '~/work/skills'],
+      plugins: [
+        { id: 'safety', name: '@fudo/safety', config: { preset: 'full' } },
+        { id: 'ask', name: '@fudo/ask', disabled: true },
+      ],
+    })
+
+    expect(text).toContain('      /tmp/skills\n')
+    expect(text).toContain('      ~/work/skills\n')
+    expect(text).toContain('      safety → @fudo/safety (preset: full)\n')
+    expect(text).toContain('      ask → @fudo/ask (disabled)\n')
+  })
 })
