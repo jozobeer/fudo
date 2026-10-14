@@ -12,8 +12,10 @@ export const PLAN_MODE_TOOLS: ReadonlyArray<string> = [
   'exit_plan_mode',
 ]
 
+/** The word that answers yes to a question this harness asks about its own actions. */
+export const APPROVAL_ANSWER = 'approve'
 /** What the user answers to approve a plan; any other words keep plan mode. */
-export const PLAN_APPROVAL = 'approve'
+export const PLAN_APPROVAL = APPROVAL_ANSWER
 
 /** A restriction that hides every tool that could change the workspace while it is active. */
 export const planModeRestriction = (

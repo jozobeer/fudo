@@ -182,7 +182,14 @@
   - 検証: `packages/core/session/tests/preset.test.ts` 5 本（最新を畳む／同一なら問題なし／profile 差・消えた tool・増えた tool を名指し／1 行の説明）、e2e `apps/cli/tests/preset-e2e.test.ts`（実 CLI で、1 本目が構成を記録し、tier1 を欠く構成での再開は turn を始めずに exit 1 で差分とフラグを stderr に出し、同じ構成なら続き、`--allow-preset-change` なら続いて新しい構成を記録する）。`bun run check` 674 pass / 0 fail。
   - 学び: 「構成を固定する」は、比較の**指紋**を何にするかで意味が変わる。profile 名だけでは patch の差を捉えられず、tool 名だけでは人間に読めない。両方を記録し、差分の表示を profile 名と tool の増減で行うのが、拒否メッセージとして意味を持つ最小の組だった。またスナップショットは制限をかける前に取らないと、plan mode のセッションが自分自身と食い違う。
   - 未確認: dsh の preset registry は agent ごとに構成を mount し直し、セッションへ `agent-preset/selected` を書く。fudo は記録と固定だけを行う（mount の差し替えは持たない）。子 agent は親と同じ構成で走る（記録は親のセッションにだけ残る）。この変更より前に作られたセッションには記録が無いので、再開時にそのときの構成を記録する（遡及）。
-- [ ] **C7 extensions**。dsh のモデルは承認下で自分のプラグインを入れ替えられる（`dsh:packages/boot/plugin-manager/src/tools.ts:20`）。fudo の構成は起動時に凍結される。
+- [x] **C7 extensions**。dsh のモデルは承認下で自分のプラグインを入れ替えられる（`dsh:packages/boot/plugin-manager/src/tools.ts:20`）。fudo の構成は起動時に凍結される。
+  - 実装（2026-10-14）:
+    - 設計文書（kernel の「dsh から外すもの」表）を改訂した。Layer を起動時に一度組み立てる方針はそのまま（実行中の mount / unmount はしない。HMR の行と同じ deferred）。ただし「モデルが承認下で自分のプラグインを入れ替える」は `plugin` ツールとして採る: settings の `plugins` 行を list / add / remove / disable でき、変更は 1 回ごとの承認を要し、**次の起動から**効く。dsh の bundle install（npm から取得して build script を走らせる）は持たない: fudo の plugin は同梱のパッケージで、行が指せるのはこの build が持っている名前だけである。
+    - `@fudo/tools-tier1` の `plugin-tool.ts`: action は list / add / remove / set。add は id と name を要し、この build に無い名前は**承認を取る前に**拒否する（候補を並べる）。set は既存 id を要する（無ければ拒否）。変更は ask の seam で承認を取る（選択肢は `approve` / `keep the rows as they are`）。拒否なら何も書かない。値は changed・変更後の settings 行・「次の起動から効く」注記。`needs: ['write']` なので preset 側の承認もかかる。
+    - CLI の `plugin-host.ts`: 行（この run の構成）・同梱 plugin 名・settings のパス・ask を束ね、変更は既存の `settings-edit`（`add-row` / `remove-row` / `set-row`）で settings ファイルに書く。`set-row` は行が無ければ足すので、profile が提供する行の無効化（上書き行の作成）もそのまま表現できる。
+  - 検証: `plugin-tool.test.ts` 6 本（list は run の行を出す／add は承認後に書く（質問は callId と選択肢つき）／この build に無い名前は承認前に拒否／拒否なら何も書かない／set と remove が触る行を名指しする／未知 id の set は拒否）、e2e `plugin-tool-e2e.test.ts` 2 本（実 CLI で、承認された add が settings に `id: mcp` を書き、結果が「次の起動から」と言い、この run の行は変わらない／人間が keep を選ぶと settings は空のまま）。`bun run check` 682 pass / 0 fail。
+  - 学び: 既存の `settings-edit` の `set-row` が「行が無ければ足す」振る舞いだったので、profile が提供する行の無効化（上書き行の作成）がそのまま表現できた。新しい書き込み経路を作らずに済んだのは、設定ファイルの編集がすでに seam になっていたからである。
+  - 未確認: 実行中の mount / unmount は無い。モデルが足した行はそのセッションでは使えず、次の起動から効く（dsh の live profile は即時）。bundle install（npm からの取得・build script・version exemption）は持たない。変更は settings に残るので全セッションに効く（dsh と同じ）。行を足した後の同じセッションの再開は、構成が変わるので `--allow-preset-change` を要する（ツールの答えにも書く）。
 - [ ] **C8 agent teams**。dsh は roster・task board・inbox を持つ（`dsh:packages/experimental/tool-agent-team/src/index.ts:175`）。
 - [ ] **C9 subagent の seam**。fudo は route を構築時に固定した fire-and-forget の子を1つ作るだけ（`fudo:packages/core/tools-tier1/src/subagent.ts:56`）。dsh は provider を差し替えられ（fresh / fork / 他製品への委譲）、継続可能な子を選べる（`dsh:packages/subagent/tool-subagent-control/src/index.ts:29`）。
 

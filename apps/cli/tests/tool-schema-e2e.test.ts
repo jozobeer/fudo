@@ -124,6 +124,7 @@ describe('the tool declarations the model receives', () => {
       'web_fetch',
       'read_image',
       'skill',
+      'plugin',
       'job_start',
       'job_output',
       'job_kill',

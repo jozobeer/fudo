@@ -1,0 +1,167 @@
+import { HooksLive } from '@fudo/kernel'
+import type { AskRequested, AskShape } from '@fudo/safety'
+import {
+  Tools,
+  toolsLayer,
+  type ToolDefinition,
+  type ToolError,
+  type ToolExecutionResult,
+} from '@fudo/tools'
+import { Context, Effect, Layer } from 'effect'
+import { describe, expect, test } from 'bun:test'
+import {
+  makePluginTool,
+  type PluginChange,
+  type PluginHost,
+  type PluginRowSummary,
+} from '../src/index.ts'
+
+const PROFILE_ROWS: ReadonlyArray<PluginRowSummary> = [
+  { id: 'kernel', name: '@fudo/kernel', disabled: false },
+  { id: 'tier1', name: '@fudo/tools-tier1', disabled: false },
+]
+
+const KNOWN = ['@fudo/kernel', '@fudo/tools-tier1', '@fudo/mcp']
+
+/** A settings file that only exists in this test's memory. */
+const fakeHost = (answer = 'approve') => {
+  const settings: Array<PluginRowSummary> = []
+  const asked: Array<AskRequested> = []
+  const changes: Array<PluginChange> = []
+  const host: PluginHost = {
+    rows: () => [...PROFILE_ROWS, ...settings],
+    known: () => KNOWN,
+    change: (change) =>
+      Effect.sync(() => {
+        changes.push(change)
+        if (change.kind === 'remove') {
+          const index = settings.findIndex((row) => row.id === change.id)
+          if (index >= 0) settings.splice(index, 1)
+          return [...settings]
+        }
+        if (change.kind === 'add') {
+          settings.push({ id: change.id, name: change.name, disabled: false })
+          return [...settings]
+        }
+        const index = settings.findIndex((each) => each.id === change.id)
+        if (index >= 0) {
+          settings[index] = { id: change.id, name: change.name, disabled: change.disabled }
+        }
+        return [...settings]
+      }),
+    ask: {
+      ask: (request: AskRequested) => {
+        asked.push(request)
+        return Effect.succeed(answer)
+      },
+    } as unknown as AskShape,
+  }
+  return { host, asked, changes, settings }
+}
+
+const call = (
+  tool: ToolDefinition<any, any>,
+  args: unknown,
+): Effect.Effect<ToolExecutionResult | undefined, ToolError, never> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const context = yield* Layer.build(Layer.provideMerge(toolsLayer, HooksLive))
+      const tools = Context.get(context, Tools)
+      yield* tools.register(tool)
+      return yield* tools.call({
+        callId: 'call-9',
+        tool: tool.name,
+        arguments: JSON.stringify(args),
+        context: { sessionId: 's1', cwd: '/work', callId: 'call-9' },
+      })
+    }),
+  )
+
+const textOf = (result: ToolExecutionResult | undefined): string =>
+  (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+
+describe('the plugin tool', () => {
+  test('list shows the rows this run was built from', async () => {
+    const { host, changes } = fakeHost()
+
+    const result = await Effect.runPromise(call(makePluginTool(host), { action: 'list' }))
+
+    expect(changes).toEqual([])
+    expect(textOf(result)).toContain('kernel @fudo/kernel')
+    expect(textOf(result)).toContain('tier1 @fudo/tools-tier1')
+    expect(textOf(result)).toContain('next start')
+  })
+
+  test('adding a row asks first, then writes it', async () => {
+    const { host, asked, changes } = fakeHost()
+
+    const result = await Effect.runPromise(
+      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@fudo/mcp' }),
+    )
+
+    expect(asked).toHaveLength(1)
+    expect(asked[0]?.id).toBe('call-9')
+    expect(asked[0]?.options).toEqual(['approve', 'keep the rows as they are'])
+    expect(changes).toEqual([{ kind: 'add', id: 'mcp', name: '@fudo/mcp' }])
+    expect(result?.value).toMatchObject({ changed: true })
+    expect(textOf(result)).toContain('starts again')
+  })
+
+  test('a row the build does not have is refused before anything is asked', async () => {
+    const { host, asked, changes } = fakeHost()
+
+    const result = await Effect.runPromise(
+      call(makePluginTool(host), { action: 'add', id: 'x', name: 'left-pad' }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('this build does not have left-pad')
+    expect(textOf(result)).toContain('@fudo/mcp')
+    expect(asked).toEqual([])
+    expect(changes).toEqual([])
+  })
+
+  test('a refusal from the human changes nothing', async () => {
+    const { host, asked, changes } = fakeHost('keep the rows as they are')
+
+    const result = await Effect.runPromise(
+      call(makePluginTool(host), { action: 'set', id: 'tier1', disabled: true }),
+    )
+
+    expect(asked).toHaveLength(1)
+    expect(changes).toEqual([])
+    expect(result?.isError).toBe(false)
+    expect(result?.value).toMatchObject({ changed: false })
+    expect(textOf(result)).toContain('kept the plugin rows as they are')
+  })
+
+  test('disable and remove name the row they touch', async () => {
+    const { host, changes } = fakeHost()
+    await Effect.runPromise(
+      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@fudo/mcp' }),
+    )
+
+    await Effect.runPromise(
+      call(makePluginTool(host), { action: 'set', id: 'mcp', disabled: true }),
+    )
+    await Effect.runPromise(call(makePluginTool(host), { action: 'remove', id: 'mcp' }))
+
+    expect(changes).toEqual([
+      { kind: 'add', id: 'mcp', name: '@fudo/mcp' },
+      { kind: 'set-disabled', id: 'mcp', name: '@fudo/mcp', disabled: true },
+      { kind: 'remove', id: 'mcp' },
+    ])
+  })
+
+  test('set needs an id that exists', async () => {
+    const { host, asked } = fakeHost()
+
+    const result = await Effect.runPromise(
+      call(makePluginTool(host), { action: 'set', id: 'nowhere', disabled: true }),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(textOf(result)).toContain('no row with that id: nowhere')
+    expect(asked).toEqual([])
+  })
+})

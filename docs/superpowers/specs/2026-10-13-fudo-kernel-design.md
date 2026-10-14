@@ -41,7 +41,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | Desktop、Python SDK、ACP | v1 の UI は CLI だけである。S7 と S8 の後で再検討する |
 | 二言語ドキュメント | 個人の基盤には不要 |
 | OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる |
-| plugin-manager、typert | 起動時に組み立てる方式では不要 |
+| plugin-manager、typert | **2026-10-14 改訂**: 「Layer は起動時に一度組み立てる」方針はそのまま（HMR の行と同じ理由。実行中の mount / unmount はしない）。ただし dsh の plugin-manager に当たる「モデルが承認下で自分のプラグインを入れ替える」は、**宣言を編集する `plugin` ツール**として採る。モデルは settings の `plugins` 行を list / add / remove / disable でき、変更は 1 回ごとの承認を要し、**次の起動から**効く。すでに走っているプロセスの Layer は変えない（C6 の「セッションは始めた構成を覚える」とも整合する）。dsh の bundle install（npm から取ってきて build script を走らせる）は持たない: fudo の plugin は同梱のパッケージで、行が指せるのはこの build が持っている名前だけである。typert は持たない |
 | session format の世代 migration | 移行元が無い。`formatVersion` は最初から持ち、migration の連鎖は互換性の無い変更が初めて生じたときに作る |
 | SurfaceOp / SurfaceIntent / `sourceEventSeqs`、`prepareCall` の capability フェーズ、`request/context` | dsh ではプロンプトキャッシュを保ったまま surface を差分更新するための仕組みである。Ollama Cloud の OpenAI 互換 API には明示的なキャッシュ制御が無い。Anthropic adapter を足すときに必要性を再判断する。`request/header` に組み立て済みの tool schema と series を記録するのはこれに含めない（キャッシュ差分ではなく、送った内容をログから再構成するため。2026-10-14 追記） |
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |

@@ -114,6 +114,18 @@ plugins:
 fudo --patch sessions.yml "…"
 ```
 
+## モデルにプラグイン行を直させる
+
+モデルは `plugin` ツールで settings の `plugins` 行を list / add / remove / disable できる。1 回ごとに承認を求められ、効くのは**次の起動から**である（走っているプロセスの構成は変わらない）。足せるのは同梱のパッケージ名だけ。
+
+```
+plugin list                     この run が組まれた行
+plugin add id=mcp name=@fudo/mcp
+plugin set id=mcp disabled=true
+```
+
+行が増えると構成が変わるので、そのセッションを続けるには `--allow-preset-change` が要る（[構成を変えてセッションを再開する](#構成を変えてセッションを再開する)）。
+
 ## 構成を変えてセッションを再開する
 
 セッションは、始めたときの profile 名と tool の一覧を覚えている。違う構成で再開すると、turn を始める前に拒否され、違う点が stderr に出る。

@@ -35,6 +35,9 @@ import {
 } from '@fudo/session'
 import { Tier0Tools } from '@fudo/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
+import { configPaths } from './config.ts'
+import { bundledPlugins } from './plugins.ts'
+import { makePluginHost } from './plugin-host.ts'
 import {
   agentTools,
   jobTools,
@@ -52,6 +55,8 @@ import {
   makeGoalTool,
   makeScheduleTool,
   makeWorkflowTool,
+  makePluginTool,
+  type PluginHost,
   installScheduleRuns,
   installRepeatReminders,
   startGoalRound,
@@ -244,6 +249,8 @@ const installTier1 = (
   skills: ReadonlyArray<string>,
   /** Present only when the profile asked for plan mode; the tool that leaves it needs it. */
   planMode: PlanModeShape | undefined,
+  /** The rows this run was built from, so the plugin tool can list and change them. */
+  rows: ReadonlyArray<PluginRow>,
 ) =>
   Effect.gen(function* () {
     const ask = installAsk(
@@ -251,7 +258,23 @@ const installTier1 = (
       agent.session,
     )
     const jobs = yield* makeJobs()
-    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs, skills, planMode)) {
+    const pluginHost = makePluginHost({
+      rows,
+      known: bundledPlugins.map((plugin) => plugin.name),
+      settingsPath: options.settingsPath ?? configPaths().config,
+      ask,
+    })
+    for (const tool of tier1ToolList(
+      ask,
+      options,
+      agent,
+      route,
+      agents,
+      jobs,
+      skills,
+      planMode,
+      pluginHost,
+    )) {
       yield* tools.register(tool)
     }
   })
@@ -265,8 +288,10 @@ const tier1ToolList = (
   jobs: JobsShape,
   skills: ReadonlyArray<string>,
   planMode: PlanModeShape | undefined,
+  pluginHost: PluginHost,
 ) => {
   const list = [...tier1Tools(ask, skills)]
+  list.push(makePluginTool(pluginHost))
   if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
   for (const tool of jobTools(jobs)) list.push(tool)
   list.push(
@@ -563,6 +588,7 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
         wiring.answer,
         wiring.skills,
         planMode,
+        wiring.rows,
       )
     }
     const composition: Preset = {
