@@ -4,7 +4,7 @@
 
 - `dsh:` は DSH リポジトリ（`/Users/hondazn/git/github.com/hondazn/deepseek-harness`）のルートからのパス。
 - `fudo:` はこのリポジトリのルートからのパス。
-- 実測は 2026-10-14 22:50 時点。`bun run check` は 742 pass / 1 skip / 0 fail（743 テスト / 189 ファイル）。
+- 起票時の実測は 2026-10-14 22:50 で、`bun run check` は 742 pass / 1 skip / 0 fail（743 テスト / 189 ファイル）。このリストを片付けた後の `bun run check` は 798 pass / 1 skip / 0 fail（799 テスト / 195 ファイル）、coverage は lines 94.60% / functions 93.52%（床は 93% / 92%）。
 
 ## 実装度（重み付き 約90%、A/B は fudo 側のみ）
 
@@ -40,7 +40,7 @@
 
 ## 3. 自律性（層4）
 
-- [ ] **repeat リマインダー**（0 と同じ）。
+- [x] **repeat リマインダー**（0 と同じ。実測で既に配線済みで、e2e が次リクエストへの注入を観測する）。
 - [x] **workflow の編成**。前段の出力を後段に渡すパイプラインは要らない、と [S6 の決定 4](../superpowers/specs/2026-10-13-fudo-tier3-design.md) の追記で決めた。理由は、dsh の hook がスクリプト engine の一部であること、段を跨ぐ依存は workflow の再呼び出しで表せ、後段の子は親のログから fork するので前段の結果を最初から履歴に持つこと（`forkSeed` が落とすのは最後の `user/message` だけ）、段ごとの往復のコストは「同一タスクの A/B」で測ってから engine を足すこと。受け入れは決定そのものなので、テストは要らない。
 - [x] **goal の権限規則**。`turnHasSource` / `inHumanTurn` / `inGoalRound` を `fudo:packages/core/tools-tier1/src/goal-state.ts` に置き、最後の `turn/start` から先だけを見る。pause / resume は human source の message がある turn でだけ動き、モデルが自分で始めた round では拒否される。blocked は自動 round で `MIN_BLOCKED_ROUNDS`（3）未満なら拒否し、人間の turn があれば round 数に関係なく許す。前回の `inAutomaticRound` は「最後の user/message が goal-round か」だけを見ていたので、round の途中に steer（source: inject）が入ると閾値をすり抜けた——いまは open turn を走査する。受け入れ: unit 9 本（pause/resume の拒否、steer が入った round の blocked 拒否、人間の turn の blocked 許可）と e2e `fudo:apps/cli/tests/goal-rounds-e2e.test.ts`（実際の round で pause が拒否され、goal は paused にならない）。
 
@@ -55,9 +55,9 @@
 - [x] **記録の corpus**。7 シナリオ（既存 2 + 追加 5）。追加は tool 失敗、承認拒否、compaction 発火、resume、subagent。harness を広げた: `Scenario` が `resumeTask`（同じログから 2 turn 目を開く）、`extraRows`（agent-loop の予算を小さくして compaction を起こす）、`subagents` を持ち、snapshot は 1 回の実行が残した**全セッション**のログを正規化テキスト順に並べる（subagent の子のログも残り、並び順が安定する。`fudo:packages/test-support/replay/src/scenario.ts`）。1 つの step カウンタが resume と子のストリームを順に配る。受け入れ: 5 本それぞれに印（isError、approval/requested と denied、compaction/checkpoint、turn/start 2 つ、session 区切り）が入り、`UPDATE_SNAPSHOTS` 無しの再生が 3 回連続で全緑。
 - [x] **coverage 閾値**。`bun run check` は `scripts/coverage-gate.ts` を通す。lcov の LF/LH と FNF/FNH を合計し、lines 93% / functions 92% を下回ると、どの指標が落ちたかを stderr に出して 1 で終わる（2026-10-14 の実測は lines 94.58% / functions 93.49%）。bunfig の `coverageThreshold` は使わない——Bun 1.4.3 は値（0.01 でも）を読んだうえで毎回無言で失敗する。受け入れ: 床を 99 に上げると `bun run check` が `fudo: coverage fell below the floor: lines, functions` で落ちることを実走で確認した。
 - [x] **doc gate・重複検出・real-API lane**。
-  - doc gate: `scripts/doc-gate.ts` が docs/ と README の相対リンクと `fudo:<path>` 参照を解決し、無ければ 1 で落ちる（17 ファイル）。既に壊れていた 5 本のリンクも直した。受け入れ: README に切れたリンクを足すと `README.md: link points nowhere` で落ちる。
+  - doc gate: `scripts/doc-gate.ts` が docs/ と README の相対リンクと `fudo:<path>` 参照を解決し、無ければ 1 で落ちる（全 .md、起票時 18 ファイル）。既に壊れていた 5 本のリンクも直した。受け入れ: README に切れたリンクを足すと `README.md: link points nowhere` で落ちる。
   - 重複検出: `scripts/duplication-gate.ts` が jscpd を bunx で走らせ、production の src と scripts で 12 行 / 70 トークン以上の反復が 1 つでもあれば落ちる（tests と fixtures は除外）。初回に実際 1 件見つかり、`childAnswerOf` を共有して消した（`fudo:packages/core/tools-tier1/src/child-answer.ts`）。jscpd は devDependency にできなかった——`bun add` が sandbox の外の temp dir に書けず EPERM になるため bunx で取る（初回のみ net が要る）。受け入れ: 同じ 15 行を 2 つの src に足すと `1 duplicated runs` で落ちる。
-  - real-API lane: `fudo:apps/cli/tests/real-api-e2e.test.ts` が `OLLAMA_API_KEY` の無い環境では skip し、あるときは出荷 profile で 1 turn を走らせ、外部状態（書かれたファイル）だけを判定する。この環境はキーが無いので skip のままである。
+  - real-API lane: `fudo:apps/cli/tests/real-api-e2e.test.ts` が `OLLAMA_API_KEY` の無い環境では skip し、あるときは出荷 profile で 1 turn を走らせ、外部状態（書かれたファイル）だけを判定する。鍵は CLI と同じく環境変数から取る（`~/.config/fudo/secrets.env` は読まない）ので、既定の `bun run check` をネットワークに触らせない。この環境では未設定なので skip のままである（A/B の fudo 走は CLI 経由なので secrets.env の鍵で動いた）。
 - [x] **提示層**。v1 はカードを持たない、と [S8 の設計](../superpowers/specs/2026-10-13-fudo-web-design.md) に書いた。理由は、1 行要約がログに残って TUI・Web・replay が同じ行を読むこと、カードはクライアントごとの描画契約を増やすこと、差分は edit の要約と read の行番号で足りること。見直す条件（1 行では追えない・markdown をそのまま読みたい）も書いた。
 
 ## 6. 挙動の実測（fudo 側のみ実施）
