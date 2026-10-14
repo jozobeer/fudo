@@ -106,6 +106,26 @@ const jsonl = (text: string): ReadonlyArray<unknown> =>
 const zstdJsonl = (path: string): ReadonlyArray<unknown> =>
   jsonl(new TextDecoder().decode(Bun.zstdDecompressSync(readFileSync(path))))
 
+/** A log that cannot be counted spoils its own run, not the runs still to come. */
+const countedOf = (count: () => AbMetrics): AbMetrics | Error => {
+  try {
+    return count()
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error))
+  }
+}
+
+/** Why a run has no numbers or did not exit cleanly; undefined when there is nothing to say. */
+const noteOf = (
+  counted: AbMetrics | Error | undefined,
+  code: number | undefined,
+  output: string,
+): string | undefined => {
+  if (counted === undefined) return 'no session log: ' + lastLine(output)
+  if (counted instanceof Error) return 'not counted: ' + counted.message
+  return code === 0 ? undefined : lastLine(output)
+}
+
 const spawn = (
   argv: ReadonlyArray<string>,
   cwd: string,
@@ -155,19 +175,15 @@ const runFudo = async (
     process.env as Record<string, string>,
   )
   const log = await newestFile(sessions, (name) => name === 'session.v1.jsonl', started)
-  const metrics = log === undefined ? undefined : fudoMetrics(jsonl(await readFile(log, 'utf8')))
+  const events = log === undefined ? undefined : jsonl(await readFile(log, 'utf8'))
+  const counted = events === undefined ? undefined : countedOf(() => fudoMetrics(events))
   return {
     harness: 'fudo',
     task: task.name,
     code,
     done: await task.done(workspace),
-    metrics,
-    note:
-      metrics === undefined
-        ? 'no session log: ' + lastLine(output)
-        : code === 0
-          ? undefined
-          : lastLine(output),
+    metrics: counted instanceof Error ? undefined : counted,
+    note: noteOf(counted, code, output),
   }
 }
 
@@ -188,13 +204,14 @@ const runDsh = async (
     (name) => name.endsWith('.jsonl.zstd'),
     started,
   )
+  const counted = log === undefined ? undefined : countedOf(() => dshMetrics(zstdJsonl(log)))
   return {
     harness: 'dsh',
     task: task.name,
     code,
     done: await task.done(workspace),
-    metrics: log === undefined ? undefined : dshMetrics(zstdJsonl(log)),
-    note: code === 0 ? undefined : lastLine(output),
+    metrics: counted instanceof Error ? undefined : counted,
+    note: noteOf(counted, code, output),
   }
 }
 

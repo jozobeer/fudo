@@ -60,4 +60,16 @@ describe('the A/B counters', () => {
     expect(metrics.failedEdits).toBe(0)
     expect(metrics.reReads).toBe(1)
   })
+
+  test('a read whose path cannot be found stops the count instead of reading as no re-read', () => {
+    const readOf = (args: string) => [
+      { type: 'tool/call', data: { callId: 'r1', name: 'read', arguments: args } },
+      { type: 'tool/call', data: { callId: 'r2', name: 'read', arguments: args } },
+    ]
+
+    expect(() => fudoMetrics(readOf('{"filename":"src/a.ts"}'))).toThrow(
+      'read without a path: {"filename":"src/a.ts"}',
+    )
+    expect(() => dshMetrics(readOf('{"file_path":'))).toThrow('read without a path: {"file_path":')
+  })
 })

@@ -52,11 +52,17 @@ const callOf = (data: Record<string, unknown>) => ({
 /**
  * The path a read named. The two harnesses spell it differently — fudo `path`,
  * dsh `file_path` — and reading only one spelling counted dsh's re-reads as
- * zero, which is a measurement bug, not a behavioural difference.
+ * zero, which is a measurement bug, not a behavioural difference. A read with
+ * neither spelling throws, so an unknown spelling cannot pass for zero re-reads.
  */
 const pathOf = (argumentsJson: unknown): string => {
   const args = argumentsOf(argumentsJson)
-  return stringOf(args?.['path']) || stringOf(args?.['file_path'])
+  const path = stringOf(args?.['path']) || stringOf(args?.['file_path'])
+  if (path === '') {
+    const raw = typeof argumentsJson === 'string' ? argumentsJson : JSON.stringify(argumentsJson)
+    throw new Error('read without a path: ' + raw)
+  }
+  return path
 }
 
 const count = (events: ReadonlyArray<AbEvent>, shape: LogShape): AbMetrics => {
@@ -79,10 +85,8 @@ const count = (events: ReadonlyArray<AbEvent>, shape: LogShape): AbMetrics => {
       callNames.set(call.callId, call.name)
       if (call.name === 'read') {
         const path = pathOf(call.arguments)
-        if (path !== '') {
-          if (readPaths.has(path)) reReads += 1
-          readPaths.add(path)
-        }
+        if (readPaths.has(path)) reReads += 1
+        readPaths.add(path)
       }
     }
     if (event.type === 'tool/result') {
