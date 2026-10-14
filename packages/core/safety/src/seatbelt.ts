@@ -23,7 +23,17 @@ const subpaths = (roots: ReadonlyArray<string>): string =>
  * everything needs this list, or bash cannot even load.
  */
 export const systemReadRoots = (): ReadonlyArray<string> => {
-  const paths = ['/usr', '/bin', '/sbin', '/System', '/Library', '/private/etc', '/dev', '/opt']
+  const paths = [
+    '/usr',
+    '/bin',
+    '/sbin',
+    '/System',
+    '/Library',
+    '/etc',
+    '/private/etc',
+    '/dev',
+    '/opt',
+  ]
   const temp = tmpdir()
   return [...paths, temp, ...(realpathOf(temp) === temp ? [] : [realpathOf(temp)])]
 }
@@ -37,15 +47,17 @@ const realpathOf = (path: string): string => {
   }
 }
 
+/**
+ * A root reached through a symlink matches only where it really is, so a rule has to
+ * name both: the temp dir is written to as `/var/...` and resolved as `/private/var/...`.
+ */
+const asRoots = (roots: ReadonlyArray<string>): ReadonlyArray<string> => [
+  ...new Set([...roots, ...roots.map(realpathOf)]),
+]
+
 /** Builds the SBPL profile macOS sandbox-exec reads. Deny by default. */
 export function seatbeltProfile(options: SeatbeltOptions): string {
-  const roots = [
-    ...new Set([
-      ...(options.readableRoots ?? systemReadRoots()),
-      ...options.writableRoots,
-      ...options.writableRoots.map(realpathOf),
-    ]),
-  ]
+  const roots = asRoots([...(options.readableRoots ?? systemReadRoots()), ...options.writableRoots])
   const lines = [
     '(version 1)',
     '(deny default)',
@@ -54,9 +66,12 @@ export function seatbeltProfile(options: SeatbeltOptions): string {
     '(allow process-exec)',
     '(allow file-read*',
     subpaths(roots),
+    // `subpath` never matches the root itself, and bash reads it as it starts; denied,
+    // the shell aborts before it runs a single command.
+    '  (literal "/")',
     ')',
     '(allow file-write*',
-    subpaths(options.writableRoots),
+    subpaths(asRoots(options.writableRoots)),
     ')',
   ]
   if (options.allowNetwork === true) {

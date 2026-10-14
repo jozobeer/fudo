@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Effect } from 'effect'
 import { seatbeltProfile, seatbeltSandbox } from '../src/index.ts'
 
@@ -19,6 +21,29 @@ describe('seatbeltProfile', () => {
 
     expect(profile).toContain('(subpath "/usr")')
     expect(profile).toContain('(subpath "/private/etc")')
+  })
+
+  test('the root itself is readable, which a subpath rule cannot say', () => {
+    const profile = seatbeltProfile({ writableRoots: ['/work'], readableRoots: ['/usr'] })
+    const reads = profile.split('(allow file-read*')[1] ?? ''
+
+    expect(reads).toContain('(literal "/")')
+    expect(profile.split('(allow file-write*')[1] ?? '').not.toContain('(literal "/")')
+  })
+
+  test('a symlinked root is named where it points as well', () => {
+    const real = mkdtempSync(join(tmpdir(), 'fudo-root-'))
+    const link = real + '-link'
+    symlinkSync(real, link)
+    try {
+      const writes = seatbeltProfile({ writableRoots: [link] }).split('(allow file-write*')[1] ?? ''
+
+      expect(writes).toContain('(subpath "' + link + '")')
+      expect(writes).toContain('(subpath "' + realpathSync(link) + '")')
+    } finally {
+      rmSync(link, { force: true })
+      rmSync(real, { recursive: true, force: true })
+    }
   })
 
   test('quotes roots and adds network only on request', () => {
