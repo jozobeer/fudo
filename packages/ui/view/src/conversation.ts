@@ -61,6 +61,17 @@ const textOf = (content: ReadonlyArray<ContentBlock>): string =>
 const resultOf = (content: ReadonlyArray<ContentBlock>): string =>
   truncate(firstLine(textOf(content)), 200)
 
+/** The event types each handler owns; a type the tables do not name goes to the generic view. */
+const STEP_TYPES: ReadonlySet<string> = new Set([
+  'turn/start',
+  'turn/end',
+  'step/start',
+  'step/end',
+])
+const MESSAGE_TYPES: ReadonlySet<string> = new Set(['user/message', 'assistant/message'])
+const TOOL_TYPES: ReadonlySet<string> = new Set(['tool/call', 'tool/result'])
+const COMMAND_TYPES: ReadonlySet<string> = new Set(['command/run', 'command/done'])
+
 type StepEvent = Extract<
   SessionEvent,
   { type: 'turn/start' | 'turn/end' | 'step/start' | 'step/end' }
@@ -164,25 +175,28 @@ const applyInteraction = (state: Conversation, event: SessionEvent): Conversatio
   }
 }
 
+type CommandEvent = Extract<SessionEvent, { type: 'command/run' | 'command/done' }>
+
+/** A command is the human talking to the session: what was typed, then what came back. */
+const applyCommand = (state: Conversation, event: CommandEvent): Conversation =>
+  event.type === 'command/run'
+    ? notice(
+        state,
+        'info',
+        '/' + event.data.name + (event.data.input === '' ? '' : ' ' + event.data.input),
+      )
+    : notice(state, event.data.ok ? 'info' : 'error', event.data.text)
+
 const applySession = (state: Conversation, raw: UiSessionEvent): Conversation => {
   if (raw.seq <= state.lastSeq) return state
   const event = sessionEventOf(raw)
   const opened = { ...state, lastSeq: raw.seq }
-  switch (event.type) {
-    case 'turn/start':
-    case 'turn/end':
-    case 'step/start':
-    case 'step/end':
-      return applyTurn(opened, event)
-    case 'user/message':
-    case 'assistant/message':
-      return applyMessage(opened, event)
-    case 'tool/call':
-    case 'tool/result':
-      return applyTool(opened, event)
-    default:
-      return applyInteraction(opened, event)
-  }
+  // One family per handler; an event no family claims goes to the generic view.
+  if (STEP_TYPES.has(event.type)) return applyTurn(opened, event as StepEvent)
+  if (MESSAGE_TYPES.has(event.type)) return applyMessage(opened, event as MessageEvent)
+  if (TOOL_TYPES.has(event.type)) return applyTool(opened, event as ToolEvent)
+  if (COMMAND_TYPES.has(event.type)) return applyCommand(opened, event as CommandEvent)
+  return applyInteraction(opened, event)
 }
 
 const applyStream = (state: Conversation, chunk: UiStreamChunk): Conversation =>

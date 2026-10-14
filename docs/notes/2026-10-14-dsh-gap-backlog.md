@@ -166,7 +166,14 @@
   - 検証: `repeat-reminder.test.ts` 7 本（連続数の数え方と途切れ／閾値の前後と gentle / detailed／閾値の間の回数は黙る／閾値の一覧／実 Hooks レジストリで 3 回目の結果にリマインダが付く／他セッションと 1 回目は付かない）、e2e `apps/cli/tests/repeat-reminder-e2e.test.ts`（実 CLI 経路で同じ todo_write を 3 回呼び、3 回目の結果だけがリマインダを含み、その次のリクエストにも載る）。`bun run check` 655 pass / 0 fail。
   - 学び: waterfall の listener は `next()` を呼ばないと後続を飢えさせる。最初の実装は A3 の AGENTS.md listener（`next()` を呼ばない）の後ろに並んで**一度も走らなかった**。prepend + `next()` + merge が正しい作法で、原因はプローブ用に足した listener が同じ短絡をしていたことで判明した。
   - 未確認: A3 の `installNestedAgentsMd` は `next()` を呼ばないので、それより後に登録された post-execute listener を飢えさせる（C4 は prepend で回避した。A3 側を協調させるのは別の変更）。リマインダは main agent のセッションだけを見る（子 agent の繰り返しには出ない）。回数の数え方は「tool/call の name と arguments の完全一致」で、dsh の canonical 引数と同じ扱いである。
-- [ ] **C5 commands**。dsh はモデルの turn を消費しないコマンドレジストリを持ち、`command/run`・`command/done` として記録する（`dsh:packages/interaction/commands/src/index.ts:61`）。fudo は CLI のサブコマンドのみ。
+- [x] **C5 commands**。dsh はモデルの turn を消費しないコマンドレジストリを持ち、`command/run`・`command/done` として記録する（`dsh:packages/interaction/commands/src/index.ts:61`）。fudo は CLI のサブコマンドのみ。
+  - 実装（2026-10-14）:
+    - `@fudo/session` に `commands.ts` を足した。`makeCommands()` が登録（重複と不正な名前は拒否）・`parse`（行頭 `/` の 1 語）・`run` を持ち、実行時に `command/run`（commandId / name / input）を先に、`command/done`（ok / text）を後に書く。どちらも log-only（コマンドは人間のもので、モデルの履歴には入らない）。commandId はログの `command/run` 数から作るので再開しても重複しない。コマンドが例外で死んでも `command/done`（ok: false, 理由）は残る。
+    - CLI の組み込みは `/help`（登録済みを並べる）と `/status`（モデル・cwd・turn 数・goal の phase とラウンド・schedule の一覧。すべてログから導出）。REPL はコマンド行をその場で stdout に出し、モデルには渡さない。TUI / Web は `UiHost.submit` が同じレジストリを通すので、turn を消費しない。
+    - 答えの表示は会話 view の `command/run`（打った行）と `command/done`（答え、失敗は error）を notice ブロックにすることで、TUI と Web が同じ経路で出す。
+  - 検証: `packages/core/session/tests/commands.test.ts` 7 本（行の解釈と非コマンド／実行が run と done を書く／知らないコマンドは一覧を返し記録しない／例外でも done が残る／同名の拒否／help の文面／宣言したイベント）、`packages/ui/view/tests/command.test.ts` 3 本（打った行と答えの notice／失敗は error／turn を開かない）、`packages/ui/host/tests/host.test.ts` の追加 1 本（submit がコマンドならモデルを起こさず、そうでなければ次の turn になる）、e2e `apps/cli/tests/commands-e2e.test.ts` 2 本（実 CLI の REPL で、`/status` がログだけから答えを出し turn を消費しないこと、`/help` と知らないコマンドの文面、その次のメッセージは 1 turn になること）。`bun run check` 667 pass / 0 fail。
+  - 学び: 会話 view の `applySession` は switch の case 数がそのまま cyclomatic になり、2 つ足しただけで閾値に当たった。イベント型の集合をテーブルにして「家族ごとに 1 回判定する」形に直すと、分岐が 1 段減って読みもよくなった。
+  - 未確認: dsh のコマンド定義は入力記述子・添付（画像/ファイル）・中断 signal を持つが、fudo は名前・要約・本文だけである。コマンドはモデルの turn を消費しないが、その出力もモデルの履歴には入らない（dsh と同じ）。CLI のサブコマンド（`fudo config` など）はプロセス単位のままで、セッション単位のコマンドとは別である。
 - [ ] **C6 preset**。dsh はセッション単位で構成（ツール世界）を選び、最初の turn の前に固定する（`dsh:packages/preset/agent-preset-registry/src/index.ts:341`）。fudo の「preset」は権限レベルの別名で、構成はプロセス全体で1つ。
 - [ ] **C7 extensions**。dsh のモデルは承認下で自分のプラグインを入れ替えられる（`dsh:packages/boot/plugin-manager/src/tools.ts:20`）。fudo の構成は起動時に凍結される。
 - [ ] **C8 agent teams**。dsh は roster・task board・inbox を持つ（`dsh:packages/experimental/tool-agent-team/src/index.ts:175`）。

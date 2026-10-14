@@ -114,6 +114,17 @@ plugins:
 fudo --patch sessions.yml "…"
 ```
 
+## セッションに話しかけずに尋ねる（コマンド）
+
+REPL・TUI・Web では、行頭が `/` の行はコマンドとしてその場で答える。モデルの turn は消費せず、`command/run` と `command/done` としてログに残る。
+
+```
+/help     使えるコマンドを並べる
+/status   このセッションの居場所（モデル、cwd、turn 数、goal、schedule）
+```
+
+知らない名前は登録済みの一覧を返す。コマンドの答えは TUI と Web では会話の notice として出る。
+
 ## 設定が効かないときに見る
 
 ```sh

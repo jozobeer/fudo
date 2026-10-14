@@ -1,6 +1,6 @@
 import type { Agent } from '@fudo/agent'
 import type { HookRegistry } from '@fudo/kernel'
-import type { Session } from '@fudo/session'
+import type { CommandsShape, Session } from '@fudo/session'
 import type { UiEvent, UiHost } from '@fudo/ui-protocol'
 import { Deferred, Effect, Queue, Stream, type Scope } from 'effect'
 
@@ -10,6 +10,8 @@ export interface MakeUiHostOptions {
   readonly session: Session
   readonly agent: Agent
   readonly hooks: HookRegistry
+  /** What the human can type besides a message; absent means every line is a message. */
+  readonly commands?: CommandsShape
 }
 
 /**
@@ -93,7 +95,16 @@ export const makeUiHost = (options: MakeUiHostOptions): Effect.Effect<UiHost, ne
           }),
         ),
       ),
-      submit: (text) => options.agent.followup({ text, source: 'user' }),
+      // A command is answered without consuming a turn; its answer reaches the UI
+      // through the session events, so a reconnecting client sees it too.
+      submit: (text) =>
+        Effect.gen(function* () {
+          if (options.commands !== undefined) {
+            const outcome = yield* options.commands.run(text, options.session)
+            if (outcome !== undefined) return
+          }
+          yield* options.agent.followup({ text, source: 'user' })
+        }),
       approve: (callId, approved) => settle(approvals, callId, approved),
       answer: (id, answer) => settle(asks, id, answer),
       cancel: () => options.agent.cancel('user'),

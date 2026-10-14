@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Agent } from '@fudo/agent'
 import { makeHooks } from '@fudo/kernel'
-import type { Session, SessionEvent, SessionEventMap } from '@fudo/session'
+import { makeCommands, type Session, type SessionEvent, type SessionEventMap } from '@fudo/session'
 import { Effect, Fiber, Stream, type Scope } from 'effect'
 import { makeUiHost } from '../src/index.ts'
 import type { UiHost } from '@fudo/ui-protocol'
@@ -94,7 +94,49 @@ const withHost = <A, E>(
     ),
   )
 
+/** A host with commands registered, which the fake input does not build itself. */
+const withCommands = <A, E>(
+  input: FakeInput,
+  run: (host: UiHost) => Effect.Effect<A, E, Scope.Scope>,
+) =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const commands = makeCommands()
+        yield* commands.register({
+          name: 'echo',
+          summary: 'says what it is told',
+          run: (text) => Effect.succeed({ ok: true, text: 'echo: ' + text }),
+        })
+        const host = yield* makeUiHost({
+          session: input.session,
+          agent: input.agent,
+          hooks: input.hooks,
+          commands,
+        })
+        return yield* run(host)
+      }),
+    ),
+  )
+
 describe('ui host', () => {
+  test('a command is answered without waking the model', async () => {
+    const input = makeInput()
+    await withCommands(input, (host) =>
+      Effect.gen(function* () {
+        yield* host.submit('/echo hi')
+        expect(input.submitted).toEqual([])
+        expect(input.session.events().map((event) => event.type)).toEqual([
+          'command/run',
+          'command/done',
+        ])
+        // A line that is no command still becomes the model's next turn.
+        yield* host.submit('do it')
+        expect(input.submitted).toEqual(['do it'])
+      }),
+    )
+  })
+
   test('a subscriber receives the log as history in order', async () => {
     const input = makeInput()
     await withHost(input, (host) =>

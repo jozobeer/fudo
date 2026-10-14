@@ -25,7 +25,9 @@ import {
 } from '@fudo/system-prompt'
 import { ToolError, type ToolExecution } from '@fudo/tools'
 import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
+import { makeCommands, type CommandsShape } from '@fudo/session'
 import { Tier0Tools } from '@fudo/tools-tier0'
+import { installBuiltinCommands } from './commands.ts'
 import {
   agentTools,
   jobTools,
@@ -359,12 +361,23 @@ const createAgent = (
       : yield* agents.create({ cwd: options.cwd, resume: options.resume, options: agentOptions })
   })
 
-const serveLines = (agent: Agent, options: CommandOptions, lines: Stream.Stream<string>) =>
+const serveLines = (
+  agent: Agent,
+  options: CommandOptions,
+  lines: Stream.Stream<string>,
+  commands: CommandsShape,
+) =>
   Effect.gen(function* () {
     yield* Stream.runForEach(lines, (line) =>
       line.trim() === ''
         ? Effect.void
         : Effect.gen(function* () {
+            // A command is answered here and now; the model never sees it.
+            const outcome = yield* commands.run(line, agent.session)
+            if (outcome !== undefined) {
+              options.stdout(outcome.text + '\n')
+              return
+            }
             yield* agent.followup({ text: line, source: 'user' })
             yield* agent.whenIdle
           }),
@@ -415,11 +428,11 @@ const workOf = (options: CommandOptions): Work | undefined => {
   return undefined
 }
 
-const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
+const serveAgent = (agent: Agent, options: CommandOptions, work: Work, commands: CommandsShape) =>
   work.kind === 'task'
     ? serveTask(agent, options, work.task)
     : work.kind === 'lines'
-      ? serveLines(agent, options, work.lines)
+      ? serveLines(agent, options, work.lines, commands)
       : Effect.succeed(0)
 
 /** Instruction discovery options of this run. */
@@ -567,9 +580,10 @@ const uiHostOf = (
   work: Work,
   agent: Agent,
   hooks: HookRegistry,
+  commands: CommandsShape,
 ): Effect.Effect<UiHost | undefined, never, Scope.Scope> =>
   ownsTheScreen(work)
-    ? makeUiHost({ session: agent.session, agent, hooks })
+    ? makeUiHost({ session: agent.session, agent, hooks, commands })
     : Effect.succeed(undefined)
 
 /** Starts the browser UI; it runs until interrupted. */
@@ -646,7 +660,11 @@ const runSession = (
     }
 
     const agent = yield* createAgent(Context.get(context, Agents), options, route, spillBytes)
-    const ui = yield* uiHostOf(work, agent, hooks)
+    // What a human can type at this session is not the model's business; both the
+    // REPL and a UI run it through the same registry and the log keeps the record.
+    const commands = makeCommands()
+    yield* installBuiltinCommands(commands)
+    const ui = yield* uiHostOf(work, agent, hooks, commands)
 
     yield* installNestedAgentsMd({
       hooks,
@@ -683,7 +701,7 @@ const runSession = (
 
     const served = serveUi(options, ui, work, route, agent)
     if (served !== undefined) return yield* served
-    return yield* serveAgent(agent, options, work)
+    return yield* serveAgent(agent, options, work, commands)
   })
 
 /**
