@@ -55,6 +55,7 @@ const HELP = `fudo "task"                     one-shot headless run
 fudo                             terminal UI (a terminal is required)
 fudo --profile <name> --patch <file.yml>...
 fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
+fudo --model <provider/model>    the route to use (fudo models lists them)
 fudo --dump-config
 fudo models                      list the models the provider offers
 fudo web [--port N]              browser UI over a local server
@@ -66,6 +67,8 @@ fudo --tui                       terminal UI even through a pipe
 /** Everything the command reads from the environment and files before running. */
 interface CommandInputs {
   readonly settings: FudoConfig
+  /** The file the settings came from, so `--dump-config` can name it. */
+  readonly settingsPath: string
   readonly route: string
   readonly documents: ReadonlyArray<string>
   readonly patches: ReadonlyArray<string>
@@ -84,7 +87,8 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     // secrets file is separate so it can stay unreadable.
     loadEnvFrom(io.cwd)
     loadSecrets(configPaths().secrets, process.env, io.stderr)
-    const settings = yield* loadConfigFile(parsed.config ?? configPaths().config)
+    const settingsPath = parsed.config ?? configPaths().config
+    const settings = yield* loadConfigFile(settingsPath)
     const profileName = parsed.profileFlag ?? settings.profile ?? parsed.profile
     const route = parsed.modelFlag ?? settings.model ?? parsed.model
     const base = yield* readText(
@@ -103,6 +107,7 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     )
     return {
       settings,
+      settingsPath,
       route,
       documents: [base, named],
       patches,
@@ -143,6 +148,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   plugins: bundledPlugins,
   cwd: io.cwd,
   route: inputs.route,
+  settingsPath: inputs.settingsPath,
   stdout: io.stdout,
   stderr: io.stderr,
   ...optional('extraRows', inputs.settings.plugins),

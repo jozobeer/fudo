@@ -9,11 +9,14 @@ export interface ConfigPaths {
   readonly secrets: string
 }
 
+/** The variable that moves the settings and secrets out of `~/.config`. */
+export const CONFIG_HOME_ENV = 'XDG_CONFIG_HOME'
+
 /** Where fudo keeps its settings: XDG first, then ~/.config. */
 export const configPaths = (
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ConfigPaths => {
-  const base = env['XDG_CONFIG_HOME']
+  const base = env[CONFIG_HOME_ENV]
   const directory =
     base !== undefined && base !== '' ? join(base, 'fudo') : join(homedir(), '.config', 'fudo')
   return {

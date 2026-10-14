@@ -40,6 +40,9 @@ const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--port', { kind: 'value' }],
 ])
 
+/** The flags the parser knows, in the order it declares them. */
+export const FLAG_NAMES: ReadonlyArray<string> = [...FLAGS.keys()]
+
 interface ScannedArgs {
   values: Map<string, Array<string>>
   words: Array<string>

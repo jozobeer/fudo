@@ -52,7 +52,7 @@ import { runTui, type TuiIo } from '@fudo/tui'
 import { makeUiHost, type UiHost } from '@fudo/ui-host'
 import { defaultStaticRoot, serveWeb } from '@fudo/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
-import { MODEL_KEY, PLAN_MODE_KEY, SPILL_BYTES_KEY, renderRowKeys } from './row-keys.ts'
+import { MODEL_KEY, PLAN_MODE_KEY, SPILL_BYTES_KEY, renderSurface } from './surface.ts'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -61,6 +61,8 @@ export interface CommandOptions {
   readonly extraRows?: ReadonlyArray<PluginRow>
   readonly patches?: ReadonlyArray<string>
   readonly plugins: ReadonlyArray<Plugin<any, any, any>>
+  /** The settings file the command read; without one the dump names the default. */
+  readonly settingsPath?: string
   /** One-shot task. */
   readonly task?: string
   /** Lines of a batch session, used when stdin is not a terminal. */
@@ -494,7 +496,8 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     const rows = yield* profileRows(options)
 
     if (options.dumpConfig === true) {
-      const text = renderConfig(rows) + renderPluginKeys(options.plugins) + renderRowKeys()
+      const text =
+        renderConfig(rows) + renderPluginKeys(options.plugins) + renderSurface(options.settingsPath)
       options.stdout(text)
       return 0
     }
@@ -523,7 +526,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
   )
 }
 export * from './search-env.ts'
-export * from './row-keys.ts'
+export * from './surface.ts'
 export * from './env-file.ts'
 export * from './config.ts'
 export * from './secrets-file.ts'

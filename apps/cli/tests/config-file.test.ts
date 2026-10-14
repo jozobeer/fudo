@@ -83,6 +83,18 @@ describe('the settings file through the command', () => {
     await rm(directory, { recursive: true, force: true })
   })
 
+  test('--dump-config names the settings file it read', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-path-'))
+    const path = join(directory, 'config.yaml')
+
+    const out: Array<string> = []
+    const code = await Effect.runPromise(main(['--dump-config', '--config', path], io(out, [])))
+
+    expect(code).toBe(0)
+    expect(out.join('')).toContain('settings (' + path + '):')
+    await rm(directory, { recursive: true, force: true })
+  })
+
   test('a malformed settings file stops the run with a message', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-bad-'))
     const path = join(directory, 'config.yaml')
