@@ -8,6 +8,8 @@ describe('Approval service', () => {
       Effect.scoped(
         Effect.gen(function* () {
           const approval = yield* Approval
+          // Waiting is opt-in: the seam refuses at once while nobody listens.
+          yield* approval.listen()
           const seen = yield* Deferred.make<boolean>()
           yield* Effect.forkScoped(
             Effect.gen(function* () {

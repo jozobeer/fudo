@@ -1,6 +1,14 @@
 import { Context, Deferred, Effect, Layer } from 'effect'
 
 export interface ApprovalShape {
+  /**
+   * Says that somebody is ready to answer: from here a request waits for `answer`.
+   * While nobody listens every request is refused at once, because a seam with no
+   * answerer denies rather than waits forever for one that will never come.
+   */
+  readonly listen: () => Effect.Effect<void>
+  /** Says that nobody answers any more; later requests are refused at once. */
+  readonly stopListening: () => Effect.Effect<void>
   /** Waits for the answer to one request. Callers append the request event themselves. */
   readonly request: (callId: string) => Effect.Effect<boolean>
   /** Answers a pending request; false when nothing was waiting. */
@@ -13,9 +21,19 @@ export interface ApprovalShape {
 export const makeApproval = (): Effect.Effect<ApprovalShape> =>
   Effect.sync(() => {
     const waiting = new Map<string, Deferred.Deferred<boolean>>()
+    let listening = false
     return {
+      listen: () =>
+        Effect.sync(() => {
+          listening = true
+        }),
+      stopListening: () =>
+        Effect.sync(() => {
+          listening = false
+        }),
       request: (callId) =>
         Effect.gen(function* () {
+          if (!listening) return false
           const answer = yield* Deferred.make<boolean>()
           waiting.set(callId, answer)
           return yield* Deferred.await(answer)

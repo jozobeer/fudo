@@ -16,8 +16,11 @@ const log = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<boolean> =>
  */
 export const installApproval = (
   session: Session,
-  /** Answers on the spot; without it the call waits for an Approval answer. */
-  answer?: (request: ApprovalRequested) => Effect.Effect<boolean>,
+  /**
+   * Answers on the spot; without it the call waits for an Approval answer, which
+   * only a seam somebody listens on will give.
+   */
+  answer?: (request: ApprovalRequested) => Effect.Effect<boolean, unknown>,
 ): Effect.Effect<void, never, Hooks | Policy | Approval | Scope.Scope> =>
   Effect.gen(function* () {
     const hooks = yield* Hooks
@@ -38,10 +41,13 @@ export const installApproval = (
         if (!recorded) {
           return { kind: 'deny', reason: 'cannot record the approval request' } as const
         }
-        const approved =
+        // An answerer that fails fails the question closed: the call is refused, not
+        // left broken, and never opened by a callback the seam could not read.
+        const approved = yield* (
           answer === undefined
-            ? yield* approval.request(exec.callId)
-            : yield* answer({ callId: exec.callId, tool: exec.tool, reason: decision.reason })
+            ? approval.request(exec.callId)
+            : answer({ callId: exec.callId, tool: exec.tool, reason: decision.reason })
+        ).pipe(Effect.catchCause(() => Effect.succeed(false)))
         yield* log(
           session.append('safety/approval/answered', {
             callId: exec.callId,
