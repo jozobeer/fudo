@@ -52,6 +52,15 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
       provider: Schema.String,
       model: Schema.String,
       params: Schema.Record(Schema.String, Schema.Unknown),
+      tools: Schema.Array(
+        Schema.Struct({
+          name: Schema.String,
+          description: Schema.String,
+          parameters: Schema.Record(Schema.String, Schema.Unknown),
+        }),
+      ),
+      series: Schema.Int,
+      reason: Schema.Literals(['opened', 'changed']),
     }),
   ],
   ['system/message', Schema.Struct({ text: Schema.String })],

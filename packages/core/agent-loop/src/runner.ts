@@ -16,9 +16,11 @@ import {
   DEFAULT_COMPACT_MAX_BYTES,
   cwdOf,
   deriveMessages,
+  lastRequestHeader,
   lastRuntimeContext,
   pruneFor,
   type CompactOptions,
+  type RequestHeaderData,
   type Session,
   type SessionEventMap,
 } from '@fudo/session'
@@ -189,6 +191,31 @@ const agentLoopEffect = (
         }
       })
 
+    /** Whether two headers describe the same assembled request. */
+    const sameHeader = (previous: RequestHeaderData, request: AgentRequest): boolean =>
+      previous.provider === request.provider &&
+      previous.model === request.model &&
+      JSON.stringify(previous.params) === JSON.stringify(request.params) &&
+      JSON.stringify(previous.tools) === JSON.stringify(request.tools)
+
+    /**
+     * Records what this request was assembled with, once per series: a step that
+     * changes neither route, parameters, nor tools reuses the header it opened.
+     */
+    const recordRequestHeader = (agent: Agent, request: AgentRequest): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const previous = lastRequestHeader(agent.session.events())
+        if (previous !== undefined && sameHeader(previous, request)) return
+        yield* append(agent, 'request/header', {
+          provider: request.provider,
+          model: request.model,
+          params: request.params,
+          tools: request.tools,
+          series: (previous?.series ?? 0) + 1,
+          reason: previous === undefined ? 'opened' : 'changed',
+        })
+      })
+
     /**
      * Records what this request stops carrying, before it is sent: a request over the
      * price keeps every message in the log and replaces the content of the old ones.
@@ -246,11 +273,7 @@ const agentLoopEffect = (
         yield* recordCompaction(agent)
         const base = requestOf(agent, build)
         const request = (yield* hooks.waterfall('agent/request', base)) ?? base
-        yield* append(agent, 'request/header', {
-          provider: request.provider,
-          model: request.model,
-          params: request.params,
-        })
+        yield* recordRequestHeader(agent, request)
         return yield* streamUntilSettled(agent, request)
       })
 

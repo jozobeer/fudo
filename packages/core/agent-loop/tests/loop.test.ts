@@ -252,11 +252,12 @@ describe('agent loop', () => {
     const injected = stored.findIndex(
       (event) => event.type === 'user/message' && event.data.source === 'inject',
     )
-    const request = kinds.indexOf('request/header', result)
+    // The note is in the log before the answer of the step that carried it.
+    const answer = kinds.indexOf('assistant/message', result)
 
     expect(kinds.filter((type) => type === 'step/start')).toHaveLength(2)
     expect(injected).toBeGreaterThan(result)
-    expect(injected).toBeLessThan(request)
+    expect(injected).toBeLessThan(answer)
     expect(stored[injected]?.type === 'user/message' ? stored[injected].data.text : '').toBe(note)
   })
 
@@ -289,6 +290,56 @@ describe('agent loop', () => {
       { text: note, source: 'inject' },
       { text: 'go', source: 'user' },
     ])
+  })
+
+  test('writes one request header per series and a new one when the tools change', async () => {
+    const extra: ToolDefinition<{}, { readonly ok: boolean }> = {
+      name: 'extra',
+      description: 'A tool that appears later',
+      parameters: Schema.Struct({}),
+      output: {
+        schema: Schema.Struct({ ok: Schema.Boolean }),
+        render: () => [{ type: 'text', text: 'extra' }],
+      },
+      execute: () => Effect.succeed({ ok: true }),
+    }
+    const events = await scenario([chunks(textTurn('one')), chunks(textTurn('two'))], (ctx) =>
+      Effect.gen(function* () {
+        const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+        yield* agent.followup({ text: 'first', source: 'user' })
+        yield* agent.whenIdle
+        yield* ctx.tools.register(extra)
+        yield* agent.followup({ text: 'second', source: 'user' })
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    const headers = events.session
+      .events()
+      .flatMap((event) => (event.type === 'request/header' ? [event.data] : []))
+
+    expect(headers.map((data) => data.series)).toEqual([1, 2])
+    expect(headers.map((data) => data.reason)).toEqual(['opened', 'changed'])
+    expect(headers[0]?.tools.map((tool) => tool.name)).toEqual([])
+    expect(headers[1]?.tools.map((tool) => tool.name)).toEqual(['extra'])
+  })
+
+  test('a turn that changes nothing reuses the header it opened', async () => {
+    const events = await scenario([chunks(textTurn('one')), chunks(textTurn('two'))], (ctx) =>
+      Effect.gen(function* () {
+        const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+        yield* agent.followup({ text: 'first', source: 'user' })
+        yield* agent.whenIdle
+        yield* agent.followup({ text: 'second', source: 'user' })
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    const kinds = types(events)
+    expect(kinds.filter((type) => type === 'request/header')).toHaveLength(1)
+    expect(kinds.filter((type) => type === 'turn/start')).toHaveLength(2)
   })
 
   test('retries a failed attempt without repeating the request header', async () => {

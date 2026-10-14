@@ -43,7 +43,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる |
 | plugin-manager、typert | 起動時に組み立てる方式では不要 |
 | session format の世代 migration | 移行元が無い。`formatVersion` は最初から持ち、migration の連鎖は互換性の無い変更が初めて生じたときに作る |
-| SurfaceOp / SurfaceIntent / `sourceEventSeqs`、`prepareCall` の capability フェーズ、`request/context` | dsh ではプロンプトキャッシュを保ったまま surface を差分更新するための仕組みである。Ollama Cloud の OpenAI 互換 API には明示的なキャッシュ制御が無い。Anthropic adapter を足すときに必要性を再判断する |
+| SurfaceOp / SurfaceIntent / `sourceEventSeqs`、`prepareCall` の capability フェーズ、`request/context` | dsh ではプロンプトキャッシュを保ったまま surface を差分更新するための仕組みである。Ollama Cloud の OpenAI 互換 API には明示的なキャッシュ制御が無い。Anthropic adapter を足すときに必要性を再判断する。`request/header` に組み立て済みの tool schema と series を記録するのはこれに含めない（キャッシュ差分ではなく、送った内容をログから再構成するため。2026-10-14 追記） |
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |
 | パッケージのファイルごとに 100% のカバレッジ gate | Bun の coverage がファイル単位の閾値を持つかは未確認である。主な証拠は replay snapshot と contract テストが担う。coverage report は出力する |
 
@@ -136,7 +136,7 @@ type SessionEvent = { [K in keyof SessionEventMap]: {
 | `session/header` | `formatVersion`、作成時刻、cwd。ログの最初の 1 件 |
 | `turn/start` / `turn/end` | `turn/end.reason` は宣言マージで拡張できる `TurnEndReasonMap`（`completed`、`cancelled`、`error` など） |
 | `step/start` / `step/end` | 1 回の model request と、その request が呼ぶ tool をまとめた単位 |
-| `request/header` | provider、model、リクエストパラメータ。request series ごとに 1 件 |
+| `request/header` | provider、model、リクエストパラメータ、組み立て済みの tool schema、series 番号、書いた理由。route・パラメータ・tool schema がすべて前回と同じなら書かない（request series ごとに 1 件）。これで「ある request にどの tool schema が渡ったか」をログから復元できる（2026-10-14 追記） |
 | `system/message` | system prompt。request series の先頭で 1 件 |
 | `user/message` | `source` で、人の入力・`agent.inject()`・runtime context を区別する |
 | `assistant/message` | 組み立てた content、usage、`replayState`、タイムスタンプ付きの生 stream |

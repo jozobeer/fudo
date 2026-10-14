@@ -67,7 +67,15 @@
   - 検証: `packages/core/session/tests/projections.test.ts`（未投影・未宣言の型で throw し、メッセージに型名が出る／log-only 宣言した型は throw しない／登録した projection が history を作る／同じ型を二度登録すると throw／compaction/prune が実際に使われる projection であること）と `derive.test.ts` の追加 projection 契約。既存の `compaction.test.ts` と A5 の e2e（送った配列 == ログからの derive）は projection 経由でそのまま通る。`bun run check` 552 pass / 0 fail。
   - 学び: projection の契約は「自分のイベントを丸ごと所有する」。既定の畳み込みは走らないので、projection は自分でメッセージを足す。この曖昧さはテストを書いている途中で露見した（既定の畳み込みの後に呼ばれる想定でテストを書いて落ちた）。
   - 未確認: profile からプラグインを外して再開した場合、そのプラグインのイベント型は codec の未知型拒否（S1）で先に止まる。derive の throw が e2e に出る経路は作っていない（unit のみ）。dsh の生成カタログに相当する全型一覧の機械生成は持たず、宣言は各パッケージの module load に置く。
-- [ ] **A8 request/header の忠実性**。fudo は provider/model/params だけを毎 step 無条件に書く（`fudo:packages/core/session/src/events.ts:56`）。dsh は組み立て済みのツール schema、reason と series、ツール差分の developer メッセージ、request/context を記録し、同値なら書かず、任意の prefix をログから再構成できる（`dsh:packages/core/session/src/types.ts:234`）。受け入れ: あるリクエストにどのツール schema が渡ったかをログから復元できる。
+- [x] **A8 request/header の忠実性**。fudo は provider/model/params だけを毎 step 無条件に書く（`fudo:packages/core/session/src/events.ts:56`）。dsh は組み立て済みのツール schema、reason と series、ツール差分の developer メッセージ、request/context を記録し、同値なら書かず、任意の prefix をログから再構成できる（`dsh:packages/core/session/src/types.ts:234`）。受け入れ: あるリクエストにどのツール schema が渡ったかをログから復元できる。
+  - 実装（2026-10-14）:
+    - `request/header` を毎 step 無条件から request series ごとに変えた。route・params・tool schema のどれかが前回と違うときだけ書き、`series`（1 起算）と `reason`（`opened` / `changed`）を記録する。すべて同じなら書かない（設計の「request series ごとに 1 件」に合わせた）。
+    - header に組み立て済みの `tools: ToolSchema[]` を入れた。これで「ある request にどの tool schema が渡ったか」をログだけから復元できる。
+    - `lastRequestHeader(events)` を session に足し、runner はログの最新 header と比較する（A5 と同じ「ログが唯一の記憶」）。
+    - 設計文書を更新: kernel 設計の `request/header` 行に tools/series/reason と同値スキップを明記し、「dsh から外すもの」の `request/context` 行へ「組み立て済み tool schema の記録はこれに含めない（キャッシュ差分ではなく再構成のため）」と追記した。
+  - 検証: 単体 `packages/core/session/tests/request-header.test.ts`（最新 header の読み戻し、tools/series の JSONL 復号、tools 欠落の拒否）と `packages/core/agent-loop/tests/loop.test.ts`（tools が変わると series 2・reason `changed`、変わらなければ 2 turn でも header は 1 件）。e2e `apps/cli/tests/request-header-e2e.test.ts`（2 turn で header 1 件、その `tools` が provider に渡った tools と JSON 一致、名前は tier0 の 6 種、ログの最新 header だけから復元できる）。`bun run check` 559 pass / 0 fail。
+  - 学び: 「毎 step 書く」は設計（series ごとに 1 件）と食い違っていた。変更検知を入れると header が「その request の組立内容」を指す唯一の場所になり、A5 の「送った内容 = ログ」と同じ原則に揃う。
+  - 未確認: dsh の「ツール差分の developer メッセージ」と `request/context`（メッセージ列そのものの記録）は未実装。fudo ではメッセージ列はイベント列そのもの（derive）なので別途持つ必要が無い、という判断。series は system prompt の変化では切れない（fudo は turn ごとに system/message を記録するため）。
 
 ## B. ツール実行面
 

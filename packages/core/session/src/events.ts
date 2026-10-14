@@ -1,5 +1,11 @@
 import type { Emit } from '@fudo/kernel'
-import type { AssistantStreamRecord, ContentBlock, LlmFailureData, LlmUsage } from '@fudo/llm'
+import type {
+  AssistantStreamRecord,
+  ContentBlock,
+  LlmFailureData,
+  LlmUsage,
+  ToolSchema,
+} from '@fudo/llm'
 import type { Session } from './session.ts'
 
 export type SessionSeq = number
@@ -59,11 +65,7 @@ export interface SessionEventMap {
   'turn/end': { readonly turn: number; readonly reason: TurnEndReason }
   'step/start': { readonly step: number }
   'step/end': { readonly step: number }
-  'request/header': {
-    readonly provider: string
-    readonly model: string
-    readonly params: Readonly<Record<string, unknown>>
-  }
+  'request/header': RequestHeaderData
   'system/message': { readonly text: string }
   'user/message': { readonly text: string; readonly source: UserMessageSource }
   'assistant/message': AssistantMessageData
@@ -98,6 +100,29 @@ declare module '@fudo/kernel/hook' {
 /** The working directory moved. The newest one wins. */
 export interface CwdChanged {
   readonly cwd: string
+}
+
+/** Why a request header was written instead of reusing the one before it. */
+export type RequestHeaderReason =
+  /** The first header of the session. */
+  | 'opened'
+  /** The route, the parameters, or the tools differ from the last header. */
+  | 'changed'
+
+/**
+ * What a request was assembled with. It is written once per request series: the
+ * assembled tools and parameters are part of the log, so a request can be
+ * reconstructed from the log alone, not only from the provider's answer.
+ */
+export interface RequestHeaderData {
+  readonly provider: string
+  readonly model: string
+  readonly params: Readonly<Record<string, unknown>>
+  /** Every tool the model could call, as the provider received it. */
+  readonly tools: ReadonlyArray<ToolSchema>
+  /** 1-based; a new series starts whenever the assembled request differs. */
+  readonly series: number
+  readonly reason: RequestHeaderReason
 }
 
 /** The content one request carries in place of a shadowed event's own content. */
