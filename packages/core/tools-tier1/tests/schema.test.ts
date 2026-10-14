@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { AgentsShape } from '@fudo/agent'
-import { makeAsk } from '@fudo/safety'
+import { makeAsk, makePlanMode } from '@fudo/safety'
 import { toolDeclaration, toolSchemaIssues, type ToolDefinition } from '@fudo/tools'
 import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -9,9 +9,15 @@ import { tmpdir } from 'node:os'
 import {
   agentTools,
   jobTools,
+  makeExitPlanModeTool,
+  makeGoalTool,
   makeJobs,
+  makePluginTool,
+  makeScheduleTool,
   makeSubagentTool,
+  makeTeamTool,
   makeWebSearchTool,
+  makeWorkflowTool,
   makeWorkingDirectoryTool,
   tier1Tools,
 } from '../src/index.ts'
@@ -30,6 +36,7 @@ describe('tier 1 tool schemas', () => {
     const ask = await Effect.runPromise(makeAsk())
     const jobs = await Effect.runPromise(makeJobs())
     const root = await mkdtemp(join(tmpdir(), 'fudo-schema-'))
+    // Every tool a profile can hand the model, with the hosts a declaration never calls.
     const tools: ReadonlyArray<ToolDefinition<any, any>> = [
       ...tier1Tools(ask, [root]),
       makeWebSearchTool({ search: () => Effect.succeed([]) }),
@@ -37,6 +44,33 @@ describe('tier 1 tool schemas', () => {
       makeWorkingDirectoryTool({ root, change: () => Effect.void }),
       makeSubagentTool({ agents, route: 'stub/model', parentEvents: () => [] }),
       ...agentTools(agents),
+      makeScheduleTool({
+        events: () => [],
+        write: () => Effect.void,
+        nextId: () => 'sched-1',
+        now: () => 0,
+      }),
+      makeGoalTool({ events: () => [], append: () => Effect.void }),
+      makeTeamTool({
+        agents,
+        route: 'stub/model',
+        parentEvents: () => [],
+        log: {
+          events: () => [],
+          spawnMember: () => Effect.void,
+          createTask: () => Effect.void,
+          updateTask: () => Effect.void,
+          nextId: () => 'task-1',
+        },
+      }),
+      makeWorkflowTool({ agents, route: 'stub/model', parentEvents: () => [] }),
+      makePluginTool({
+        rows: () => [],
+        known: () => [],
+        change: () => Effect.succeed([]),
+        ask,
+      }),
+      makeExitPlanModeTool(makePlanMode(), ask),
     ]
 
     const issues = tools.flatMap((tool) => toolSchemaIssues(toolDeclaration(tool)))
