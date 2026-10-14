@@ -36,26 +36,26 @@
 - [x] **edit の CRLF とバイナリ**。`readForEdit` が NUL バイトを decode の前に拒否し、LF に正規化した本文と元の ending を返す（`fudo:packages/core/tools-tier0/src/text.ts`）。edit は編集後に `restoreLineEndings` で書き戻すので、CRLF のファイルは CRLF のまま。受け入れ: `fudo:packages/core/tools-tier0/tests/edit.test.ts` に CRLF 保持と NUL 入りファイルの拒否の2本を追加（読み直せない非 UTF-8 のファイルは従来どおり read の段で止まる）。
 - [x] **glob の並び順と grep の上限**。`walkFiles` に `order: 'modified'` を足し、glob は更新時刻の古い順になった。glob / grep は既定 100 / 250 件を inline の page とし、`SEARCH_PAGE_BYTES` 30,000 の範囲で切り、超過分は `writeSpill` でセッション横のファイルに保存して locator と読み方（read の offset/limit）を返す。locator を渡す seam は `ToolRunContext.spill` で、場所は loop が持ち、何を保存するかは tool が決める。grep の一致行は 2000 字で切る。受け入れ: `fudo:packages/core/tools-tier0/tests/search.test.ts` の mtime 順・locator の2本と、e2e `fudo:apps/cli/tests/search-recovery-e2e.test.ts`（2000 件の検索で page 250 + 全量ファイル + 次のリクエストで tail を読む）。
 - [x] **bash の退避通知**（実測で充足していた）。一般の退避通知 `[spilled to <path>: N lines, M bytes. Use the read tool with offset and limit to page through it.]`（`fudo:packages/core/tools/src/spill.ts`）は、dsh の `[output truncated; full output: <path>]` が持つ要素（退避先のパス・行数・読み方）をすべて含む。bash 専用の文言ではないが、モデルが次に取る行動は同じである。受け入れ: e2e `fudo:apps/cli/tests/spill-recovery-e2e.test.ts` が bash の 32 KB 超出力で通知のパスを取り、次の step でそのファイルを read して末尾を読む。違いは preview が末尾ではなく先頭であること（dsh は末尾を残す）。
-- [ ] **除外したツールの方針変更**（pwsh、lsp、terminal、computer/browser、MCP resources、`present`、plugin_manager、ralph、create_worktree）。現在値: 設計文書の表で除外。変えるなら `docs/superpowers/specs/2026-10-13-fudo-kernel-design.md` の表の更新が先。
+- [x] **除外したツールの方針変更**。除外は変えない、と [kernel 設計の表](../../superpowers/specs/2026-10-13-fudo-kernel-design.md) の追記で決めた。再検討したのは `present`（提示層の判断に合わせて持たない）と `terminal`（bash と job_* で足りる）で、他は当初の理由のまま。あわせて実装で古くなっていた 2 行（`workflow` は採用、`schedule` は採用済み）を直した。
 
 ## 3. 自律性（層4）
 
 - [ ] **repeat リマインダー**（0 と同じ）。
-- [ ] **workflow の編成**。現在値: フラットなタスク配列・同時実行数・`text`/`json` の期待（`fudo:packages/core/tools-tier1/src/workflow.ts:20`）。dsh はスクリプトの hooks（`agent` / `pipeline` / `parallel` / `phase` / `log` / `args`）で任意に組める（`dsh:packages/workflow/tool-workflow/src/index.ts:161`）。受け入れ: 前段の出力を後段に渡すパイプラインが要るか要らないかを設計文書で決め、要るなら1本のテストで示す。
+- [x] **workflow の編成**。前段の出力を後段に渡すパイプラインは要らない、と [S6 の決定 4](../../superpowers/specs/2026-10-13-fudo-tier3-design.md) の追記で決めた。理由は、dsh の hook がスクリプト engine の一部であること、段を跨ぐ依存は workflow の再呼び出しで表せ、後段の子は親のログから fork するので前段の結果を最初から履歴に持つこと（`forkSeed` が落とすのは最後の `user/message` だけ）、段ごとの往復のコストは「同一タスクの A/B」で測ってから engine を足すこと。受け入れは決定そのものなので、テストは要らない。
 - [x] **goal の権限規則**。`turnHasSource` / `inHumanTurn` / `inGoalRound` を `fudo:packages/core/tools-tier1/src/goal-state.ts` に置き、最後の `turn/start` から先だけを見る。pause / resume は human source の message がある turn でだけ動き、モデルが自分で始めた round では拒否される。blocked は自動 round で `MIN_BLOCKED_ROUNDS`（3）未満なら拒否し、人間の turn があれば round 数に関係なく許す。前回の `inAutomaticRound` は「最後の user/message が goal-round か」だけを見ていたので、round の途中に steer（source: inject）が入ると閾値をすり抜けた——いまは open turn を走査する。受け入れ: unit 9 本（pause/resume の拒否、steer が入った round の blocked 拒否、人間の turn の blocked 許可）と e2e `fudo:apps/cli/tests/goal-rounds-e2e.test.ts`（実際の round で pause が拒否され、goal は paused にならない）。
 
 ## 4. 耐久（層5）
 
 - [ ] **session の読み出し機構**。現在値: JSONL の生読み、破損末尾の修復、v0→v1 の移行まで（`fudo:packages/core/session-jsonl/src/repair.ts`、`upgrade.ts`）。dsh は v0→v4 の連鎖、zstd 圧縮、flock lease、ZIP export、FTS5 の検索と trace を持つ（`dsh:packages/session-query/session-query/src/index.ts:153`）。受け入れ: 1万イベントのログで一覧が1秒未満で返り、検索が全走査なしで引ける。
 - [ ] **複数 consumer**。現在値: UI host の fan-out のみ（`fudo:packages/ui/host/src/index.ts`）。dsh は `Observation.retain()` で複数の読み手が同じログを購読する（`dsh:packages/session-query/src/observation.ts:17`）。
-- [ ] **除外した基盤**（telemetry、identity、settings UI、credentials サービス）。方針変更は設計文書の更新が先。
+- [x] **除外した基盤**（telemetry、identity、settings UI、credentials サービス）。除外は変えない、と [kernel 設計](../../superpowers/specs/2026-10-13-fudo-kernel-design.md) の追記で決めた。telemetry・identity・credentials は D5 の理由のまま、settings UI は `fudo config` / `--dump-config` / 承認つき `plugin` ツールで足りる。
 
 ## 5. 検証機構（層6）
 
 - [ ] **記録の corpus**。現在値: 2 件（`fudo:apps/cli/tests/snapshots/`）。dsh は 227 シナリオ / 1,555 ファイルをキー無しで再生する（`dsh:vitest.snapshot.config.ts:32`）。受け入れ: 主要経路（tool 失敗、承認拒否、compaction 発火、resume、subagent）がそれぞれ1本以上の記録で再生される。
 - [ ] **coverage 閾値**。現在値: `test:coverage` があるだけ（`fudo:package.json:13`）。受け入れ: 閾値を下回ると `bun run check` が落ちる。
 - [ ] **doc gate・重複検出・real-API lane**。現在値: いずれも無し。real-API は鍵が無ければ skip する形で足す。
-- [ ] **提示層**。現在値: tool の1行要約を記録し、TUI と Web が同じ view で描く。dsh はノードレジストリでカード・差分・markdown を描く（`dsh:packages/client/ui-conversation/src/client/contract/conversation.ts:203`）。受け入れの判断: v1 でカードが要るかを設計文書に書く。
+- [x] **提示層**。v1 はカードを持たない、と [S8 の設計](../../superpowers/specs/2026-10-13-fudo-web-design.md) に書いた。理由は、1 行要約がログに残って TUI・Web・replay が同じ行を読むこと、カードはクライアントごとの描画契約を増やすこと、差分は edit の要約と read の行番号で足りること。見直す条件（1 行では追えない・markdown をそのまま読みたい）も書いた。
 
 ## 6. 挙動の実測（未着手）
 

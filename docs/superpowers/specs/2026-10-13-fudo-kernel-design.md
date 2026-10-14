@@ -47,6 +47,8 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |
 | パッケージのファイルごとに 100% のカバレッジ gate | Bun の coverage がファイル単位の閾値を持つかは未確認である。主な証拠は replay snapshot と contract テストが担う。coverage report は出力する |
 
+**2026-10-14 追記（ギャップ表の「除外した基盤」）**: 除外は変えない。telemetry（OTLP）・identity（匿名 id）・credentials サービスは D5 の理由（記録はセッションログ、キーは環境変数 1 行）のままである。settings UI は持たない——設定は `fudo config`（ファイル編集）と `fudo --dump-config`（実効値と出どころ）で見え、モデルは `plugin` ツール（承認つき）で行を変えられる。画面で設定を編集する UI は「どの設定をどの順で見せるか」の判断を増やし、v1 の範囲を超える。見直すのは、設定項目が増えて「今どの値が効いているか」を CLI の 1 画面で追えなくなったときである。
+
 ## dsh にあって fudo が持たないツール（2026-10-14 追記）
 
 [dsh のギャップ表](2026-10-14-dsh-gap-backlog.md)の B6 にあるツールを、S1〜S8 の範囲表と突き合わせた結果である。「採用」は fudo の設計に載るので実装する、「除外」は fudo の設計が意図的に持たない、「他所」は別の項目が引き受ける。
@@ -61,10 +63,10 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `exit_plan_mode` | 採用。S5 の plan-mode。制限を解く出口をモデルに与える |
 | `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である。**2026-10-14 追記**: `presentCall` / `presentResult` は pipeline に実配線し、要約をログに記録するようにした（S1 の追記を参照）。`present` tool そのもの（client へカードを渡す経路）は持たないままである |
 | `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |
-| `workflow` | ツールとしては持たない。S6 の決定 4 により、同じ turn の並列ツール呼び出し（`isConcurrencySafe`）がこれを担う |
+| `workflow` | 採用（2026-10-14 改訂）。S6 の決定 4 を改訂し、データで書く扇状実行のツールとして持つ。dsh のスクリプト engine は持たない（[S6 の決定 4](2026-10-13-fudo-tier3-design.md)） |
 | MCP resources | 除外。S5 の MCP は「ツール一覧の取り込みと実行だけ」と決めている |
 | session query 5 種 | 他所。D4（session の耐久性）が引き受ける |
-| schedule 4 種 | 他所。C2（schedule）が引き受ける |
+| schedule 4 種 | 採用済み。`schedule` ツール 1 つが create / list / update / delete を担う（C2） |
 | `terminal` 6 種（PTY） | 除外。fudo に端末セッションの概念は無く、`bash` と `job_*` がその役目を負う |
 | `computer` / browser use | 除外。画面を操作する client を持たない |
 | `plugin_manager` | 除外。上の表の「plugin-manager、typert」と同じ理由である |
@@ -72,6 +74,8 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `ralph` | 除外。dsh 固有の継続ループである。fudo の続きは `goal`（C1）と CLI の再実行が担う |
 | `create_worktree` | 除外。git worktree の管理はどの S の範囲にも無い |
 | `team_*` | **2026-10-14 改訂**: 採用。[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C8 が roster・task board・inbox を求めるので、名前つきの子（roster）と共有の task board を 1 つの `team` ツールで持つ。メッセージ（inbox）は既存の `send_message` / `list_agents` / `wait_agent` / `interrupt_agent` が担う。dsh の Lead / teammate の権限制御（team:policy）と compare-and-set の remote 面は持たない（fudo は 1 親とその子だけで、board の revision はログから導出する） |
+
+**2026-10-14 追記（ギャップ表の「除外したツールの方針変更」）**: 除外は変えない。再検討したのは 2 つで、どちらも v1 では持たない: `present` は提示層の判断（[S8 の追記](2026-10-13-fudo-web-design.md)）と同じで、カードを描く client 契約を v1 は持たない。`terminal`（PTY）は `bash` と `job_*` が日常の用を足しており、端末セッションを持つと画面状態・再描画・入力の所有が増える。`lsp`・`computer` / browser・`create_worktree`・`pwsh`・MCP resources・`plugin_manager`・`ralph` は当初の理由のままである（`plugin_manager` の代わりは承認つきの `plugin` ツール、`ralph` の代わりは `goal`）。
 
 ## S1 の設計
 
