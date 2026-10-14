@@ -50,7 +50,7 @@ fudo                                     # 端末 UI（TTY が要る）
 fudo "Reply with the single word pong"   # 1 turn 走らせて終わる
 fudo --json "..."                        # セッションイベントを JSON 行で出す
 fudo --resume <sessionId>                # 過去のログを端末 UI に描く
-fudo --dump-config                       # 読み込んだプロファイルを表示する
+fudo --dump-config                       # 読み込んだプロファイルと、書ける設定キーを表示する
 ```
 
 パイプから入力すると行単位の batch mode になる。TTY が無いところで端末 UI を強制するには `--tui` を付ける。

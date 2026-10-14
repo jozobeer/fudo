@@ -58,6 +58,27 @@ describe('main', () => {
     expect(out.join('')).toContain('config={"baseUrl":"https://ollama.com/v1"')
   })
 
+  test('--dump-config tells what each row may carry', async () => {
+    const out: Array<string> = []
+    const code = await Effect.runPromise(
+      main(['--dump-config'], {
+        stdout: (text) => out.push(text),
+        stderr: () => undefined,
+        cwd: '/work',
+      }),
+    )
+
+    const text = out.join('')
+    expect(code).toBe(0)
+    expect(text).toContain(
+      '@fudo/safety: preset (required, one of read-only|workspace-write|full), sandbox (optional, one of none|seatbelt), writableRoots (optional, string[])',
+    )
+    expect(text).toContain('@fudo/kernel: none')
+    expect(text).toContain(
+      '- planMode (the @fudo/safety row): true hides the tools that change the workspace',
+    )
+  })
+
   test('--patch overlays one row by id', async () => {
     const dir = join(import.meta.dir, '.tmp')
     await mkdir(dir, { recursive: true })

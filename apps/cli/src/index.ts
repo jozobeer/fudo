@@ -7,6 +7,7 @@ import {
   mergeRows,
   parseProfile,
   renderConfig,
+  renderPluginKeys,
   type HookRegistry,
   type Plugin,
   type PluginError,
@@ -51,6 +52,7 @@ import { runTui, type TuiIo } from '@fudo/tui'
 import { makeUiHost, type UiHost } from '@fudo/ui-host'
 import { defaultStaticRoot, serveWeb } from '@fudo/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
+import { MODEL_KEY, PLAN_MODE_KEY, SPILL_BYTES_KEY, renderRowKeys } from './row-keys.ts'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -93,8 +95,8 @@ export interface CommandOptions {
 /** Exit codes: completed 0, error 1. SIGINT (130) lands with the signal handling slice. */
 const spillBytesOf = (rows: ReadonlyArray<PluginRow>): number | undefined => {
   for (const row of rows) {
-    if (isRecord(row.config) && typeof row.config.maxSpillBytes === 'number') {
-      return row.config.maxSpillBytes
+    if (isRecord(row.config) && typeof row.config[SPILL_BYTES_KEY] === 'number') {
+      return row.config[SPILL_BYTES_KEY]
     }
   }
   return undefined
@@ -115,7 +117,7 @@ const turnFailure = (agent: Agent): string | undefined => {
   return undefined
 }
 
-const planModeOf = (config: unknown): boolean => isRecord(config) && config.planMode === true
+const planModeOf = (config: unknown): boolean => isRecord(config) && config[PLAN_MODE_KEY] === true
 
 const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
 
@@ -125,9 +127,8 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 /** A profile may carry the route on a row's config, as model: provider/model. */
 const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
   for (const row of rows) {
-    if (isRecord(row.config) && typeof row.config.model === 'string' && row.config.model !== '') {
-      return row.config.model
-    }
+    const route = isRecord(row.config) ? row.config[MODEL_KEY] : undefined
+    if (typeof route === 'string' && route !== '') return route
   }
   return ''
 }
@@ -493,7 +494,8 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     const rows = yield* profileRows(options)
 
     if (options.dumpConfig === true) {
-      options.stdout(renderConfig(rows))
+      const text = renderConfig(rows) + renderPluginKeys(options.plugins) + renderRowKeys()
+      options.stdout(text)
       return 0
     }
 
@@ -521,6 +523,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
   )
 }
 export * from './search-env.ts'
+export * from './row-keys.ts'
 export * from './env-file.ts'
 export * from './config.ts'
 export * from './secrets-file.ts'
