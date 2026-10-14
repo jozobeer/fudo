@@ -26,6 +26,8 @@ export function parseConfigText(text: string): Effect.Effect<FudoConfig, PluginE
       try: () => Bun.YAML.parse(text) as unknown,
       catch: (cause) => configError('settings are not valid YAML: ' + String(cause)),
     })
+    // An empty document, or one holding only comments, is no settings at all.
+    if (raw === null || raw === undefined) return {}
     return yield* Schema.decodeUnknownEffect(ConfigFileSchema)(raw).pipe(
       Effect.mapError((issue) => configError('settings do not match the schema: ' + issue.message)),
     )

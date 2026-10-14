@@ -54,6 +54,18 @@ describe('parseConfigText', () => {
 
     expect(config).toEqual({})
   })
+
+  test('an empty file, or one with only comments, is no settings', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-empty-'))
+    const path = join(directory, 'config.yaml')
+
+    await Bun.write(path, '')
+    expect(await Effect.runPromise(loadConfigFile(path))).toEqual({})
+
+    await Bun.write(path, '# nothing but a comment\n')
+    expect(await Effect.runPromise(loadConfigFile(path))).toEqual({})
+    await rm(directory, { recursive: true, force: true })
+  })
 })
 
 describe('the settings file through the command', () => {
