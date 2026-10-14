@@ -244,6 +244,8 @@ tool/result（ログ）
 
 waterfall は `prepend` で順序が変わるので、後から登録したプラグインが policy を迂回できる。どの組み合わせでも破られてはならない拒否（plan-mode での書き込み禁止など）は monotonic guard に置く。
 
+**guard に何を置くか（2026-10-14 追記）**: 出荷構成に guard は 1 本も登録しない。plan-mode の禁止は restriction、承認は `agent/pre-step` の decision で足りており、いま veto が要る対象は無い。dsh の repeat-tool-reminder に当たる「同じ呼び出しの繰り返し」の検出も **advisory** にする（guard ではなく `agent/pre-step` で次リクエストにリマインダを注入する）。拒否にすると `job_output` の polling のような正当な繰り返しを壊すためで、dsh も同じ判断をしている。閾値は 3/5/8、同じ呼び出しの連続数も配布済みのリマインダ数もログから導出するので、状態を持たず、再開したセッションでも二重に注入しない。
+
 pipeline の途中で起きた失敗と defect は `isError` の結果に正規化し、model にエラーとして返す。連続する `isConcurrencySafe` の call は並列に実行し、結果は call の順にログへ記録する。ToolRestriction は scope（Agent）ごとに継承したツールを絞り込むフィルタで、plan-mode（S5）と subagent（S6）が使う。
 
 ### Agent と agent loop

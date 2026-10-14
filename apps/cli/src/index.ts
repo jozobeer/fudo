@@ -44,6 +44,7 @@ import {
   makeScheduleTool,
   makeWorkflowTool,
   installScheduleRuns,
+  installRepeatReminders,
   startGoalRound,
   discoverSkills,
   renderSkillCatalog,
@@ -553,6 +554,9 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
       // Standing schedules keep their own clock; one that came due while the
       // session was away fires as soon as this run starts.
       yield* installScheduleRuns(wiring.agent, wiring.hooks)
+      // A call the model repeats with the same arguments answers the same way every
+      // time; the third, fifth, and eighth each get a word in their own result.
+      yield* installRepeatReminders(wiring.agent, wiring.hooks)
     }
   })
 

@@ -157,7 +157,15 @@
   - 検証: `workflow.test.ts` 3 本（扇状に走らせて全部の答えを返す／JSON として読めない項目だけ null になり他は生きる／同じ id は実行前に拒否）、e2e `apps/cli/tests/workflow-e2e.test.ts`（実 CLI 経路で親 + 子 2 の 3 セッションができ、結果が `a: first` と `b: (failed: the answer is not JSON)` になる）。`bun run check` 647 pass / 0 fail。
   - 学び: Effect 4 ではエラーを握る関数が `Effect.catchCause` 系に限られ、Effect のメソッド版 `catchAll` も無い。項目ごとの失敗隔離は、エラー型を作らず `Effect.orElseSucceed` と純粋な try/catch に落とす方が素直だった。JSON 値のスキーマは Effect の `Schema.Json` がそのまま使える。
   - 未確認: dsh の JS スクリプト（ループ・分岐・逐次依存・結果の schema 言語での検証・background run と jobs 連携・run の record イベント）は持たない。ループと依存は「モデルが workflow を何度か呼ぶ」で表す。`concurrency` の既定 4 は fudo の値である。
-- [ ] **C4 guards**。fudo は monotonic guard の seam を持つが production に1本も登録していない（`fudo:packages/core/tools/src/pipeline.ts:96`）。dsh は繰り返し呼び出しの検出（閾値 3/5/8）と宣言 timeout の強制を持つ（`dsh:packages/guard/repeat-tool-reminder/src/index.ts:36`）。
+- [x] **C4 guards**。fudo は monotonic guard の seam を持つが production に1本も登録していない（`fudo:packages/core/tools/src/pipeline.ts:96`）。dsh は繰り返し呼び出しの検出（閾値 3/5/8）と宣言 timeout の強制を持つ（`dsh:packages/guard/repeat-tool-reminder/src/index.ts:36`）。
+  - 実装（2026-10-14）:
+    - 設計文書（kernel の guard の節）に追記した: 出荷構成に guard は登録しない。plan-mode は restriction、承認は pre-execute の decision で足りており、いま veto すべき対象が無い。dsh の repeat-tool-reminder に当たる「同じ呼び出しの繰り返し」も **advisory** にし、拒否ではなくリマインダで知らせる（拒否にすると `job_output` の polling のような正当な繰り返しを壊す。dsh も同じ判断）。
+    - `repeat-reminder.ts`: `trailingRepeat(events)` がログ末尾の同一呼び出しの連続数を数える（`tool/call` の name と arguments が同じ）。`repeatReminder` は連続数が 3/5/8 のときだけ文面を返す（3 は gentle、5 と 8 は tool・回数・引数の preview つき）。各回数は 1 回しか訪れないので、配布済みの記録を持たなくてよい。
+    - `installRepeatReminders(agent, hooks)` は `tools/post-execute` を **prepend** で登録し、`next()` を先に走らせてから自分のブロックを足す。リマインダはその呼び出し自身の結果に載るので、モデルは結果と同じ息で読み、ログにも残る。sessionId で自分の agent の呼び出しだけを見る。
+    - 宣言 timeout の強制は既に実装済みだった（`pipeline.ts` の `Effect.timeout`。証拠は `packages/core/tools/tests/timeout.test.ts`）。
+  - 検証: `repeat-reminder.test.ts` 7 本（連続数の数え方と途切れ／閾値の前後と gentle / detailed／閾値の間の回数は黙る／閾値の一覧／実 Hooks レジストリで 3 回目の結果にリマインダが付く／他セッションと 1 回目は付かない）、e2e `apps/cli/tests/repeat-reminder-e2e.test.ts`（実 CLI 経路で同じ todo_write を 3 回呼び、3 回目の結果だけがリマインダを含み、その次のリクエストにも載る）。`bun run check` 655 pass / 0 fail。
+  - 学び: waterfall の listener は `next()` を呼ばないと後続を飢えさせる。最初の実装は A3 の AGENTS.md listener（`next()` を呼ばない）の後ろに並んで**一度も走らなかった**。prepend + `next()` + merge が正しい作法で、原因はプローブ用に足した listener が同じ短絡をしていたことで判明した。
+  - 未確認: A3 の `installNestedAgentsMd` は `next()` を呼ばないので、それより後に登録された post-execute listener を飢えさせる（C4 は prepend で回避した。A3 側を協調させるのは別の変更）。リマインダは main agent のセッションだけを見る（子 agent の繰り返しには出ない）。回数の数え方は「tool/call の name と arguments の完全一致」で、dsh の canonical 引数と同じ扱いである。
 - [ ] **C5 commands**。dsh はモデルの turn を消費しないコマンドレジストリを持ち、`command/run`・`command/done` として記録する（`dsh:packages/interaction/commands/src/index.ts:61`）。fudo は CLI のサブコマンドのみ。
 - [ ] **C6 preset**。dsh はセッション単位で構成（ツール世界）を選び、最初の turn の前に固定する（`dsh:packages/preset/agent-preset-registry/src/index.ts:341`）。fudo の「preset」は権限レベルの別名で、構成はプロセス全体で1つ。
 - [ ] **C7 extensions**。dsh のモデルは承認下で自分のプラグインを入れ替えられる（`dsh:packages/boot/plugin-manager/src/tools.ts:20`）。fudo の構成は起動時に凍結される。

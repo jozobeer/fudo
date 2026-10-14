@@ -155,6 +155,7 @@
       "name": "@fudo/tools-tier1",
       "dependencies": {
         "@fudo/agent": "workspace:*",
+        "@fudo/agent-loop": "workspace:*",
         "@fudo/kernel": "workspace:*",
         "@fudo/llm": "workspace:*",
         "@fudo/safety": "workspace:*",
