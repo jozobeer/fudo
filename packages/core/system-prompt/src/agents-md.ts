@@ -18,6 +18,10 @@ export interface AgentsLoad {
 }
 
 export const AGENTS_FILE = 'AGENTS.md'
+/** Base instruction candidates searched in every directory, in order. */
+export const AGENTS_MD_NAMES: ReadonlyArray<string> = ['AGENTS.md', 'CLAUDE.md']
+/** Local overlays, searched after the base candidates of the same directory. */
+export const AGENTS_MD_LOCAL_NAMES: ReadonlyArray<string> = ['AGENTS.local.md', 'CLAUDE.local.md']
 /** Instruction sections sit after every built-in one. */
 export const AGENTS_MD_ORDER = 900
 /** Every rendered instruction section may spend this many UTF-8 bytes together. */
@@ -28,8 +32,13 @@ export const AGENTS_MD_SOURCE_BYTES = 1024 * 1024
 export const PROJECT_ROOT_MARKER = '.git'
 
 export interface AgentsMdOptions {
-  /** File names searched in each directory, in order. Default: `AGENTS.md`. */
+  /** Base file names searched in each directory, in order. Default: `AGENTS.md`, `CLAUDE.md`. */
   readonly names?: ReadonlyArray<string>
+  /**
+   * Local overlay names searched after the base ones in the same directory.
+   * Default: `AGENTS.local.md`, `CLAUDE.local.md`.
+   */
+  readonly localNames?: ReadonlyArray<string>
   /** A home directory whose instruction file renders before every workspace one. */
   readonly home?: string
   /** Directory entry that marks the project root. '' walks to the filesystem root. */
@@ -57,8 +66,19 @@ const byteLength = (text: string): number => Buffer.byteLength(text, 'utf8')
 
 const namesOf = (options: AgentsMdOptions): ReadonlyArray<string> => {
   const names = options.names
-  return names === undefined || names.length === 0 ? [AGENTS_FILE] : names
+  return names === undefined || names.length === 0 ? AGENTS_MD_NAMES : names
 }
+
+const localNamesOf = (options: AgentsMdOptions): ReadonlyArray<string> => {
+  const names = options.localNames
+  return names === undefined || names.length === 0 ? AGENTS_MD_LOCAL_NAMES : names
+}
+
+/** Every candidate of one directory in read order: the base names, then the overlays. */
+const candidatesOf = (options: AgentsMdOptions): ReadonlyArray<string> => [
+  ...namesOf(options),
+  ...localNamesOf(options),
+]
 
 const pathExists = (path: string): Effect.Effect<boolean> =>
   Effect.promise(() =>
@@ -147,11 +167,12 @@ export function loadAgentsFiles(
     if (options.home !== undefined) {
       take(yield* readIfPresent(join(options.home, names[0] ?? AGENTS_FILE), cap))
     }
+    const candidates = candidatesOf(options)
     for (const directory of chainFrom(
       yield* projectRootOf(cwd, options.rootMarker ?? PROJECT_ROOT_MARKER),
       cwd,
     )) {
-      for (const name of names) take(yield* readIfPresent(join(directory, name), cap))
+      for (const name of candidates) take(yield* readIfPresent(join(directory, name), cap))
     }
     return { files: found, omitted }
   })
@@ -279,7 +300,6 @@ export function nestedAgentsFiles(
   options: AgentsMdOptions = {},
 ): Effect.Effect<ReadonlyArray<AgentsFile>> {
   return Effect.gen(function* () {
-    const names = namesOf(options)
     const cap = options.maxSourceBytes ?? AGENTS_MD_SOURCE_BYTES
     const target = request.path.startsWith('/') ? request.path : join(request.cwd, request.path)
     const found: Array<AgentsFile> = []
@@ -297,8 +317,9 @@ export function nestedAgentsFiles(
         found.push(file)
       })
 
+    const candidates = candidatesOf(options)
     for (const directory of directoriesBelow(request.root, target)) {
-      for (const name of names) yield* read(join(directory, name))
+      for (const name of candidates) yield* read(join(directory, name))
     }
     return found
   })

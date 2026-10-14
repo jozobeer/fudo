@@ -46,6 +46,30 @@ describe('loadAgentsFiles', () => {
     await rm(root, { recursive: true, force: true })
   })
 
+  test('reads CLAUDE.md when AGENTS.md is absent', async () => {
+    const root = await workspace()
+    await Bun.write(join(root, 'CLAUDE.md'), 'claude rules\n')
+
+    const load = await Effect.runPromise(loadAgentsFiles(root))
+
+    expect(load.files.map((file) => file.path)).toEqual([join(root, 'CLAUDE.md')])
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('reads the local candidate after the base in the same directory', async () => {
+    const root = await workspace()
+    await Bun.write(join(root, 'CLAUDE.md'), 'base rules\n')
+    await Bun.write(join(root, 'CLAUDE.local.md'), 'local rules\n')
+
+    const load = await Effect.runPromise(loadAgentsFiles(root))
+
+    expect(load.files.map((file) => file.path)).toEqual([
+      join(root, 'CLAUDE.md'),
+      join(root, 'CLAUDE.local.md'),
+    ])
+    await rm(root, { recursive: true, force: true })
+  })
+
   test('does not walk above the project root marker', async () => {
     const parent = await mkdtemp(join(tmpdir(), 'fudo-agents-'))
     const root = join(parent, 'project')

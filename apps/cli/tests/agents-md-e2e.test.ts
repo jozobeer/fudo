@@ -19,6 +19,7 @@ const MARKER = 'AGENTS-MD-MARKER-4711'
 const NESTED_MARKER = 'NESTED-AGENTS-MARKER-8142'
 const HOME_MARKER = 'HOME-AGENTS-MARKER-3390'
 const TAIL_MARKER = 'TAIL-AGENTS-MARKER-6021'
+const CLAUDE_MARKER = 'CLAUDE-MD-MARKER-5507'
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'text-delta', index: 0, text },
@@ -131,6 +132,31 @@ describe('workspace instructions', () => {
 
     expect(code).toBe(0)
     expect(seen.join('\n')).toContain(MARKER)
+    await rm(root, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
+  })
+
+  test('a workspace with only CLAUDE.md still reaches the model', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    await Bun.write(join(workspace, 'CLAUDE.md'), CLAUDE_MARKER + '\n')
+    const seen: Array<string> = []
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(root)],
+        plugins: plugins(stubLlm([textTurn('ok')], seen)),
+        cwd: workspace,
+        route: 'stub/model',
+        task: 'say ok',
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+
+    expect(code).toBe(0)
+    expect(seen.join('\n')).toContain(CLAUDE_MARKER)
+    expect(seen.join('\n')).toContain('Instructions from ' + join(workspace, 'CLAUDE.md'))
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })
   })
