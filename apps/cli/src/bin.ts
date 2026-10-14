@@ -1,5 +1,7 @@
 import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
 import { type PluginRow } from '@fudo/kernel'
+import { cwdOf, type SessionEvent, type SessionHeader } from '@fudo/session'
+import { jsonlSessions } from '@fudo/session-jsonl'
 import type { TuiIo } from '@fudo/tui'
 import { Effect, Stream } from 'effect'
 import { homedir } from 'node:os'
@@ -13,6 +15,12 @@ import { resolveSettings, type SettingsSurface } from './settings.ts'
 import { listModels, modelEndpointOf } from './models.ts'
 import { bundledPlugins } from './plugins.ts'
 import { searchFromEnv } from './search-env.ts'
+import {
+  renderSessionHead,
+  renderSessionList,
+  renderTranscript,
+  sessionRootOf,
+} from './session-list.ts'
 import { profileRows, runCommand, type CommandOptions } from './index.ts'
 
 export interface MainIo {
@@ -39,6 +47,8 @@ fudo config [set K V|init]       settings: show them, write one key, start a fil
 fudo models                      list the models the provider offers
 fudo web [--port N]              browser UI over a local server
 fudo --resume <sessionId> [task]
+fudo sessions                    list the sessions on disk
+fudo sessions <sessionId>        read one session back
 fudo --allow-preset-change         continue a session under a changed composition
 fudo --json "task"
 fudo --tui                       terminal UI even through a pipe
@@ -105,6 +115,49 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
       search: searchFromEnv(process.env),
     }
   })
+
+/** `fudo sessions [id]`: the sessions on disk, or one read back as a transcript. */
+/** The header a log opens with, once it has been read back. The reader guarantees one. */
+const headerOf = (events: ReadonlyArray<SessionEvent>): SessionHeader | undefined => {
+  const first = events[0]
+  return first?.type === 'session/header' ? first.data : undefined
+}
+
+const printSessions = (
+  inputs: CommandInputs,
+  io: MainIo,
+  id: string | undefined,
+): Effect.Effect<number> =>
+  Effect.gen(function* () {
+    const rows = yield* profileRows({
+      profiles: inputs.documents,
+      patches: inputs.patches,
+      ...optional('extraRows', inputs.settings.plugins),
+    })
+    const sessions = jsonlSessions({ root: sessionRootOf(rows) })
+    if (id === undefined) {
+      io.stdout(renderSessionList(yield* sessions.list()))
+      return 0
+    }
+    const opened = yield* sessions.open(id)
+    const header = headerOf(opened.events)
+    io.stdout(
+      renderSessionHead({
+        id: opened.id,
+        cwd: header === undefined ? '' : cwdOf(opened.events, header),
+        createdAt: header?.createdAt ?? 0,
+      }) + renderTranscript(opened.events),
+    )
+    return 0
+  }).pipe(
+    Effect.match({
+      onFailure: (error: unknown) => {
+        io.stderr('fudo: ' + String(error) + String.fromCharCode(10))
+        return 1
+      },
+      onSuccess: (code) => code,
+    }),
+  )
 
 /** Every model the profile's provider offers, as sorted routes. */
 const routesOf = (rows: ReadonlyArray<PluginRow>): Effect.Effect<ReadonlyArray<string>, Error> => {
@@ -192,6 +245,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
   return Effect.gen(function* () {
     const inputs = yield* loadInputs(parsed, io)
     if (parsed.models) return yield* printModels(inputs, io)
+    if (parsed.sessions) return yield* printSessions(inputs, io, parsed.sessionId)
     return yield* runCommand(commandOptions(parsed, io, inputs))
   }).pipe(
     Effect.catchCause((cause) =>

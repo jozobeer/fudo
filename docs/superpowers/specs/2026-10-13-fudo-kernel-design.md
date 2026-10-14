@@ -347,6 +347,8 @@ fudo "task"                      一発実行（headless profile）
 fudo                             REPL（repl profile、TTY が必要）
 fudo --profile <name> --patch <file.yml>... --dump-config
 fudo --resume <sessionId>        ログから復元して続ける
+fudo sessions                    ログの一覧（新しい順）
+fudo sessions <sessionId>        1 つのログを会話として読む
 fudo --json "task"               session/event を JSONL で stdout に出す
 ```
 

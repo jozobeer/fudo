@@ -8,6 +8,9 @@ export interface ParsedArgs {
   readonly models: boolean
   /** `fudo web`: serve the browser UI instead of running a turn. */
   readonly web: boolean
+  /** `fudo sessions [id]`: list the sessions, or read one back. */
+  readonly sessions: boolean
+  readonly sessionId?: string | undefined
   /** Port for `fudo web`; 0 asks the system for a free one. */
   readonly port: number
   readonly resume: string | undefined
@@ -97,19 +100,42 @@ const portOf = (raw: string | undefined, errors: Array<string>): number => {
   return port
 }
 
+/** What the positional words name: a subcommand, or the one-shot task. */
+interface Words {
+  readonly models: boolean
+  readonly web: boolean
+  readonly sessions: boolean
+  readonly sessionId: string | undefined
+  readonly task: string | undefined
+}
+
+const NOTHING: Omit<Words, 'task'> = {
+  models: false,
+  web: false,
+  sessions: false,
+  sessionId: undefined,
+}
+
+const wordsOf = (words: ReadonlyArray<string>): Words => {
+  const first = words[0]
+  if (words.length === 1 && first === 'models') return { ...NOTHING, models: true, task: undefined }
+  if (words.length === 1 && first === 'web') return { ...NOTHING, web: true, task: undefined }
+  // `fudo sessions` lists them; `fudo sessions <id>` reads one back.
+  if (first === 'sessions' && words.length <= 2) {
+    return { ...NOTHING, sessions: true, sessionId: words[1], task: undefined }
+  }
+  return { ...NOTHING, task: words.length === 0 ? undefined : words.join(' ') }
+}
+
 /** Parses `fudo` arguments. Positional words join into the one-shot task. */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   const { values, words, errors } = scan(argv)
-  const models = words.length === 1 && words[0] === 'models'
-  const web = words.length === 1 && words[0] === 'web'
   const port = portOf(first(values, '--port'), errors)
   return {
+    ...wordsOf(words),
     profile: first(values, '--profile') ?? 'headless',
     profileFlag: first(values, '--profile'),
     patches: values.get('--patch') ?? [],
-    task: words.length === 0 || models || web ? undefined : words.join(' '),
-    models,
-    web,
     port,
     resume: first(values, '--resume'),
     allowPresetChange: values.has('--allow-preset-change'),

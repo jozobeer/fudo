@@ -259,7 +259,14 @@
   - 検証: `present.test.ts` 4 本（read の範囲表記（offset だけなら `:10+`）／edit の行数（`lines: 2 → 3`、all）／bash の exit とタイムアウト、そして何も走らなかったときは本文／既定の 1 行が短く改行を含まないこと）、`packages/ui/view/tests/summary.test.ts` 2 本（ログに記録された行を出す／記録が無い古いログはここで作る）、e2e `apps/cli/tests/presentation-e2e.test.ts`（実 CLI で read → edit → bash を通し、ログの `tool/call` の summary が `read notes.txt` / `edit notes.txt lines: 1 → 1` / `bash echo x; exit 3`、失敗した bash の result が `exit 3` で、ファイルも実際に変わっている）。`bun run check` 731 pass / 1 skip / 0 fail。
   - 学び: 表示を「イベントに記録する」形にすると、UI ごとの再現が要らなくなる（TUI・Web・replay が同じ 1 行を読む）。同時に、**既定と同じものしか返さない presenter は消した**——足す前に「これは既定と何が違うか」を問うと、8 個のうち 6 個は不要だった。
   - 未確認: dsh は presenters に加えてノードレジストリ（カードの種類）と locale 所有の文言を持つ。fudo は 1 行のテキストに畳むだけで、カードも差分の描画も持たない（`edit` は行数 `lines: 2 → 3` を出すが、diff そのものは描かない）。`summary` は schema 上の optional なので、E3 の記録 fixture（既存の session.v1.jsonl）は summary 無しのまま読める。
-- [ ] **E2 画面**。セッション一覧とブラウズ、設定ページ、デスクトップ、SDK/ACP。fudo の `list()` は CLI/TUI/Web から一度も呼ばれていない（`fudo:packages/core/session/src/sessions.ts:83`）。
+- [x] **E2 画面**。セッション一覧とブラウズ、設定ページ、デスクトップ、SDK/ACP。fudo の `list()` は CLI/TUI/Web から一度も呼ばれていない（`fudo:packages/core/session/src/sessions.ts:83`）。
+  - 実装（2026-10-14）:
+    - 設計文書を改訂した。web 設計の「やらない」から**セッション一覧**を外し、CLI に置く方針を明記（`fudo sessions` が一覧、`fudo sessions <id>` が 1 セッションの会話を読む）。Web は起動時に渡された 1 セッションを購読するままで、一覧と切り替えは持たない（切り替えは boot が渡すセッション id の面を作り直すことになり S8 の範囲を超える）。デスクトップ・SDK・ACP は除外のままである。設定は `fudo config`（ファイル）と `fudo --dump-config`（実効値と出どころ、D5）が見せる。kernel 設計の CLI 使用例にも 2 行足した。
+    - `apps/cli/src/session-list.ts`: `sessionRootOf`（profile の `@fudo/session-jsonl` 行の `root`。無ければ `~/.fudo/sessions`）、`renderSessionList`（新しい順に id / 開始時刻 / cwd）、`renderTranscript`（`deriveMessages` が畳んだ会話を `[user]` / `[assistant]` / `[tool result]` で出す）、`renderSessionHead`。
+    - `apps/cli/src/bin.ts` に `printSessions` を足し、`fudo sessions [id]` を `main` の `models` と同じ位置で分岐。これが `Sessions.list()` / `open()` の**初めての実呼び出し**である（`grep` で caller が無いことを確認済み）。`parseArgs` は単語の解釈を `wordsOf` に切り出した（複雑度が閾値に達したため）。
+  - 検証: `session-list.test.ts` 5 本（root は行から取り `~` を展開する／行が無い・無効な行は既定に落ちる／一覧は新しい順で空ならそう言う／transcript は user / assistant / tool を出す／空のログは「まだ何も」と言う）、e2e `sessions-e2e.test.ts` 2 本（実 CLI で、走らせたセッションが `fudo sessions` に出て `fudo sessions <id>` が `[user] how many files` と `[assistant] …` を出す／存在しない id は `no session <id>` で exit 1）。`bun run check` 738 pass / 1 skip / 0 fail。
+  - 学び: 一覧のテストで `split(/\s+/)` を書いたつもりが `split(/s+/)` になっており、id が 65 文字になって落ちた（エスケープが 1 つ落ちた）。**表示の検証は「受け取った文字列そのもの」を先に見せる**と原因が一目で分かる（今回は期待値を空文字にして received を出し、リスト自体は正しいと分かった）。
+  - 未確認: TUI と Web はセッション一覧を出さない（Web は設計で除外、TUI は `--resume <id>` で 1 つ選ぶ）。デスクトップ・SDK・ACP は無い。ブラウズは会話（メッセージ）だけで、承認・ask・job の往復は出さない（`deriveMessages` が畳む範囲のみ）。`fudo sessions` は `--json` を無視する（一覧は素のテキスト）。
 - [ ] **E3 検証機構**。fudo の記録 fixture は SSE 1 本、coverage 閾値・doc gate・重複 gate・i18n・real-API lane は無い（`fudo:packages/test-support/replay/src/index.ts:9`、`package.json:13`）。dsh は 227 シナリオをキー無しで出荷構成のまま再生し、ファイル単位 100% coverage を gate する（`dsh:vitest.snapshot.config.ts:32`、`dsh:vitest.config.ts:381`）。受け入れ: 退行が記録の再生で捕まる。
 
 ## 未確認
