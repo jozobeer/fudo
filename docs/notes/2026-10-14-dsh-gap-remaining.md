@@ -53,8 +53,11 @@
 ## 5. 検証機構（層6）
 
 - [ ] **記録の corpus**。現在値: 2 件（`fudo:apps/cli/tests/snapshots/`）。dsh は 227 シナリオ / 1,555 ファイルをキー無しで再生する（`dsh:vitest.snapshot.config.ts:32`）。受け入れ: 主要経路（tool 失敗、承認拒否、compaction 発火、resume、subagent）がそれぞれ1本以上の記録で再生される。
-- [ ] **coverage 閾値**。現在値: `test:coverage` があるだけ（`fudo:package.json:13`）。受け入れ: 閾値を下回ると `bun run check` が落ちる。
-- [ ] **doc gate・重複検出・real-API lane**。現在値: いずれも無し。real-API は鍵が無ければ skip する形で足す。
+- [x] **coverage 閾値**。`bun run check` は `scripts/coverage-gate.ts` を通す。lcov の LF/LH と FNF/FNH を合計し、lines 93% / functions 92% を下回ると、どの指標が落ちたかを stderr に出して 1 で終わる（2026-10-14 の実測は lines 94.58% / functions 93.49%）。bunfig の `coverageThreshold` は使わない——Bun 1.4.3 は値（0.01 でも）を読んだうえで毎回無言で失敗する。受け入れ: 床を 99 に上げると `bun run check` が `fudo: coverage fell below the floor: lines, functions` で落ちることを実走で確認した。
+- [x] **doc gate・重複検出・real-API lane**。
+  - doc gate: `scripts/doc-gate.ts` が docs/ と README の相対リンクと `fudo:<path>` 参照を解決し、無ければ 1 で落ちる（17 ファイル）。既に壊れていた 5 本のリンクも直した。受け入れ: README に切れたリンクを足すと `README.md: link points nowhere` で落ちる。
+  - 重複検出: `scripts/duplication-gate.ts` が jscpd を bunx で走らせ、production の src と scripts で 12 行 / 70 トークン以上の反復が 1 つでもあれば落ちる（tests と fixtures は除外）。初回に実際 1 件見つかり、`childAnswerOf` を共有して消した（`fudo:packages/core/tools-tier1/src/child-answer.ts`）。jscpd は devDependency にできなかった——`bun add` が sandbox の外の temp dir に書けず EPERM になるため bunx で取る（初回のみ net が要る）。受け入れ: 同じ 15 行を 2 つの src に足すと `1 duplicated runs` で落ちる。
+  - real-API lane: `fudo:apps/cli/tests/real-api-e2e.test.ts` が `OLLAMA_API_KEY` の無い環境では skip し、あるときは出荷 profile で 1 turn を走らせ、外部状態（書かれたファイル）だけを判定する。この環境はキーが無いので skip のままである。
 - [x] **提示層**。v1 はカードを持たない、と [S8 の設計](../superpowers/specs/2026-10-13-fudo-web-design.md) に書いた。理由は、1 行要約がログに残って TUI・Web・replay が同じ行を読むこと、カードはクライアントごとの描画契約を増やすこと、差分は edit の要約と read の行番号で足りること。見直す条件（1 行では追えない・markdown をそのまま読みたい）も書いた。
 
 ## 6. 挙動の実測（未着手）
