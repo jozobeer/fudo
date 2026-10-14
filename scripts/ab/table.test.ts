@@ -2,11 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import type { AbMetrics } from './metrics.ts'
 import { tableOf, type Cell } from './table.ts'
 
-const metricsOf = (toolCalls: number): AbMetrics => ({
+const metricsOf = (toolCalls: number, compactions = 0): AbMetrics => ({
   toolCalls,
   failedEdits: 0,
   reReads: 1,
   turns: 1,
+  compactions,
   tools: {},
 })
 
@@ -25,18 +26,28 @@ const summaryOf = (cells: ReadonlyArray<Cell>): ReadonlyArray<string> =>
 
 describe('the A/B summary', () => {
   test('says how many runs its numbers come from', () => {
-    const cells = [cellOf(0, metricsOf(3)), cellOf(1, undefined), cellOf(2, metricsOf(5))]
+    const cells = [cellOf(0, metricsOf(3, 2)), cellOf(1, undefined), cellOf(2, metricsOf(5))]
 
     expect(summaryOf(cells)).toEqual([
-      '| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads |',
-      '|---|---|---|---|---|---|---|---|---|',
-      '| fudo | fix-add | 3 | 2 | 3 | 3-5 (4.0) | 1 | 0 | 1 |',
+      '| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads | compactions |',
+      '|---|---|---|---|---|---|---|---|---|---|',
+      '| fudo | fix-add | 3 | 2 | 3 | 3-5 (4.0) | 1 | 0 | 1 | 0-2 (1.0) |',
+    ])
+  })
+
+  test('each run shows its own compactions', () => {
+    const lines = tableOf([cellOf(0, metricsOf(3, 2))], []).split('\n')
+
+    expect(lines.slice(0, 3)).toEqual([
+      '| harness | task | run | done | tool calls | failed edits | re-reads | turns | compactions | exit | note |',
+      '|---|---|---|---|---|---|---|---|---|---|---|',
+      '| fudo | fix-add | 1 | yes | 3 | 0 | 1 | 1 | 2 | 0 |  |',
     ])
   })
 
   test('a group with no counted run shows no numbers', () => {
     const cells = [cellOf(0, undefined), cellOf(1, undefined)]
 
-    expect(summaryOf(cells)[2]).toBe('| fudo | fix-add | 2 | 0 | 2 | - | - | - | - |')
+    expect(summaryOf(cells)[2]).toBe('| fudo | fix-add | 2 | 0 | 2 | - | - | - | - | - |')
   })
 })

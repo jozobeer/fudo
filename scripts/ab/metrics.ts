@@ -1,8 +1,8 @@
 /**
  * What the A/B counts: tool calls, failed edits, re-reads of a file already
- * read, and turns. Both harnesses keep an append-only JSONL log and spell the
- * call the same way; only the result's failure flag sits in a different place,
- * which is what the two shapes below say.
+ * read, turns, and compactions. Both harnesses keep an append-only JSONL log and
+ * spell the call the same way; the result's failure flag and the name of a
+ * written summary differ, which is what the two shapes below say.
  */
 
 export interface AbMetrics {
@@ -12,6 +12,8 @@ export interface AbMetrics {
   /** Read calls for a path this same session had already read. */
   readonly reReads: number
   readonly turns: number
+  /** Summaries written when the context crossed the compaction line. */
+  readonly compactions: number
   readonly tools: Readonly<Record<string, number>>
 }
 
@@ -24,6 +26,8 @@ interface AbEvent {
 interface LogShape {
   /** The call a failed result answers, or undefined when the result is not a failure. */
   readonly failedCallOf: (data: Record<string, unknown>) => string | undefined
+  /** The event a written summary is logged as. */
+  readonly summaryType: string
 }
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
@@ -73,11 +77,13 @@ const count = (events: ReadonlyArray<AbEvent>, shape: LogShape): AbMetrics => {
   let failedEdits = 0
   let reReads = 0
   let turns = 0
+  let compactions = 0
 
   for (const event of events) {
     const data = asRecord(event.data)
     if (data === undefined) continue
     if (event.type === 'turn/start') turns += 1
+    if (event.type === shape.summaryType) compactions += 1
     if (event.type === 'tool/call') {
       const call = callOf(data)
       toolCalls += 1
@@ -94,13 +100,21 @@ const count = (events: ReadonlyArray<AbEvent>, shape: LogShape): AbMetrics => {
       if (callId !== undefined && callNames.get(callId) === 'edit') failedEdits += 1
     }
   }
-  return { toolCalls, failedEdits, reReads, turns, tools: Object.fromEntries(tools) }
+  return {
+    toolCalls,
+    failedEdits,
+    reReads,
+    turns,
+    compactions,
+    tools: Object.fromEntries(tools),
+  }
 }
 
 /** The fudo log carries the failure flat on the result's data. */
 export const fudoMetrics = (events: ReadonlyArray<AbEvent>): AbMetrics =>
   count(events, {
     failedCallOf: (data) => (data['isError'] === true ? stringOf(data['callId']) : undefined),
+    summaryType: 'compaction/checkpoint',
   })
 
 /** The dsh log nests the result's message, and its failure sits inside it. */
@@ -110,4 +124,5 @@ export const dshMetrics = (events: ReadonlyArray<AbEvent>): AbMetrics =>
       const message = asRecord(data['message'])
       return message?.['isError'] === true ? stringOf(message['toolCallId']) : undefined
     },
+    summaryType: 'compaction/summary',
   })

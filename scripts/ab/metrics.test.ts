@@ -61,6 +61,24 @@ describe('the A/B counters', () => {
     expect(metrics.reReads).toBe(1)
   })
 
+  test('count the summaries each harness wrote when the context ran out', () => {
+    const fudo = fudoMetrics([
+      { type: 'compaction/checkpoint', data: { summary: 'one' } },
+      { type: 'compaction/prune', data: {} },
+      { type: 'compaction/checkpoint', data: { summary: 'two' } },
+    ])
+    const dsh = dshMetrics([
+      { type: 'compaction/start', data: {} },
+      { type: 'compaction/summary', data: { summary: 'one' } },
+      { type: 'compaction/end', data: {} },
+      { type: 'compaction/checkpoint', data: { summary: 'not a dsh summary' } },
+    ])
+
+    expect(fudo.compactions).toBe(2)
+    expect(dsh.compactions).toBe(1)
+    expect(fudoMetrics(fudoEvents).compactions).toBe(0)
+  })
+
   test('a read whose path cannot be found stops the count instead of reading as no re-read', () => {
     const readOf = (args: string) => [
       { type: 'tool/call', data: { callId: 'r1', name: 'read', arguments: args } },
