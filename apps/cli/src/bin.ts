@@ -1,15 +1,5 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
 import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
-import { kernelPlugin, type Plugin, type PluginRow } from '@fudo/kernel'
-import { llmOpenAiPlugin } from '@fudo/llm-openai'
-import { sessionPlugin } from '@fudo/session'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { type PluginRow } from '@fudo/kernel'
 import type { TuiIo } from '@fudo/tui'
 import { Effect, Stream } from 'effect'
 import { type SearchHost } from '@fudo/tools-tier1'
@@ -18,24 +8,9 @@ import { configPaths, loadSecrets } from './config.ts'
 import { loadConfigFile, type FudoConfig } from './config-file.ts'
 import { loadEnvFrom } from './env-file.ts'
 import { listModels, modelEndpointOf } from './models.ts'
+import { bundledPlugins } from './plugins.ts'
 import { searchFromEnv } from './search-env.ts'
 import { profileRows, runCommand, type CommandOptions } from './index.ts'
-
-/** Every plugin the S1 bundle can assemble. */
-export const bundledPlugins: ReadonlyArray<Plugin<any, any, any>> = [
-  kernelPlugin,
-  sessionJsonlPlugin,
-  sessionPlugin,
-  toolsPlugin,
-  systemPromptPlugin,
-  llmOpenAiPlugin,
-  agentPlugin,
-  agentLoopPlugin,
-  safetyPlugin,
-  askPlugin,
-  tier0Plugin,
-  tier1Plugin,
-]
 
 export interface MainIo {
   readonly stdout: (text: string) => void
