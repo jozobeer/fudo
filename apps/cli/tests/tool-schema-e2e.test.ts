@@ -128,6 +128,7 @@ describe('the tool declarations the model receives', () => {
       'job_start',
       'job_output',
       'job_kill',
+      'job_list',
       'working_directory',
     ])
     expect(tools.flatMap((tool) => toolSchemaIssues(tool))).toEqual([])

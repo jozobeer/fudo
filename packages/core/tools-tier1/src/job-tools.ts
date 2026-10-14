@@ -73,9 +73,46 @@ export const makeJobKillTool = (
   execute: (args) => jobs.kill(args.id).pipe(Effect.map(() => ({ id: args.id }))),
 })
 
+/** One background job as the model sees it in the list. */
+export interface JobSummary {
+  readonly id: string
+  readonly command: string
+  readonly running: boolean
+}
+
+const jobLine = (job: JobSummary): string =>
+  job.id + (job.running ? ' running: ' : ' finished: ') + job.command
+
+/** Lists the background jobs, so work already running is visible before more is started. */
+export const makeJobListTool = (
+  jobs: JobsShape,
+): ToolDefinition<Record<string, never>, ReadonlyArray<JobSummary>> => ({
+  name: 'job_list',
+  description:
+    'Lists the background jobs this session started and whether each is still running. Use it before starting work that may already be running, and to find the id of a job to read or stop.',
+  parameters: Schema.Struct({}),
+  needs: ['read'],
+  output: {
+    schema: Schema.Array(
+      Schema.Struct({ id: Schema.String, command: Schema.String, running: Schema.Boolean }),
+    ),
+    render: (_args, value) => [
+      {
+        type: 'text',
+        text: value.length === 0 ? '(no background jobs)' : value.map(jobLine).join('\n'),
+      },
+    ],
+  },
+  execute: () =>
+    Effect.sync(() =>
+      jobs.list().map((job) => ({ id: job.id, command: job.command, running: job.running })),
+    ),
+})
+
 /** The background job tools over one registry the caller owns. */
 export const jobTools = (jobs: JobsShape): ReadonlyArray<ToolDefinition<any, any>> => [
   makeJobStartTool(jobs),
   makeJobOutputTool(jobs),
   makeJobKillTool(jobs),
+  makeJobListTool(jobs),
 ]
