@@ -1,6 +1,7 @@
 import { forkSeed, type SessionEvent } from '@fudo/session'
+import { childAnswerOf } from './child-answer.ts'
 import { Schema, Effect } from 'effect'
-import type { Agent, AgentsShape } from '@fudo/agent'
+import type { AgentsShape } from '@fudo/agent'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
@@ -46,19 +47,6 @@ export type SubagentArgs = Schema.Schema.Type<typeof Parameters>
 export interface SubagentValue {
   readonly sessionId: string
   readonly text: string
-}
-
-const textOf = (agent: Agent): string => {
-  const events = agent.session.events()
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    if (event?.type === 'assistant/message') {
-      return event.data.content
-        .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-        .join('')
-    }
-  }
-  return ''
 }
 
 /**
@@ -122,7 +110,7 @@ export const makeSubagentTool = (
             ),
           )
         yield* child.whenIdle
-        return { sessionId: child.id, text: textOf(child) }
+        return { sessionId: child.id, text: childAnswerOf(child) }
       }),
   }
 }

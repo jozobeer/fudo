@@ -1,6 +1,7 @@
 import { Schema, Effect } from 'effect'
-import type { Agent, AgentsShape } from '@fudo/agent'
+import type { AgentsShape } from '@fudo/agent'
 import { forkSeed, type JsonValue, type SessionEvent } from '@fudo/session'
+import { childAnswerOf } from './child-answer.ts'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 /** How many children a workflow runs at once unless the caller says otherwise. */
@@ -51,20 +52,6 @@ export interface WorkflowHost {
 
 const failed = (id: string, error: string): WorkflowItem => ({ id, value: null, error })
 
-/** The last text a child said, which is what it answered with. */
-const answerOf = (agent: Agent): string => {
-  const events = agent.session.events()
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    if (event?.type === 'assistant/message') {
-      return event.data.content
-        .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-        .join('')
-    }
-  }
-  return ''
-}
-
 /** An answer that had to be JSON and was not becomes a failed item, not a failed run. */
 const parseAnswer = (id: string, answer: string): WorkflowItem => {
   try {
@@ -96,7 +83,7 @@ const runTask = (
       .pipe(Effect.orElseSucceed(() => false))
     if (queued === false) return failed(task.id, 'the child agent took no message')
     yield* child.whenIdle
-    const answer = answerOf(child)
+    const answer = childAnswerOf(child)
     return task.expect === 'json' ? parseAnswer(task.id, answer) : { id: task.id, value: answer }
   })
 
