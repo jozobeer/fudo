@@ -86,13 +86,14 @@ YAML では plugin 名を引用する（`name: '@fudo/safety'`）。`@` で始�
 | `--patch <file.yml>` | 層4の行。複数回で複数ファイル |
 | `--config <file.yml>` | 設定ファイルのパス |
 | `--resume <sessionId>` | 過去のセッションを開く |
+| `--allow-preset-change` | 記録と違う構成でも再開する（C6） |
 | `--port <N>` | `fudo web` のポート。0 は空きポート |
 | `--json` | セッションイベントを JSON 行で出す |
 | `--tui` | パイプ越しでも端末 UI を開く |
 | `--dump-config` | 設定面を出力して終わる |
 | `--help` | 使い方を出力して終わる |
 
-サブコマンドは `models`（provider のモデル一覧）、`web`（ブラウザ UI）、`config`（設定の表示と書き込み）、`auth`（秘密の保存）である。それ以外の位置引数は1 turn のタスクになる。
+サブコマンドは `models`（provider のモデル一覧）、`web`（ブラウザ UI）、`sessions`（ログの一覧と 1 つの読み戻し）、`config`（設定の表示と書き込み）、`auth`（秘密の保存）である。それ以外の位置引数は1 turn のタスクになる。
 
 `fudo config` は引数なしで今の設定を表示する。書き込みは次の通りで、いずれも書く前に schema で検証し、ファイルのコメントと他のキーは残す。
 

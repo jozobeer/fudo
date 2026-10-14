@@ -1,16 +1,18 @@
 # S1 受け入れ記録（2026-10-13）
 
+この文書はその時点の記録である。パッケージのパスはその後 `packages/app/cli` → `apps/cli` に移り（本文は更新済み）、下の「未了」3 項目（実 API の 1 turn、Enter ごとの逐次対話、並列実行）はその後すべて済みである。現在の状況は [2026-10-13-v1-status.md](2026-10-13-v1-status.md) を正とする。
+
 検査は bun run check（fmt:check → oxlint → tsc → test）。作業ツリーはクリーン。
 
 ## 完了条件ごとの証拠
 
 | 条件 | 状態 | 証拠 |
 |---|---|---|
-| 1. fudo --profile headless の 1 turn 完走 | 実 API キー待ち（経路は実装済み） | packages/app/cli/src/{bin,run,index}.ts、packages/app/cli/tests/headless.test.ts |
-| 2. --resume が復元した history で 2 turn 目を走る | 済 | packages/app/cli/tests/resume.test.ts |
-| 3. tool 例外 / retry / cancel で対と turn/end.reason が正しい | 済 | packages/core/agent-loop/tests/loop.test.ts、packages/app/cli/tests/interrupt.test.ts |
-| 4. 録画 fixture を API キー無しで実スタックに通す | 済 | packages/test-support/replay/、packages/app/cli/tests/replay.test.ts |
-| 5. profile の合成・--dump-config・--patch・--profile | 済 | packages/bundle/base/tests/、packages/app/cli/tests/bin.test.ts と profile-flag.test.ts |
+| 1. fudo --profile headless の 1 turn 完走 | 実 API キー待ち（経路は実装済み） | apps/cli/src/{bin,run,index}.ts、apps/cli/tests/headless.test.ts |
+| 2. --resume が復元した history で 2 turn 目を走る | 済 | apps/cli/tests/resume.test.ts |
+| 3. tool 例外 / retry / cancel で対と turn/end.reason が正しい | 済 | packages/core/agent-loop/tests/loop.test.ts、apps/cli/tests/interrupt.test.ts |
+| 4. 録画 fixture を API キー無しで実スタックに通す | 済 | packages/test-support/replay/、apps/cli/tests/replay.test.ts |
+| 5. profile の合成・--dump-config・--patch・--profile | 済 | packages/bundle/base/tests/、apps/cli/tests/bin.test.ts と profile-flag.test.ts |
 | 6. bun run check が緑 | 済 | 直近の実行で 0 fail |
 
 ## 未了（S1 の残り）
@@ -21,16 +23,16 @@
 
 ## テスト資産の棚卸し
 
-packages/app/cli/tests/bin.test.ts
-packages/app/cli/tests/headless.test.ts
-packages/app/cli/tests/interrupt.test.ts
-packages/app/cli/tests/main-lines.test.ts
-packages/app/cli/tests/profile-flag.test.ts
-packages/app/cli/tests/repl.test.ts
-packages/app/cli/tests/replay.test.ts
-packages/app/cli/tests/resume.test.ts
-packages/app/cli/tests/route.test.ts
-packages/app/cli/tests/run.test.ts
+apps/cli/tests/bin.test.ts
+apps/cli/tests/headless.test.ts
+apps/cli/tests/interrupt.test.ts
+apps/cli/tests/main-lines.test.ts
+apps/cli/tests/profile-flag.test.ts
+apps/cli/tests/repl.test.ts
+apps/cli/tests/replay.test.ts
+apps/cli/tests/resume.test.ts
+apps/cli/tests/route.test.ts
+apps/cli/tests/run.test.ts
 packages/bundle/base/tests/assembly.test.ts
 packages/bundle/base/tests/profile.test.ts
 packages/bundle/base/tests/profiles.test.ts

@@ -52,11 +52,14 @@ export interface ScenarioOutcome {
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
+/** An instant written the way the runtime context says it: it moves between runs. */
+const INSTANT = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g
 
 const replaced = (text: string, tokens: ReadonlyArray<readonly [string, string]>): string =>
   tokens
     .reduce((current, [value, token]) => current.split(value).join(token), text)
     .replace(UUID, '<uuid>')
+    .replace(INSTANT, '<time>')
 
 /** The fields that change every run, wherever they sit in an event. */
 const UNSTABLE = /^(time\d*|dt|duration|createdAt|mtimeMs|startedAt|firedAt)$/

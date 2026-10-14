@@ -1,5 +1,7 @@
 # S7 TUI / S8 Web UI 受け入れ記録（2026-10-14）
 
+この文書はその時点の受け入れ記録である。テスト数と、その後に足した差（commands / goal / schedule / workflow / team / plugin / sandbox の既定 / 承認の既定 / session の耐久性 / presentation / sessions）は [2026-10-13-v1-status.md](2026-10-13-v1-status.md) と [2026-10-14-dsh-gap-backlog.md](2026-10-14-dsh-gap-backlog.md) を正とする。
+
 検査は `bun run check`（fmt:check → oxlint → tsc → typecheck:web → cccc → test）。直近は 418 tests / 130 files / 0 fail。
 
 ## S7 の完了条件ごとの証拠

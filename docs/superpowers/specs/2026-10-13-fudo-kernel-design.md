@@ -24,11 +24,11 @@ v1 は、dsh の base bundle と同等のツールセットを日常のコーデ
 | S3 Tier 0 | `read` / `write` / `edit` / `glob` / `grep` / `bash` |
 | S4 Tier 1 | compaction、spill、tool call timeout、`todo_write`、AGENTS.md の読み込み |
 | S5 Tier 2 | skill、web（search と fetch）、MCP、ask-user、plan-mode、`read_image` |
-| S6 Tier 3 | subagent（fork を含む）、jobs、goal、workflow（PTC）、working-directory |
+| S6 Tier 3 | subagent（fork / fresh / route 指名を含む）、jobs、goal、workflow（PTC）、team（roster と board）、schedule、コマンド、plugin、working-directory |
 | S7 TUI | S1 のイベントを描画する端末 UI。行単位の REPL は S7 までの足場で、S7 で置き換える |
 | S8 Web UI | S1 をローカルサーバー越しに操作するブラウザ UI |
 
-依存は S2 以降から S1 への一方向である。S1 は、S2 から S6 の機能を agent loop の変更なしに載せられる拡張点を揃える。S7 と S8 は v1 の後に作る。
+依存は S2 以降から S1 への一方向である。S1 は、S2 から S6 の機能を agent loop の変更なしに載せられる拡張点を揃える。S7 と S8 は v1 の後に作る（2026-10-14 追記: どちらも実装済み。受け入れの記録は [S7/S8 受け入れ記録](../../notes/2026-10-14-s7-s8-acceptance.md)、その後の差の記録は [dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md) にある。新しい提示は web を先に作り、TUI は同じ view を読んで追随する — [S7 の追記](2026-10-13-fudo-tui-design.md) を参照）。
 
 UI と核の間は、プロセス境界を越えられる形に保つ。核の公開面は直列化できるイベントストリームとコマンドに限り、UI に関数やクロージャを渡さない。こうすると S7 は同一プロセスで、S8 は WebSocket 越しに、同じプロトコルで核を使える。
 

@@ -43,6 +43,8 @@ fudo                                     # 端末 UI（TTY が要る）
 fudo "Reply with the single word pong"   # 1 turn 走らせて終わる
 fudo --json "..."                        # セッションイベントを JSON 行で出す
 fudo --resume <sessionId>                # 過去のログを端末 UI に描く
+fudo sessions                            # ログの一覧（新しい順）
+fudo sessions <sessionId>                # 1 つのログを会話として読む
 fudo --dump-config                       # 読み込んだプロファイルと、書ける設定キーを表示する
 ```
 

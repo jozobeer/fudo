@@ -35,5 +35,5 @@
 ## 検証
 
 - packages/core/tools-tier0/tests/: read / write / edit / glob / grep / bash / tools（一覧と needs）/ plugin（loader 経由で sandbox が渡る）/ approval（exec は承認される）。
-- packages/app/cli/tests/tools-e2e.test.ts: 10 行の profile でモデルが read を呼び、実 registry と pipeline を通り、ファイル内容がログに残る。
-- packages/app/cli/tests/approval-e2e.test.ts: workspace-write では bash が承認要求になり拒否で止まる。full では問い合わせず実行される。
+- apps/cli/tests/tools-e2e.test.ts: 10 行の profile でモデルが read を呼び、実 registry と pipeline を通り、ファイル内容がログに残る。
+- apps/cli/tests/approval-e2e.test.ts: workspace-write では bash が承認要求になり拒否で止まる。full では問い合わせず実行される。
