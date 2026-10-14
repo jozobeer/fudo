@@ -47,6 +47,32 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |
 | パッケージのファイルごとに 100% のカバレッジ gate | Bun の coverage がファイル単位の閾値を持つかは未確認である。主な証拠は replay snapshot と contract テストが担う。coverage report は出力する |
 
+## dsh にあって fudo が持たないツール（2026-10-14 追記）
+
+[dsh のギャップ表](2026-10-14-dsh-gap-backlog.md)の B6 にあるツールを、S1〜S8 の範囲表と突き合わせた結果である。「採用」は fudo の設計に載るので実装する、「除外」は fudo の設計が意図的に持たない、「他所」は別の項目が引き受ける。
+
+| dsh のツール | 判定 |
+|---|---|
+| `pwsh` | 除外。fudo の sandbox は macOS Seatbelt（S2）で、対象は POSIX シェルだけである |
+| `job_list` | 採用。S6 の jobs。`JobsShape.list` が既にあり、走っている背景仕事をモデルが見る手段が要る |
+| subagent 制御（`send_message` / `interrupt_agent` / `list_agents` / `wait_agent`） | 採用。S6 の subagent。子に話しかけ、止め、終わるのを待つ |
+| `subagent_fork` | 採用。S6 の範囲表が「subagent（fork を含む）」と定めている |
+| `list_subagent_models` | 除外。fudo はモデルを起動時の `route` で選び、model registry を持たない |
+| `exit_plan_mode` | 採用。S5 の plan-mode。制限を解く出口をモデルに与える |
+| `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である |
+| `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |
+| `workflow` | ツールとしては持たない。S6 の決定 4 により、同じ turn の並列ツール呼び出し（`isConcurrencySafe`）がこれを担う |
+| MCP resources | 除外。S5 の MCP は「ツール一覧の取り込みと実行だけ」と決めている |
+| session query 5 種 | 他所。D4（session の耐久性）が引き受ける |
+| schedule 4 種 | 他所。C2（schedule）が引き受ける |
+| `terminal` 6 種（PTY） | 除外。fudo に端末セッションの概念は無く、`bash` と `job_*` がその役目を負う |
+| `computer` / browser use | 除外。画面を操作する client を持たない |
+| `plugin_manager` | 除外。上の表の「plugin-manager、typert」と同じ理由である |
+| `str_replace_editor` | 対応済み。fudo の `edit` が同じ操作で、名前だけが違う |
+| `ralph` | 除外。dsh 固有の継続ループである。fudo の続きは `goal`（C1）と CLI の再実行が担う |
+| `create_worktree` | 除外。git worktree の管理はどの S の範囲にも無い |
+| `team_*` | 除外。fudo の委譲は親子の subagent だけで、team の編成を持たない |
+
 ## S1 の設計
 
 ### リポジトリ構成
