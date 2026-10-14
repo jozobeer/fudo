@@ -9,7 +9,7 @@ import {
 } from '@fudo/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { makeBashTool } from '../src/index.ts'
+import { BASH_MAX_TIMEOUT_MS, clampTimeout, makeBashTool } from '../src/index.ts'
 
 const call = (
   tool: ToolDefinition<any, any>,
@@ -30,12 +30,21 @@ const call = (
     }),
   )
 
+const textOf = (result: ToolExecutionResult | undefined): string =>
+  (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+
 describe('bash tool', () => {
   test('runs a command and returns its output', async () => {
     const result = await Effect.runPromise(call(makeBashTool(), { command: 'echo hi' }, '/tmp'))
 
     expect(result?.isError).toBe(false)
-    expect(result?.value).toEqual({ exitCode: 0, stdout: 'hi\n', stderr: '' })
+    expect(result?.value).toMatchObject({
+      exitCode: 0,
+      stdout: 'hi\n',
+      stderr: '',
+      timedOut: false,
+    })
+    expect(textOf(result)).toBe('hi\n')
   })
 
   test('runs the command the sandbox wrapped', async () => {
@@ -49,13 +58,50 @@ describe('bash tool', () => {
       call(makeBashTool(wrapping), { command: 'echo raw' }, '/tmp'),
     )
 
-    expect(result?.value).toEqual({ exitCode: 0, stdout: 'wrapped\n', stderr: '' })
+    expect(result?.value).toMatchObject({ exitCode: 0, stdout: 'wrapped\n' })
   })
 
-  test('a failing command is an error result with its output', async () => {
-    const result = await Effect.runPromise(call(makeBashTool(), { command: 'exit 3' }, '/tmp'))
+  test('a failing command is reported with its exit code, not thrown away', async () => {
+    const result = await Effect.runPromise(
+      call(makeBashTool(), { command: 'echo bad; exit 3' }, '/tmp'),
+    )
 
-    expect(result?.isError).toBe(true)
-    expect(result?.content).toEqual([{ type: 'text', text: expect.stringContaining('exit 3') }])
+    expect(result?.isError).toBe(false)
+    expect(textOf(result)).toBe('bad\n[exit code: 3]')
+    await Promise.resolve()
+  })
+
+  test('stderr is marked as its own section', async () => {
+    const result = await Effect.runPromise(
+      call(makeBashTool(), { command: 'echo out; echo err >&2' }, '/tmp'),
+    )
+
+    expect(textOf(result)).toBe('out\n[stderr]\nerr\n')
+  })
+
+  test('a silent command still says something', async () => {
+    const result = await Effect.runPromise(call(makeBashTool(), { command: 'true' }, '/tmp'))
+
+    expect(textOf(result)).toBe('(no output)')
+  })
+
+  test('a command that outlives its timeout is killed and says so', async () => {
+    const started = Date.now()
+
+    const result = await Effect.runPromise(
+      call(makeBashTool(), { command: 'sleep 30', timeoutMs: 300 }, '/tmp'),
+    )
+    const elapsed = Date.now() - started
+
+    expect(result?.isError).toBe(false)
+    expect(textOf(result)).toContain('[timed out after 300ms]')
+    expect(elapsed).toBeLessThan(10_000)
+  })
+
+  test('the timeout is clamped to what the tool allows', () => {
+    expect(clampTimeout(undefined)).toBe(120_000)
+    expect(clampTimeout(500)).toBe(500)
+    expect(clampTimeout(10_000_000)).toBe(BASH_MAX_TIMEOUT_MS)
+    expect(clampTimeout(0)).toBe(1)
   })
 })

@@ -107,7 +107,14 @@
   - 検証: `walk.test.ts` 7 本（node_modules・.git・隠しを辿らない／.gitignore と .ignore の適用と最後の規則が勝つ／nested pattern のアンカー／limit で止まる／NUL 判定／ディレクトリ規則は同名ファイルに効かない／ignore ファイルが無ければ規則も無い）と `search.test.ts` 7 本（sorted listing／glob は node_modules を辿らない／glob の上限フッター／grep の file:line:text／不正パターンの事前拒否／grep はバイナリと node_modules を検索しない／grep の上限フッター）、e2e `apps/cli/tests/search-recovery-e2e.test.ts`（2000 件ヒット → 結果は spill され、spill ファイルに最初と最後の一致が入り、モデルが offset で末尾を読める。spill ディレクトリは 0700）。`bun run check` 588 pass / 0 fail。
   - 学び: grep の既定上限を当初 1000 にしていたが、これは spill の 32 KiB より先に効くため「結果の全量に手が届く」を壊す。e2e がそれを露見させた（spill ファイルに最後の一致が無かった）。上限は「メッセージに載る量」より上に置き、切る場所を spill に一本化する。
   - 未確認: 入れ子の `.gitignore` は読まない（root のみ）。否定規則で無視ディレクトリの中を復活させることはできない（枝を切るため）。`.` 始まりのディレクトリも規則では復活できない。git の `.git/info/exclude` と global excludes は見ない。
-- [ ] **B5 bash**。fudo は timeout が一切なく、exit code はエラー文字列に埋まり、打ち切り先も告げない（`fudo:packages/core/tools-tier0/src/bash.ts:42`）。dsh は既定120秒/最大600秒、`[exit code: N]` マーカー、退避先つきの打ち切り通知、背景実行を持つ（`dsh:packages/shell/tool-bash/src/render.ts:11`）。受け入れ: ハングせず、失敗が失敗として読める。
+- [x] **B5 bash**。fudo は timeout が一切なく、exit code はエラー文字列に埋まり、打ち切り先も告げない（`fudo:packages/core/tools-tier0/src/bash.ts:42`）。dsh は既定120秒/最大600秒、`[exit code: N]` マーカー、退避先つきの打ち切り通知、背景実行を持つ（`dsh:packages/shell/tool-bash/src/render.ts:11`）。受け入れ: ハングせず、失敗が失敗として読める。
+  - 実装（2026-10-14）:
+    - 時間切れを足した。`timeoutMs`（既定 120000、上限 600000、`clampTimeout`）で、時間切れになったらまず SIGTERM、5 秒後（`BASH_HARD_KILL_GRACE_MS`）に SIGKILL を送る。SIGTERM を無視するコマンドでも呼び出しが返る。
+    - 失敗の読み方を dsh に合わせた。非ゼロ終了は **エラー結果ではなく**、出力に `[exit code: N]` を付けた結果として返す（コマンドが失敗したことと呼び出しが失敗したことを混ぜない）。stderr は `[stderr]` 見出しの節にし、無出力なら `(no output)`、時間切れなら `[timed out after Nms]` を exit マーカーの前に置く。sandbox がコマンドを拒否した場合だけエラー結果のまま（インフラの失敗）。
+    - `renderOutput` を `bodyOf` / `markersOf` に割った（認知 9 → 3 以下）。
+  - 検証: `bash.test.ts` 7 本（通常実行／sandbox が包んだ argv を実行／非ゼロ終了は `[exit code: 3]` 付きの結果で isError false／`[stderr]` 節／`(no output)`／`sleep 30` を `timeoutMs: 300` で殺し 303ms で返り `[timed out after 300ms]` を出す／`clampTimeout` の既定・上限・下限）。e2e `apps/cli/tests/bash-result-e2e.test.ts`（実 CLI 経路で、失敗したコマンドの結果がエラーではなく `[exit code: 3]` 付きでモデルに届き、2000 行の出力は spill されて通知に退避先が出て、次の呼び出しでその退避先の末尾を読める）。`bun run check` 593 pass / 0 fail。
+  - 学び: 「失敗が失敗として読める」は、エラー結果にすることではなく、失敗を出力に書くことでも満たせる。むしろツール呼び出しの失敗とコマンドの失敗を分けた方が、エージェントループの再試行判断を汚さない。
+  - 未確認: 時間切れの kill は直接の子（ラッパーや bash）にしか届かない。コマンドが SIGTERM を無視して孫プロセスを残す場合の後始末は sandbox 側の領分で、このチェックアウトでは確認していない。背景実行は tier1 の job_start/job_output/job_kill が担う（`bash` 自身の昇格は持たない）。
 - [ ] **B6 欠けているツール**。pwsh、`job_list`、subagent 制御（send_message / interrupt_agent / list_agents / wait_agent）、subagent_fork、list_subagent_models、exit_plan_mode、present、lsp、workflow、MCP resources、session query 5種、schedule 4種、terminal 6種、computer/browser use、plugin_manager、str_replace_editor、ralph、create_worktree、team_*。
 
 ## C. 自律性・委譲
