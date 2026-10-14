@@ -58,7 +58,15 @@
   - 検証: 単体 `packages/core/tools/tests/spill.test.ts`（read は退避しない／注記がパス・行数・バイト数と read/offset を含む／失敗する writer でも内容が残る）と `spill-store.test.ts`（パスと内容／0700／新 session を開くと古い session が消える／root 直下のファイルは残る／root が無くても壊れない）。e2e `apps/cli/tests/spill-recovery-e2e.test.ts`: 40 KB の bash 出力が退避され、注記のパスをモデル役の stub が `read` で読み戻して末尾マーカーを得る（＝受け入れ条件）。`<fudoHome>/spill/<sessionId>/` にファイルは 1 つ、ディレクトリは 0700、大きい `read` の結果は退避されず inline。既存の spill-e2e / spill-threshold-e2e も通る。`bun run check` 547 pass / 0 fail。
   - 学び: (1) 「戻り道を隠さない」は型では表せず、policy の除外規則でしか守れない。read の結果を退避すると、退避先を読む唯一の手段が退避対象になる。(2) 退避の適用点が pipeline と runner の 2 箇所あり、pipeline 側は spill オプションが常に空で死んでいた。次のコミットで外す。
   - 未確認: dsh のトークン予算ではなくバイト単価のまま（`maxSpillBytes`）。画像ブロックの退避、head+tail の保持、通知の省略数表記は写していない。掃除はセッションを開いたときだけで、走行中の容量上限は無い。
-- [ ] **A7 projection seam**。fudo は未知のイベント型を無言で捨て（`default: []`）、実運用で projection を1本も登録していない（`fudo:packages/core/session/src/derive.ts:29`、`runner.ts:169`）。dsh は投影の無いイベント型で読み込みを失敗させる（`dsh:packages/core/session/src/surface.ts:516`）。受け入れ: プラグインが足したイベントが黙って消えず、実際に使う projection が1本以上ある。
+- [x] **A7 projection seam**。fudo は未知のイベント型を無言で捨て（`default: []`）、実運用で projection を1本も登録していない（`fudo:packages/core/session/src/derive.ts:29`、`runner.ts:169`）。dsh は投影の無いイベント型で読み込みを失敗させる（`dsh:packages/core/session/src/surface.ts:516`）。受け入れ: プラグインが足したイベントが黙って消えず、実際に使う projection が1本以上ある。
+  - 実装（2026-10-14）:
+    - `@fudo/session` に projection registry を置いた。`MessageProjection` はイベント型を1つ所有し（`type`）、畳み込みの途中で `(event, derived) => derived` として呼ばれる。登録は module load 時（`registerMessageProjection` / `registerLogOnlySessionEvents`）で、schemas の登録と同じ流儀。
+    - `deriveMessagesWithSeqs` の判定は ①登録済み projection がある型 → projection に委譲、② core の message 4 種（system/user/assistant/tool result）→ そのまま畳む、③ log-only と宣言された型 → 何も出さない、④ どれでもない型 → `SessionError{code:'projection'}` を投げる。黙って消える経路を塞いだ。
+    - core の log-only は `schemas.ts` で宣言（session/header, session/cwd/changed, turn/start・end, step/start・end, request/header, assistant/attempt, tool/call）。agent（inbox 2 種）と safety（approval 2 種、ask 2 種）も自分の events モジュールで宣言する。
+    - 実際に使う projection: A5 で derive に直書きしていた prune の適用を `pruneProjection`（type `compaction/prune`）に移し、registry 経由で畳み込む。
+  - 検証: `packages/core/session/tests/projections.test.ts`（未投影・未宣言の型で throw し、メッセージに型名が出る／log-only 宣言した型は throw しない／登録した projection が history を作る／同じ型を二度登録すると throw／compaction/prune が実際に使われる projection であること）と `derive.test.ts` の追加 projection 契約。既存の `compaction.test.ts` と A5 の e2e（送った配列 == ログからの derive）は projection 経由でそのまま通る。`bun run check` 552 pass / 0 fail。
+  - 学び: projection の契約は「自分のイベントを丸ごと所有する」。既定の畳み込みは走らないので、projection は自分でメッセージを足す。この曖昧さはテストを書いている途中で露見した（既定の畳み込みの後に呼ばれる想定でテストを書いて落ちた）。
+  - 未確認: profile からプラグインを外して再開した場合、そのプラグインのイベント型は codec の未知型拒否（S1）で先に止まる。derive の throw が e2e に出る経路は作っていない（unit のみ）。dsh の生成カタログに相当する全型一覧の機械生成は持たず、宣言は各パッケージの module load に置く。
 - [ ] **A8 request/header の忠実性**。fudo は provider/model/params だけを毎 step 無条件に書く（`fudo:packages/core/session/src/events.ts:56`）。dsh は組み立て済みのツール schema、reason と series、ツール差分の developer メッセージ、request/context を記録し、同値なら書かず、任意の prefix をログから再構成できる（`dsh:packages/core/session/src/types.ts:234`）。受け入れ: あるリクエストにどのツール schema が渡ったかをログから復元できる。
 
 ## B. ツール実行面

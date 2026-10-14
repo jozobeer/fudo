@@ -1,6 +1,7 @@
 import type { ContentBlock } from '@fudo/llm'
-import { deriveMessagesWithSeqs, prunedSeqs } from './derive.ts'
+import { deriveMessagesWithSeqs, prunedSeqs, type DerivedMessage } from './derive.ts'
 import type { CompactReplacement, CompactionPrune, SessionEvent } from './events.ts'
+import { registerMessageProjection, type MessageProjection } from './projections.ts'
 
 export interface CompactOptions {
   /** Messages at the end that are never touched. */
@@ -48,6 +49,35 @@ const pruneBlocks = (content: ReadonlyArray<ContentBlock>, maxBytes: number): Pr
   }
   return { content: kept, changed, replacedBytes }
 }
+
+/** Replaces the content of the events the prune names, wherever they landed. */
+const applyReplacements = (
+  derived: ReadonlyArray<DerivedMessage>,
+  replacements: ReadonlyArray<CompactReplacement>,
+): ReadonlyArray<DerivedMessage> => {
+  const bySeq = new Map(replacements.map((replacement) => [replacement.seq, replacement.content]))
+  return derived.map((entry) => {
+    const content = bySeq.get(entry.seq)
+    return content === undefined
+      ? entry
+      : { seq: entry.seq, message: { ...entry.message, content } }
+  })
+}
+
+/**
+ * The projection the session actually uses: a recorded prune rewrites the content
+ * of the events it shadows, so the request and the log stay the same thing.
+ */
+export const pruneProjection: MessageProjection = {
+  type: 'compaction/prune',
+  name: 'compaction/prune',
+  project: (event, derived) =>
+    event.type === 'compaction/prune'
+      ? applyReplacements(derived, event.data.replacements)
+      : derived,
+}
+
+registerMessageProjection(pruneProjection)
 
 /**
  * What the next request stops carrying: every message outside the retention whose

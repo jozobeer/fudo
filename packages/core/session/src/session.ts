@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import type { RequestMessage } from '@fudo/llm'
-import { deriveMessages, type MessageProjection } from './derive.ts'
+import { deriveMessages } from './derive.ts'
+import type { MessageProjection } from './projections.ts'
 import { SessionError } from './errors.ts'
 import type { SessionEvent, SessionEventMap, SessionHeader, SessionId } from './events.ts'
 import { isJsonValue } from './json.ts'

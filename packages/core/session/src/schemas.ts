@@ -6,6 +6,7 @@ import {
 } from '@fudo/llm'
 import { Schema } from 'effect'
 import { USER_MESSAGE_SOURCES, type TurnEndReason } from './events.ts'
+import { registerLogOnlySessionEvents } from './projections.ts'
 
 /** Event schemas a decoder accepts, keyed by event type. Plugins add their own. */
 export type SessionEventSchemaMap = ReadonlyMap<string, Schema.Schema<unknown>>
@@ -93,6 +94,20 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
       content: Schema.Array(ContentBlockSchema),
     }),
   ],
+])
+
+// The core events that never become history. A type missing from this list, the
+// message set, and the projection registry fails the fold instead of vanishing.
+registerLogOnlySessionEvents([
+  'session/header',
+  'session/cwd/changed',
+  'turn/start',
+  'turn/end',
+  'step/start',
+  'step/end',
+  'request/header',
+  'assistant/attempt',
+  'tool/call',
 ])
 
 /** The catalog every decoder starts from. */

@@ -1,4 +1,8 @@
-import { registerSessionEventSchemas, type SessionEventSchemaMap } from '@fudo/session'
+import {
+  registerLogOnlySessionEvents,
+  registerSessionEventSchemas,
+  type SessionEventSchemaMap,
+} from '@fudo/session'
 import { Schema } from 'effect'
 
 /** Asks the user to let one call run outside the preset. */
@@ -41,3 +45,5 @@ export const approvalEventSchemas: SessionEventSchemaMap = new Map<string, Schem
 // Logs written here stay readable by every provider, not only by callers that
 // pass the map explicitly.
 registerSessionEventSchemas(approvalEventSchemas)
+// Approvals are shown by the UI and never join the model history.
+registerLogOnlySessionEvents(['safety/approval/requested', 'safety/approval/answered'])

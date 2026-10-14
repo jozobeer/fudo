@@ -1,20 +1,21 @@
-import type { ContentBlock, RequestMessage } from '@fudo/llm'
-import type { SessionEvent, SessionSeq } from './events.ts'
-
-/** A plugin's view of the model history, applied in registration order. */
-export interface MessageProjection {
-  readonly name: string
-  readonly project: (
-    messages: ReadonlyArray<RequestMessage>,
-    events: ReadonlyArray<SessionEvent>,
-  ) => ReadonlyArray<RequestMessage>
-}
+import type { RequestMessage } from '@fudo/llm'
+import { SessionError } from './errors.ts'
+import type { SessionEvent, SessionEventType, SessionSeq } from './events.ts'
+import { logOnlyEventTypes, messageProjections, type MessageProjection } from './projections.ts'
 
 /** One model message with the event that produced it; pruning needs the seq back. */
 export interface DerivedMessage {
   readonly seq: SessionSeq
   readonly message: RequestMessage
 }
+
+/** The event types the fold turns into a message by itself. */
+const MESSAGE_EVENT_TYPES: ReadonlySet<SessionEventType> = new Set([
+  'system/message',
+  'user/message',
+  'assistant/message',
+  'tool/result',
+])
 
 const toMessage = (event: SessionEvent): ReadonlyArray<RequestMessage> => {
   switch (event.type) {
@@ -26,59 +27,86 @@ const toMessage = (event: SessionEvent): ReadonlyArray<RequestMessage> => {
       return [{ role: 'assistant', content: event.data.content }]
     case 'tool/result':
       return [{ role: 'tool', toolCallId: event.data.callId, content: event.data.content }]
-    // A default is honest here: plugins add event types by declaration merging, and
-    // those do not reach the model unless a projection puts them there.
     default:
       return []
   }
 }
 
-/** What every recorded prune carries for the event it shadows, newest record wins. */
-const replacementsOf = (
-  events: ReadonlyArray<SessionEvent>,
-): ReadonlyMap<SessionSeq, ReadonlyArray<ContentBlock>> => {
-  const replacements = new Map<SessionSeq, ReadonlyArray<ContentBlock>>()
-  for (const event of events) {
-    if (event.type !== 'compaction/prune') continue
-    for (const replacement of event.data.replacements) {
-      replacements.set(replacement.seq, replacement.content)
-    }
-  }
-  return replacements
-}
+/** What one event contributes to the fold. */
+type EventStep =
+  | { readonly kind: 'project'; readonly projection: MessageProjection }
+  | { readonly kind: 'messages' }
+  | { readonly kind: 'none' }
 
-/** The events a recorded prune already shadows; a later prune leaves them alone. */
-export const prunedSeqs = (events: ReadonlyArray<SessionEvent>): ReadonlySet<SessionSeq> =>
-  new Set(replacementsOf(events).keys())
-
-/** The messages one event produces, with a recorded replacement where there is one. */
-const messagesOf = (
+/**
+ * Decides how one event reaches the history. A registered projection owns its type,
+ * the core message types fold by themselves, a declared log-only type contributes
+ * nothing, and any other type fails the fold: a plugin's event must not disappear
+ * quietly.
+ */
+const stepOf = (
   event: SessionEvent,
-  replacements: ReadonlyMap<SessionSeq, ReadonlyArray<ContentBlock>>,
-): ReadonlyArray<RequestMessage> => {
-  const content = replacements.get(event.seq)
-  return toMessage(event).map((message) =>
-    content === undefined ? message : { ...message, content },
-  )
+  projections: ReadonlyMap<SessionEventType, MessageProjection>,
+  logOnly: ReadonlySet<SessionEventType>,
+): EventStep => {
+  const projection = projections.get(event.type)
+  if (projection !== undefined) return { kind: 'project', projection }
+  if (MESSAGE_EVENT_TYPES.has(event.type)) return { kind: 'messages' }
+  if (logOnly.has(event.type)) return { kind: 'none' }
+  throw new SessionError({
+    code: 'projection',
+    message:
+      'session event "' +
+      event.type +
+      '" needs a message projection: load the plugin that owns it, or declare it log-only',
+  })
 }
 
 /**
  * Folds an event log into model history, keeping the event each message came from.
- * A `compaction/prune` event replaces the content of the events it names and
- * carries no message of its own, so the request is exactly what the log implies.
+ * `extra` projections win over the registered ones of the same type.
  */
+const projectionMap = (
+  extra: ReadonlyArray<MessageProjection>,
+): ReadonlyMap<SessionEventType, MessageProjection> => {
+  if (extra.length === 0) return messageProjections()
+  const merged = new Map(messageProjections())
+  for (const item of extra) merged.set(item.type, item)
+  return merged
+}
+
+/** Folds one event into the history derived so far. */
+const foldOne = (
+  derived: ReadonlyArray<DerivedMessage>,
+  event: SessionEvent,
+  projections: ReadonlyMap<SessionEventType, MessageProjection>,
+  logOnly: ReadonlySet<SessionEventType>,
+): ReadonlyArray<DerivedMessage> => {
+  const step = stepOf(event, projections, logOnly)
+  if (step.kind === 'none') return derived
+  if (step.kind === 'project') return step.projection.project(event, derived)
+  return [...derived, ...toMessage(event).map((message) => ({ seq: event.seq, message }))]
+}
+
 export function deriveMessagesWithSeqs(
   events: ReadonlyArray<SessionEvent>,
+  extra: ReadonlyArray<MessageProjection> = [],
 ): ReadonlyArray<DerivedMessage> {
-  const replacements = replacementsOf(events)
-  const derived: Array<DerivedMessage> = []
-  for (const event of events) {
-    if (event.type === 'compaction/prune') continue
-    for (const message of messagesOf(event, replacements)) {
-      derived.push({ seq: event.seq, message })
-    }
-  }
+  const projections = projectionMap(extra)
+  const logOnly = logOnlyEventTypes()
+  let derived: ReadonlyArray<DerivedMessage> = []
+  for (const event of events) derived = foldOne(derived, event, projections, logOnly)
   return derived
+}
+
+/** The events a recorded prune already shadows; a later prune leaves them alone. */
+export const prunedSeqs = (events: ReadonlyArray<SessionEvent>): ReadonlySet<SessionSeq> => {
+  const seqs = new Set<SessionSeq>()
+  for (const event of events) {
+    if (event.type !== 'compaction/prune') continue
+    for (const replacement of event.data.replacements) seqs.add(replacement.seq)
+  }
+  return seqs
 }
 
 /** Folds an event log into the model history. The log is the only source. */
@@ -86,9 +114,5 @@ export function deriveMessages(
   events: ReadonlyArray<SessionEvent>,
   projections: ReadonlyArray<MessageProjection> = [],
 ): ReadonlyArray<RequestMessage> {
-  let current: ReadonlyArray<RequestMessage> = deriveMessagesWithSeqs(events).map(
-    (entry) => entry.message,
-  )
-  for (const projection of projections) current = projection.project(current, events)
-  return current
+  return deriveMessagesWithSeqs(events, projections).map((entry) => entry.message)
 }

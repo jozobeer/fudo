@@ -1,5 +1,6 @@
 import { Context, Deferred, Effect, Layer } from 'effect'
 import {
+  registerLogOnlySessionEvents,
   registerSessionEventSchemas,
   type Session,
   type SessionEventSchemaMap,
@@ -44,6 +45,8 @@ export const askEventSchemas: SessionEventSchemaMap = new Map<string, Schema.Sch
 ])
 
 registerSessionEventSchemas(askEventSchemas)
+// A question and its answer are for the UI; the model sees neither.
+registerLogOnlySessionEvents(['interaction/ask/requested', 'interaction/ask/answered'])
 
 export interface AskShape {
   /** Waits for the answer to one question. */

@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
 import { LlmFailure, encodeLlmFailure } from '@fudo/llm'
-import type { RequestMessage } from '@fudo/llm'
 import { deriveMessages, type MessageProjection } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
 
@@ -50,29 +49,36 @@ describe('deriveMessages', () => {
     ])
   })
 
-  test('applies projections in order over the full event list', () => {
+  test('an extra projection owns its event type and rewrites the history so far', () => {
     const events = [
       headerEvent(),
       event(2, 'user/message', { text: 'first', source: 'user' }),
       event(3, 'user/message', { text: 'second', source: 'inject' }),
     ]
     const seen: Array<number> = []
-    const dropInjected: MessageProjection = {
-      name: 'drop-injected',
-      project: (messages) => {
-        seen.push(messages.length)
-        return messages.filter((_message, index) => index !== 1)
+    // A projection owns its event: it adds the message the event deserves.
+    const skipInjected: MessageProjection = {
+      type: 'user/message',
+      name: 'skip-injected',
+      project: (raw, derived) => {
+        seen.push(derived.length)
+        if (raw.type !== 'user/message' || raw.data.source === 'inject') return derived
+        return [
+          ...derived,
+          {
+            seq: raw.seq,
+            message: {
+              role: 'assistant' as const,
+              content: [{ type: 'text', text: raw.data.text }],
+            },
+          },
+        ]
       },
     }
-    const rename: MessageProjection = {
-      name: 'rename',
-      project: (messages): ReadonlyArray<RequestMessage> =>
-        messages.map((message) => ({ ...message, role: 'assistant' as const })),
-    }
 
-    const derived = deriveMessages(events, [dropInjected, rename])
+    const derived = deriveMessages(events, [skipInjected])
 
-    expect(seen).toEqual([2])
+    expect(seen).toEqual([0, 1])
     expect(derived).toEqual([{ role: 'assistant', content: [{ type: 'text', text: 'first' }] }])
   })
 })

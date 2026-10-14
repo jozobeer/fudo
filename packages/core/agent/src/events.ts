@@ -1,5 +1,6 @@
 import {
   USER_MESSAGE_SOURCES,
+  registerLogOnlySessionEvents,
   registerSessionEventSchemas,
   type SessionEventSchemaMap,
   type UserMessageSource,
@@ -42,3 +43,5 @@ export const inboxEventSchemas: SessionEventSchemaMap = new Map<string, Schema.S
 // Logs written here stay readable by every provider, not only by callers that
 // pass the map explicitly.
 registerSessionEventSchemas(inboxEventSchemas)
+// The inbox is durable queue state: the message it carries is appended separately.
+registerLogOnlySessionEvents(['agent/inbox/queued', 'agent/inbox/claimed'])
