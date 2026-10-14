@@ -65,7 +65,8 @@ const stubLlm = (seen: Array<string>): Plugin<{}, Llm, never> => {
           call += 1
           if (call === 1) return Stream.fromIterable(callTool('grep', { pattern: 'needle' }))
           if (call === 2) {
-            const path = /\[spilled to (.+?): \d+ lines/.exec(text)?.[1] ?? 'missing'
+            const path =
+              /the full result is stored at (.+?); use the read tool/.exec(text)?.[1] ?? 'missing'
             return Stream.fromIterable(callTool('read', { path, offset: 1995, limit: 10 }))
           }
           return Stream.fromIterable(textTurn('done'))
@@ -146,10 +147,11 @@ describe('a search whose result is too big for one message', () => {
     const opened = await Effect.runPromise(jsonlSessions({ root }).open(id))
     const first = opened.events.find((event) => event.type === 'tool/result')
     const notice = JSON.stringify(first?.type === 'tool/result' ? first.data.content : [])
-    const spillPath = /\[spilled to (.+?): \d+ lines/.exec(notice)?.[1] ?? ''
+    const spillPath =
+      /the full result is stored at (.+?); use the read tool/.exec(notice)?.[1] ?? ''
 
-    // The preview is not the whole story; the file is.
-    expect(notice).toContain('[spilled to ')
+    // The page is not the whole story; the file is.
+    expect(notice).toContain('showing 250 of 2000 matches')
     expect(spillPath.length).toBeGreaterThan(0)
     const body = await Bun.file(spillPath).text()
     expect(body).toContain('needle-0 ')

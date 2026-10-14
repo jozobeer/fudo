@@ -1,7 +1,11 @@
-import { readdir } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import { Effect } from 'effect'
+
+/** Path order, the tie-break of every ordering. */
+const comparePaths = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0
 
 /** Directories that hold other people's code; a search never walks into them. */
 export const IGNORED_DIRECTORIES: ReadonlySet<string> = new Set(['.git', 'node_modules'])
@@ -93,12 +97,17 @@ export const makeIgnoredPaths = (rules: ReadonlyArray<IgnoreRule>): IgnoredPaths
 export const isBinary = (bytes: Uint8Array): boolean =>
   bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)
 
+/** How the collected paths are ordered. */
+export type WalkOrder = 'path' | 'modified'
+
 export interface WalkRequest {
   readonly cwd: string
   /** The most paths to collect; the walk stops there. */
   readonly limit: number
   /** When given, only files whose workspace-relative path matches are collected. */
   readonly pattern?: string
+  /** `path` (default) sorts by name; `modified` sorts by modification time, oldest first. */
+  readonly order?: WalkOrder
 }
 
 interface Walk {
@@ -152,10 +161,40 @@ const collectFrom = (walk: Walk, directory: string, prefix: string): Effect.Effe
     }
   })
 
+/** Each collected path with the modification time the order needs; a file that vanished reads as 0. */
+const withTimes = (
+  cwd: string,
+  paths: ReadonlyArray<string>,
+): Effect.Effect<ReadonlyArray<{ readonly path: string; readonly mtimeMs: number }>> =>
+  Effect.promise(() =>
+    Promise.all(
+      paths.map(async (path) => {
+        const info = await stat(join(cwd, path)).catch(() => undefined)
+        return { path, mtimeMs: info?.mtimeMs ?? 0 }
+      }),
+    ),
+  )
+
+/** The collected paths in the requested order, with the path breaking every tie. */
+const inOrder = (
+  cwd: string,
+  paths: ReadonlyArray<string>,
+  order: WalkOrder,
+): Effect.Effect<ReadonlyArray<string>> =>
+  order === 'path'
+    ? Effect.succeed([...paths].sort(comparePaths))
+    : Effect.map(withTimes(cwd, paths), (timed) =>
+        [...timed]
+          .sort(
+            (left, right) => left.mtimeMs - right.mtimeMs || comparePaths(left.path, right.path),
+          )
+          .map((entry) => entry.path),
+      )
+
 /**
- * Every file under `cwd` that survives the ignore files, sorted by path. A path
- * that is a directory the rules exclude is never walked, so its contents cost
- * nothing; hidden entries are skipped; the walk stops at `limit`.
+ * Every file under `cwd` that survives the ignore files, in the requested order.
+ * A path that is a directory the rules exclude is never walked, so its contents
+ * cost nothing; hidden entries are skipped; the walk stops at `limit`.
  */
 export const walkFiles = (request: WalkRequest): Effect.Effect<ReadonlyArray<string>> =>
   Effect.gen(function* () {
@@ -166,6 +205,5 @@ export const walkFiles = (request: WalkRequest): Effect.Effect<ReadonlyArray<str
       found: [],
     }
     yield* collectFrom(walk, request.cwd, '')
-    walk.found.sort()
-    return walk.found
+    return yield* inOrder(request.cwd, walk.found, request.order ?? 'path')
   })

@@ -8,7 +8,7 @@ import {
 } from '@fudo/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, utimes } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { globTool, grepTool } from '../src/index.ts'
@@ -17,6 +17,7 @@ const call = (
   tool: ToolDefinition<any, any>,
   args: unknown,
   cwd: string,
+  extra: { readonly spill?: (callId: string, text: string) => Effect.Effect<string> } = {},
 ): Effect.Effect<ToolExecutionResult | undefined, ToolError, never> =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -27,10 +28,16 @@ const call = (
         callId: 'c1',
         tool: tool.name,
         arguments: JSON.stringify(args),
-        context: { sessionId: 's1', cwd, callId: 'c1' },
+        context: { sessionId: 's1', cwd, callId: 'c1', ...extra },
       })
     }),
   )
+
+/** A writer that keeps what it was asked to store, keyed by call. */
+const spillTo = (files: Map<string, string>) => (callId: string, text: string) => {
+  files.set(callId, text)
+  return Effect.succeed('/spill/' + callId + '.txt')
+}
 
 const textOf = (result: ToolExecutionResult | undefined): string =>
   (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
@@ -49,7 +56,37 @@ describe('glob tool', () => {
 
     const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
 
-    expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], truncated: false })
+    expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], seen: 2, truncated: false })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('orders by modification time, oldest first', async () => {
+    const dir = await workspace()
+    await utimes(join(dir, 'a.ts'), new Date(2020, 0, 1), new Date(2020, 0, 1))
+    await utimes(join(dir, 'sub', 'b.ts'), new Date(2000, 0, 1), new Date(2000, 0, 1))
+
+    const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
+
+    expect(result?.value).toMatchObject({ files: ['sub/b.ts', 'a.ts'] })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('an over-page listing spills the complete list and says where it is', async () => {
+    const dir = await workspace()
+    await Bun.write(join(dir, 'd.ts'), 'const four = 4\n')
+    const written = new Map<string, string>()
+
+    const result = await Effect.runPromise(
+      call(globTool, { pattern: '**/*.ts', limit: 2 }, dir, { spill: spillTo(written) }),
+    )
+
+    expect(result?.value).toMatchObject({
+      seen: 3,
+      truncated: true,
+      locator: '/spill/c1-glob.txt',
+    })
+    expect(written.get('c1-glob')?.split('\n').sort()).toEqual(['a.ts', 'd.ts', 'sub/b.ts'])
+    expect(textOf(result)).toContain('full sorted result is stored at /spill/c1-glob.txt')
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -60,7 +97,7 @@ describe('glob tool', () => {
 
     const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
 
-    expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], truncated: false })
+    expect(result?.value).toEqual({ files: ['a.ts', 'sub/b.ts'], seen: 2, truncated: false })
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -85,6 +122,7 @@ describe('grep tool', () => {
 
     expect(result?.value).toEqual({
       matches: [{ file: 'a.ts', line: 2, text: '// needle' }],
+      seen: 1,
       truncated: false,
     })
     await rm(dir, { recursive: true, force: true })
@@ -113,6 +151,22 @@ describe('grep tool', () => {
 
     const value = result?.value as { readonly matches: ReadonlyArray<{ file: string }> }
     expect(value.matches.map((match) => match.file)).toEqual(['a.ts', 'c.md'])
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('an over-page search spills every match and says where they are', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
+    await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
+    const written = new Map<string, string>()
+
+    const result = await Effect.runPromise(
+      call(grepTool, { pattern: 'needle', limit: 1 }, dir, { spill: spillTo(written) }),
+    )
+
+    expect(result?.value).toMatchObject({ seen: 3, truncated: true, locator: '/spill/c1-grep.txt' })
+    expect(written.get('c1-grep')).toContain('many.txt:1: needle one')
+    expect(written.get('c1-grep')).toContain('many.txt:3: needle three')
+    expect(textOf(result)).toContain('full result is stored at /spill/c1-grep.txt')
     await rm(dir, { recursive: true, force: true })
   })
 

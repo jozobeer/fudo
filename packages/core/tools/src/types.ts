@@ -1,6 +1,7 @@
 import { Data } from 'effect'
 import type { Effect, Schema } from 'effect'
 import type { ContentBlock } from '@fudo/llm'
+import type { SpillWriter } from './spill.ts'
 
 export type ToolErrorCode =
   | 'invalid-arguments'
@@ -20,6 +21,12 @@ export interface ToolRunContext {
   readonly sessionId: string
   readonly cwd: string
   readonly callId: string
+  /**
+   * How to put a result too large to show beside the session. The loop owns the
+   * location; a tool that pages its own result asks this for the way back. Absent
+   * when nothing will store the text, and then the tool says how to narrow instead.
+   */
+  readonly spill?: SpillWriter
 }
 
 /** One call as the policy hooks and guards see it. `args` is already decoded. */

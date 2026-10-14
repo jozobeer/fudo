@@ -48,6 +48,28 @@ export function planSpill(
 /** How the pipeline writes a spilled result away; returns the reference to show. */
 export type SpillWriter = (callId: string, text: string) => Effect.Effect<string>
 
+/** Where a tool's complete result can be stored: the call it belongs to, and the store. */
+export interface SpillTarget {
+  readonly callId: string
+  readonly spill?: SpillWriter
+}
+
+/**
+ * Stores the complete text of a paged result next to the session and returns the
+ * locator, or undefined when there is no store or it cannot write. A tool that
+ * cannot store its overflow says how to narrow the search instead of failing.
+ */
+export const writeSpill = (
+  target: SpillTarget,
+  suffix: string,
+  text: string,
+): Effect.Effect<string | undefined> =>
+  target.spill === undefined
+    ? Effect.succeed(undefined)
+    : target
+        .spill(target.callId + '-' + suffix, text)
+        .pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+
 /** The call a result belongs to, as much of it as the spill policy reads. */
 export interface SpillSubject {
   readonly callId: string

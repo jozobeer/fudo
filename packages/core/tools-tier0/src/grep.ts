@@ -1,14 +1,16 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, writeSpill, type ToolDefinition } from '@fudo/tools'
+import { takePage } from './page.ts'
 import { isBinary, walkFiles } from './walk.ts'
 
-/**
- * A search stops here. Well above what one message can hold, so a big result
- * reaches the model through the spill locator instead of being cut off here.
- */
+/** A search stops collecting here; a broader pattern is reached by narrowing it. */
 export const GREP_MAX_MATCHES = 20_000
 /** The most files one search looks through before it stops. */
 export const GREP_MAX_FILES = 20_000
+/** The matches one result shows inline; a longer list reaches the model by its locator. */
+export const GREP_PAGE_MATCHES = 250
+/** A matched line longer than this is cut, so one line cannot fill the window. */
+export const GREP_MAX_LINE_CHARS = 2000
 
 const Parameters = Schema.Struct({
   pattern: Schema.String.annotate({
@@ -20,7 +22,7 @@ const Parameters = Schema.Struct({
     }),
   ),
   limit: Schema.optionalKey(
-    Schema.Int.annotate({ description: 'The most matches to return. Defaults to 20000.' }),
+    Schema.Int.annotate({ description: 'The most matches to show. Defaults to 250.' }),
   ),
 })
 
@@ -34,8 +36,31 @@ export interface GrepMatch {
 
 export interface GrepValue {
   readonly matches: ReadonlyArray<GrepMatch>
+  /** How many matches were found, before the page and the collection cap. */
+  readonly seen: number
   readonly truncated: boolean
+  /** Where the complete list was stored, when the page cannot show all of it. */
+  readonly locator?: string
 }
+
+/** One match a line, the shape the page, the stored file, and the byte budget all use. */
+const matchLineOf = (match: GrepMatch): string =>
+  match.file + ':' + String(match.line) + ': ' + match.text
+
+const matchLines = (matches: ReadonlyArray<GrepMatch>): string =>
+  matches.map(matchLineOf).join('\n')
+
+/** The way back to a result the page could not hold. */
+const recovery = (locator: string | undefined): string =>
+  locator === undefined
+    ? 'narrow the pattern to see the rest'
+    : 'the full result is stored at ' +
+      locator +
+      '; use the read tool with offset and limit to page through it'
+
+/** A matched line of any length becomes a retained line of at most GREP_MAX_LINE_CHARS. */
+const cutLine = (text: string): string =>
+  text.length <= GREP_MAX_LINE_CHARS ? text : text.slice(0, GREP_MAX_LINE_CHARS) + ' ... (line cut)'
 
 /** One file's matching lines, in order. */
 const matchesIn = (file: string, text: string, expression: RegExp): ReadonlyArray<GrepMatch> => {
@@ -43,7 +68,7 @@ const matchesIn = (file: string, text: string, expression: RegExp): ReadonlyArra
   const lines = text.split('\n')
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? ''
-    if (expression.test(line)) matches.push({ file, line: index + 1, text: line })
+    if (expression.test(line)) matches.push({ file, line: index + 1, text: cutLine(line) })
   }
   return matches
 }
@@ -100,29 +125,35 @@ export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
       matches: Schema.Array(
         Schema.Struct({ file: Schema.String, line: Schema.Int, text: Schema.String }),
       ),
+      seen: Schema.Int,
       truncated: Schema.Boolean,
+      locator: Schema.optionalKey(Schema.String),
     }),
-    render: (_args, value) => [
-      {
-        type: 'text',
-        text:
-          value.matches
-            .map((match) => match.file + ':' + String(match.line) + ': ' + match.text)
-            .join('\n') +
-          (value.truncated
-            ? '\n... (stopped at ' +
-              String(value.matches.length) +
-              ' matches; narrow the pattern to see the rest)'
-            : ''),
-      },
-    ],
+    render: (_args, value) => {
+      const body = matchLines(value.matches)
+      if (!value.truncated) return [{ type: 'text', text: body }]
+      return [
+        {
+          type: 'text',
+          text:
+            body +
+            '\n... (showing ' +
+            String(value.matches.length) +
+            ' of ' +
+            String(value.seen) +
+            ' matches; ' +
+            recovery(value.locator) +
+            ')',
+        },
+      ]
+    },
   },
   execute: (args, context) =>
     Effect.gen(function* () {
       // The pattern is compiled before a single file is read.
       const expression = yield* compile(args.pattern)
-      const limit = args.limit ?? GREP_MAX_MATCHES
-      if (limit < 1) {
+      const page = args.limit ?? GREP_PAGE_MATCHES
+      if (page < 1) {
         return yield* Effect.fail(
           new ToolError({ code: 'invalid-arguments', message: 'limit starts at 1' }),
         )
@@ -132,7 +163,20 @@ export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
         limit: GREP_MAX_FILES,
         ...(args.include === undefined ? {} : { pattern: args.include }),
       })
-      const found = yield* Effect.promise(() => findMatches(files, context.cwd, expression, limit))
-      return { matches: found.slice(0, limit), truncated: found.length > limit }
+      const found = yield* Effect.promise(() =>
+        findMatches(files, context.cwd, expression, GREP_MAX_MATCHES + 1),
+      )
+      const complete = found.slice(0, GREP_MAX_MATCHES)
+      const shown = takePage(complete, page, matchLineOf)
+      if (found.length <= shown.length) {
+        return { matches: shown, seen: found.length, truncated: false }
+      }
+      const locator = yield* writeSpill(context, 'grep', matchLines(complete))
+      return {
+        matches: shown,
+        seen: found.length,
+        truncated: true,
+        ...(locator === undefined ? {} : { locator }),
+      }
     }),
 }

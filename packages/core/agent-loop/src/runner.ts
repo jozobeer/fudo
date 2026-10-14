@@ -283,6 +283,7 @@ const agentLoopEffect = (
       pending: Map<string, ToolCall>,
     ): Effect.Effect<void> =>
       Effect.gen(function* () {
+        const spill = spillOf(agent)
         const outcome = yield* tools.call({
           callId: call.id,
           tool: call.name,
@@ -291,6 +292,9 @@ const agentLoopEffect = (
             sessionId: agent.id,
             cwd: cwdOf(agent.session.events(), agent.session.header),
             callId: call.id,
+            // A tool that pages its own result stores the overflow through the
+            // same writer the pipeline uses, so both live beside the session.
+            ...(spill.spill === undefined ? {} : { spill: spill.spill }),
           },
         })
         const shown = yield* applySpill(
