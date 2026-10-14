@@ -1,7 +1,7 @@
 import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
 import { type PluginRow } from '@fudo/kernel'
 import { cwdOf, type SessionEvent, type SessionHeader } from '@fudo/session'
-import { jsonlSessions } from '@fudo/session-jsonl'
+import { jsonlSessions, makeSessionQuery } from '@fudo/session-jsonl'
 import type { TuiIo } from '@fudo/tui'
 import { Effect, Stream } from 'effect'
 import { homedir } from 'node:os'
@@ -16,6 +16,7 @@ import { listModels, modelEndpointOf } from './models.ts'
 import { bundledPlugins } from './plugins.ts'
 import { searchFromEnv } from './search-env.ts'
 import {
+  renderSearchHits,
   renderSessionHead,
   renderSessionList,
   renderTranscript,
@@ -50,6 +51,7 @@ fudo web [--port N]              browser UI over a local server
 fudo --resume <sessionId> [task]
 fudo sessions                    list the sessions on disk
 fudo sessions <sessionId>        read one session back
+fudo sessions --search <text>    find sessions by what they say
 fudo --allow-preset-change         continue a session under a changed composition
 fudo --json "task"
 fudo --tui                       terminal UI even through a pipe
@@ -128,6 +130,7 @@ const printSessions = (
   inputs: CommandInputs,
   io: MainIo,
   id: string | undefined,
+  search: string | undefined,
 ): Effect.Effect<number> =>
   Effect.gen(function* () {
     const rows = yield* profileRows({
@@ -135,20 +138,36 @@ const printSessions = (
       patches: inputs.patches,
       ...optional('extraRows', inputs.settings.plugins),
     })
-    const sessions = jsonlSessions({ root: sessionRootOf(rows) })
+    const root = sessionRootOf(rows)
+    const sessions = jsonlSessions({ root })
+    if (search !== undefined) {
+      if (id !== undefined) {
+        io.stderr('fudo: sessions --search looks through every session; drop the id')
+        return 1
+      }
+      const query = makeSessionQuery({ root, sessions })
+      const hits = yield* query.search(search)
+      query.close()
+      io.stdout(renderSearchHits(hits))
+      return 0
+    }
     if (id === undefined) {
       io.stdout(renderSessionList(yield* sessions.list()))
       return 0
     }
-    const opened = yield* sessions.open(id)
-    const header = headerOf(opened.events)
+    // The browse reads through the query's observation, so the cut it shows is
+    // the same shared, disposable one a search sync would have worked from.
+    const query = makeSessionQuery({ root, sessions })
+    const observed = yield* query.observe(id)
+    const header = headerOf(observed.events)
     io.stdout(
       renderSessionHead({
-        id: opened.id,
-        cwd: header === undefined ? '' : cwdOf(opened.events, header),
+        id: observed.id,
+        cwd: header === undefined ? '' : cwdOf(observed.events, header),
         createdAt: header?.createdAt ?? 0,
-      }) + renderTranscript(opened.events),
+      }) + renderTranscript(observed.events),
     )
+    observed.dispose()
     return 0
   }).pipe(
     Effect.match({
@@ -246,7 +265,9 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
   return Effect.gen(function* () {
     const inputs = yield* loadInputs(parsed, io)
     if (parsed.models) return yield* printModels(inputs, io)
-    if (parsed.sessions) return yield* printSessions(inputs, io, parsed.sessionId)
+    if (parsed.sessions) {
+      return yield* printSessions(inputs, io, parsed.sessionId, parsed.search)
+    }
     return yield* runCommand(commandOptions(parsed, io, inputs))
   }).pipe(
     Effect.catchCause((cause) =>

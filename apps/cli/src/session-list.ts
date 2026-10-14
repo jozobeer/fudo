@@ -1,6 +1,6 @@
 import type { PluginRow } from '@fudo/kernel'
 import { deriveMessages, type SessionEvent, type SessionSummary } from '@fudo/session'
-import { expandHome } from '@fudo/session-jsonl'
+import { expandHome, type SearchHit } from '@fudo/session-jsonl'
 
 /** Where the session logs live: the profile's row, or the place fudo keeps them. */
 export const sessionRootOf = (rows: ReadonlyArray<PluginRow>): string => {
@@ -24,6 +24,16 @@ export const renderSessionList = (summaries: ReadonlyArray<SessionSummary>): str
   return (
     ordered
       .map((summary) => summary.id + '  ' + when(summary.createdAt) + '  ' + summary.cwd)
+      .join('\n') + '\n'
+  )
+}
+
+/** One line per hit, with the matching text under it. A search lists sessions, not conversations. */
+export const renderSearchHits = (hits: ReadonlyArray<SearchHit>): string => {
+  if (hits.length === 0) return 'no matches\n'
+  return (
+    hits
+      .map((hit) => hit.sessionId + '  ' + hit.type + ':' + String(hit.seq) + '  ' + hit.text)
       .join('\n') + '\n'
   )
 }

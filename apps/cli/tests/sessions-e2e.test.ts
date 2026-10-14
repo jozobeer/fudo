@@ -154,6 +154,50 @@ describe('reading the sessions back through the command', () => {
     await rm(home, { recursive: true, force: true })
   })
 
+  test('fudo sessions --search finds a session by what it said', async () => {
+    const logs = await mkdtemp(join(tmpdir(), 'fudo-sessions-'))
+    const home = await mkdtemp(join(tmpdir(), 'fudo-sessions-home-'))
+    const settings = join(home, 'config.yaml')
+    await writeFile(settings, settingsFile(logs))
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(logs)],
+        plugins: [
+          kernelPlugin,
+          sessionJsonlPlugin,
+          sessionPlugin,
+          toolsPlugin,
+          systemPromptPlugin,
+          safetyPlugin,
+          askPlugin,
+          tier0Plugin,
+          tier1Plugin,
+          stubLlm(),
+          agentPlugin,
+          agentLoopPlugin,
+        ] as ReadonlyArray<Plugin<any, any, any>>,
+        cwd: '/work',
+        route: 'stub/model',
+        task: 'how many files',
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+    expect(code).toBe(0)
+
+    const found = await run(['sessions', '--search', 'twelve files', '--config', settings])
+    const missed = await run(['sessions', '--search', 'no such phrase', '--config', settings])
+
+    expect(found.code).toBe(0)
+    expect(found.out).toContain('«twelve files»')
+    expect(found.out).toContain('assistant/message')
+    expect(missed.out).toBe('no matches\n')
+
+    await rm(logs, { recursive: true, force: true })
+    await rm(home, { recursive: true, force: true })
+  })
+
   test('an id that is not there says so', async () => {
     const logs = await mkdtemp(join(tmpdir(), 'fudo-sessions-'))
     const home = await mkdtemp(join(tmpdir(), 'fudo-sessions-home-'))

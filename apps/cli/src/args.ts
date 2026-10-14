@@ -11,6 +11,8 @@ export interface ParsedArgs {
   /** `fudo sessions [id]`: list the sessions, or read one back. */
   readonly sessions: boolean
   readonly sessionId?: string | undefined
+  /** `fudo sessions --search <text>`: find sessions by what they say. */
+  readonly search?: string | undefined
   /** Port for `fudo web`; 0 asks the system for a free one. */
   readonly port: number
   readonly resume: string | undefined
@@ -42,6 +44,7 @@ const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--resume', { kind: 'value' }],
   ['--model', { kind: 'value' }],
   ['--config', { kind: 'value' }],
+  ['--search', { kind: 'value' }],
   ['--port', { kind: 'value' }],
   ['--allow-preset-change', { kind: 'boolean' }],
 ])
@@ -145,6 +148,7 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     json: values.has('--json'),
     tui: values.has('--tui'),
     config: first(values, '--config'),
+    search: first(values, '--search'),
     help: values.has('--help'),
     errors,
   }

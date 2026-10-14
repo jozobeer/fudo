@@ -15,7 +15,9 @@ import type { Dirent } from 'node:fs'
 import { appendFile, mkdir, readdir, readFile, stat as statFile, writeFile } from 'node:fs/promises'
 import { upgradeHeaderLine } from './upgrade.ts'
 import { splitTornTail, type SplitLog } from './repair.ts'
-import { homedir } from 'node:os'
+import { isMissing, notFound, persistenceError } from './errors.ts'
+import { readFirstLine } from './first-line.ts'
+import { expandHome, SESSION_FILE_NAME } from './paths.ts'
 import { join } from 'node:path'
 
 export interface JsonlSessionsOptions {
@@ -25,19 +27,7 @@ export interface JsonlSessionsOptions {
   readonly schemas?: SessionEventSchemaMap
 }
 
-const FILE_NAME = 'session.v1.jsonl'
-
-const persistenceError = (message: string, cause?: unknown): SessionError =>
-  new SessionError({
-    code: 'persistence',
-    message: cause === undefined ? message : `${message}: ${String(cause)}`,
-  })
-
-const notFound = (id: string): SessionError =>
-  new SessionError({ code: 'not-found', message: `no session ${id}` })
-
-const isMissing = (cause: unknown): boolean =>
-  typeof cause === 'object' && cause !== null && (cause as { code?: unknown }).code === 'ENOENT'
+const FILE_NAME = SESSION_FILE_NAME
 
 const parseLine = (
   id: SessionId,
@@ -98,12 +88,12 @@ const requireHeader = (
 /** The header of a log, carried forward to this build's shape. */
 const upgradeFirstLine = (
   id: SessionId,
-  text: string,
+  line: string,
   mtimeMs: number,
   schemas: SessionEventSchemaMap | undefined,
 ): Effect.Effect<SessionHeader, SessionError> =>
   Effect.gen(function* () {
-    const firstLine = text.split('\n').find((line) => line.trim() !== '')
+    const firstLine = line.trim() === '' ? undefined : line
     if (firstLine === undefined)
       return yield* Effect.fail(persistenceError(`session ${id} is empty`))
     const upgraded = upgradeHeaderLine(yield* parseLine(id, 1, firstLine), { mtimeMs })
@@ -129,11 +119,6 @@ const sinkFor = (path: string, id: SessionId): SessionSink => ({
 })
 
 /** Stores each session as one JSONL file under `root/<id>/session.v1.jsonl`. */
-export const expandHome = (root: string): string => {
-  if (root === '~') return homedir()
-  return root.startsWith('~/') ? join(homedir(), root.slice(2)) : root
-}
-
 export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence {
   const root = expandHome(options.root)
   const directoryOf = (id: SessionId): string => join(root, id)
@@ -221,10 +206,11 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
   const stat = (id: SessionId): Effect.Effect<SessionSummary, SessionError> =>
     Effect.gen(function* () {
       const mtimeMs = yield* mtimeOf(id)
-      // Listing reads; it never repairs, so a look at the sessions leaves them alone.
+      // Listing reads the first line only and never repairs, so a look at the
+      // sessions leaves them alone however long the log behind the header is.
       const header = yield* upgradeFirstLine(
         id,
-        splitTornTail(yield* readText(id)).keep,
+        yield* readFirstLine(fileOf(id)),
         mtimeMs,
         options.schemas,
       )
@@ -262,3 +248,7 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
 export * from './plugin.ts'
 export * from './upgrade.ts'
 export * from './repair.ts'
+export * from './errors.ts'
+export * from './first-line.ts'
+export * from './paths.ts'
+export * from './query.ts'
