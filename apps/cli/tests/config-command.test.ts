@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { runConfig } from '../src/config-command.ts'
 import { loadConfigFile } from '../src/config-file.ts'
@@ -99,14 +99,14 @@ describe('fudo config', () => {
     })
   })
 
-  test('refuses to set a key that holds a list', async () => {
-    await withHome(async (env, path) => {
+  test('refuses to set a key that holds a list and points at add', async () => {
+    await withHome(async (env) => {
       const sink = collector()
 
       const code = await runConfig(['set', 'skills', '/tmp/skills'], sink.io, env)
 
       expect(code).toBe(2)
-      expect(sink.errs.join('')).toContain('edit ' + path)
+      expect(sink.errs.join('')).toContain('fudo config add skills <dir>')
     })
   })
 
@@ -170,6 +170,225 @@ describe('fudo config', () => {
       expect(code).toBe(1)
       expect(sink.errs.join('')).toContain('already exists')
       expect(readFileSync(path, 'utf8')).toContain('my-cloud/some-model')
+    })
+  })
+})
+
+describe('fudo config add and remove', () => {
+  /** A directory that is there, since the command checks before it writes. */
+  const skillsDir = (path: string): string => {
+    const dir = join(dirname(path), 'skills')
+    mkdirSync(dir, { recursive: true })
+    return dir
+  }
+
+  test('adds a directory and writes the block', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+      const dir = skillsDir(path)
+
+      const code = await runConfig(['add', 'skills', dir], sink.io, env)
+
+      expect(code).toBe(0)
+      expect(readFileSync(path, 'utf8')).toBe('skills:\n  - ' + dir + '\n')
+      expect(sink.out.join('')).toContain('added ' + dir)
+    })
+  })
+
+  test('leaves the file alone when the directory is already there', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+      const dir = skillsDir(path)
+      await runConfig(['add', 'skills', dir], sink.io, env)
+      const first = readFileSync(path, 'utf8')
+
+      const code = await runConfig(['add', 'skills', dir], sink.io, env)
+
+      expect(code).toBe(0)
+      expect(sink.out.join('')).toContain('already in skills')
+      expect(readFileSync(path, 'utf8')).toBe(first)
+    })
+  })
+
+  test('refuses a directory that is not there', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const code = await runConfig(['add', 'skills', join(dirname(path), 'nope')], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('is not a directory')
+      expect(() => readFileSync(path, 'utf8')).toThrow()
+    })
+  })
+
+  test('removes a directory it added', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+      const dir = skillsDir(path)
+      await runConfig(['add', 'skills', dir], sink.io, env)
+
+      const code = await runConfig(['remove', 'skills', dir], sink.io, env)
+
+      expect(code).toBe(0)
+      expect(readFileSync(path, 'utf8')).toBe('')
+      expect(sink.out.join('')).toContain('removed ' + dir)
+    })
+  })
+
+  test('refuses to remove a directory the file does not hold', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['remove', 'skills', '/tmp/nope'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('no such directory')
+    })
+  })
+
+  test('writes a row key for a row the profile provides', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.safety.preset', 'full'], sink.io, env)
+
+      expect(code).toBe(0)
+      const settings = await Effect.runPromise(loadConfigFile(path))
+      expect(settings.plugins).toEqual([
+        { id: 'safety', name: '@fudo/safety', config: { preset: 'full' } },
+      ])
+    })
+  })
+
+  test('adds a plugin row and then a key under it', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const added = await runConfig(['add', 'plugins', '@fudo/mcp'], sink.io, env)
+      const written = await runConfig(['set', 'plugins.mcp.command', '[npx, -y]'], sink.io, env)
+
+      expect(added).toBe(0)
+      expect(written).toBe(0)
+      const settings = await Effect.runPromise(loadConfigFile(path))
+      expect(settings.plugins).toEqual([
+        { id: 'mcp', name: '@fudo/mcp', config: { command: ['npx', '-y'] } },
+      ])
+    })
+  })
+
+  test('refuses a plugin this build does not have', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['add', 'plugins', '@fudo/nope'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('unknown plugin @fudo/nope')
+    })
+  })
+
+  test('points a plugin the profile provides at the set command', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['add', 'plugins', '@fudo/safety'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('plugins.safety.')
+    })
+  })
+
+  test('refuses a key the plugin does not take', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.tier0.preset', 'full'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('preset')
+      expect(() => readFileSync(path, 'utf8')).toThrow()
+    })
+  })
+
+  test('refuses a value the key does not take', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.safety.preset', 'everything'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(() => readFileSync(path, 'utf8')).toThrow()
+    })
+  })
+
+  test('writes disabled for a row the profile provides', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.ask.disabled', 'true'], sink.io, env)
+
+      expect(code).toBe(0)
+      const settings = await Effect.runPromise(loadConfigFile(path))
+      expect(settings.plugins).toEqual([{ id: 'ask', name: '@fudo/ask', disabled: true }])
+    })
+  })
+
+  test('refuses a disabled value that is not true or false', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.ask.disabled', 'maybe'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('true or false')
+    })
+  })
+
+  test('asks for the row before a key under a plugin the profile lacks', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['set', 'plugins.mcp.command', '[npx]'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('fudo config add plugins')
+    })
+  })
+
+  test('refuses to remove a row the settings file does not hold', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['remove', 'plugins', 'safety'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('no row safety')
+    })
+  })
+
+  test('answers a half-typed command with the usage', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['add', 'skills'], sink.io, env)
+
+      expect(code).toBe(2)
+      expect(sink.errs.join('')).toContain('fudo config add skills <dir>')
+    })
+  })
+
+  test('reports a settings file it cannot read in one line', async () => {
+    await withHome(async (env, path) => {
+      const sink = collector()
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, 'model: [unclosed\n')
+
+      const code = await runConfig([], sink.io, env)
+
+      expect(code).toBe(1)
+      expect(sink.errs.join('')).toContain('not valid YAML')
+      expect(sink.errs.join('')).not.toContain('at ')
     })
   })
 })
