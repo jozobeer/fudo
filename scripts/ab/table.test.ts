@@ -1,0 +1,42 @@
+import { describe, expect, test } from 'bun:test'
+import type { AbMetrics } from './metrics.ts'
+import { tableOf, type Cell } from './table.ts'
+
+const metricsOf = (toolCalls: number): AbMetrics => ({
+  toolCalls,
+  failedEdits: 0,
+  reReads: 1,
+  turns: 1,
+  tools: {},
+})
+
+const cellOf = (repeat: number, metrics: AbMetrics | undefined): Cell => ({
+  harness: 'fudo',
+  task: 'fix-add',
+  repeat,
+  code: 0,
+  done: true,
+  metrics,
+  note: metrics === undefined ? 'not counted: read without a path: {}' : undefined,
+})
+
+const summaryOf = (cells: ReadonlyArray<Cell>): ReadonlyArray<string> =>
+  tableOf(cells, [cells]).split('\n').slice(-4, -1)
+
+describe('the A/B summary', () => {
+  test('says how many runs its numbers come from', () => {
+    const cells = [cellOf(0, metricsOf(3)), cellOf(1, undefined), cellOf(2, metricsOf(5))]
+
+    expect(summaryOf(cells)).toEqual([
+      '| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads |',
+      '|---|---|---|---|---|---|---|---|---|',
+      '| fudo | fix-add | 3 | 2 | 3 | 3-5 (4.0) | 1 | 0 | 1 |',
+    ])
+  })
+
+  test('a group with no counted run shows no numbers', () => {
+    const cells = [cellOf(0, undefined), cellOf(1, undefined)]
+
+    expect(summaryOf(cells)[2]).toBe('| fudo | fix-add | 2 | 0 | 2 | - | - | - | - |')
+  })
+})

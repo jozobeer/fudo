@@ -30,7 +30,11 @@ const cellLine = (cell: Cell): string => {
   return '| ' + columns.join(' | ') + ' |'
 }
 
-/** Runs of one harness and task, as the numbers they produced. */
+/**
+ * Runs of one harness and task, as the numbers they produced. A run whose log
+ * could not be counted has no numbers, so `counted` says how many runs the
+ * spans come from; `runs` alone would let two runs read as three.
+ */
 const summaryLine = (group: ReadonlyArray<Cell>): string => {
   const numbers = group.flatMap((cell) => (cell.metrics === undefined ? [] : [cell.metrics]))
   const span = (values: ReadonlyArray<number>): string => {
@@ -46,6 +50,7 @@ const summaryLine = (group: ReadonlyArray<Cell>): string => {
     group[0]?.harness ?? '',
     group[0]?.task ?? '',
     String(group.length),
+    String(numbers.length),
     String(group.filter((cell) => cell.done).length),
     span(numbers.map((metrics) => metrics.toolCalls)),
     span(numbers.map((metrics) => metrics.turns)),
@@ -65,8 +70,8 @@ export const tableOf = (
     '|---|---|---|---|---|---|---|---|---|---|',
     ...cells.map(cellLine),
     '',
-    '| harness | task | runs | done | tool calls | turns | failed edits | re-reads |',
-    '|---|---|---|---|---|---|---|---|',
+    '| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads |',
+    '|---|---|---|---|---|---|---|---|---|',
     ...groups.map(summaryLine),
     '',
   ].join('\n')
