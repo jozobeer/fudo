@@ -1,6 +1,6 @@
 # fudo
 
-汎用コーディングエージェントのハーネス。設計は [docs/superpowers/specs/2026-10-13-fudo-kernel-design.md](docs/superpowers/specs/2026-10-13-fudo-kernel-design.md) にある。
+汎用コーディングエージェントのハーネス。設計は [docs/superpowers/specs/2026-10-13-fudo-kernel-design.md](docs/superpowers/specs/2026-10-13-fudo-kernel-design.md) に、設定できるものの全体は [docs/configuration.md](docs/configuration.md) にある。
 
 ## はじめかた
 
@@ -29,7 +29,7 @@ Ollama Cloud のキーをリポジトリの `.env` に書くか、`fudo auth add
 cp .env.example .env   # OLLAMA_API_KEY=... を書く
 ```
 
-`fudo auth add ollama` は `~/.config/fudo/secrets.env` にモード 600 で保存する。両方にあるときは `.env` の値が使われる。シェル環境の値はどちらにも上書きされない。
+`fudo auth add ollama` は `~/.config/fudo/secrets.env` にモード 600 で保存する。
 
 ### 使うモデル
 
@@ -40,8 +40,6 @@ cp .env.example .env   # OLLAMA_API_KEY=... を書く
 ```yaml
 model: ollama-cloud/deepseek-v4.1-flash
 ```
-
-モデルは `--model`、設定ファイル、プロファイルの順に探す。どれにも無ければ `no model is set` で止まる。
 
 ### 動かす
 
