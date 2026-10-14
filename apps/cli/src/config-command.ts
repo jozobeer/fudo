@@ -140,6 +140,10 @@ export async function runConfig(
   if (command === undefined) return await show(io, paths)
   if (command === 'set') return await setValue(rest, io, paths)
   if (command === 'init') return await init(io, paths)
+  if (command === 'help' || command === '--help') {
+    io.stdout(USAGE)
+    return 0
+  }
   io.stderr(USAGE)
   return 2
 }

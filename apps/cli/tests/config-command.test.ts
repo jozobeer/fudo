@@ -110,6 +110,17 @@ describe('fudo config', () => {
     })
   })
 
+  test('answers a help request without an error', async () => {
+    await withHome(async (env) => {
+      const sink = collector()
+
+      const code = await runConfig(['--help'], sink.io, env)
+
+      expect(code).toBe(0)
+      expect(sink.out.join('')).toContain('fudo config set K V')
+    })
+  })
+
   test('refuses a model that is not provider/model', async () => {
     await withHome(async (env) => {
       const sink = collector()
