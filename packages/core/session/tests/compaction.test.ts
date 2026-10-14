@@ -1,4 +1,5 @@
 import { Effect } from 'effect'
+import type { ContentBlock } from '@fudo/llm'
 import { describe, expect, test } from 'bun:test'
 import {
   SessionError,
@@ -106,6 +107,57 @@ describe('pruneFor', () => {
 
     expect(prune?.shadowedSeqs).toEqual([2])
     expect(prune?.replacements[0]?.content.map((block) => block.type)).toEqual(['text'])
+  })
+})
+
+describe('the tool-result pruner', () => {
+  const oldToolResult = (content: ReadonlyArray<ContentBlock>) => [
+    headerEvent(),
+    event(2, 'tool/result', { callId: 'c1', isError: false, content }),
+    event(3, 'user/message', { text: 'go', source: 'user' as const }),
+  ]
+
+  test('keeps the head and the tail of a long tool result and names the cut', () => {
+    const text = 'a'.repeat(1000) + 'b'.repeat(8000) + 'c'.repeat(1000)
+    const events = oldToolResult([{ type: 'text', text }])
+
+    const prune = pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })
+    const kept = stubOf(prune?.replacements[0]?.content ?? [])
+
+    expect(kept).toContain('[... tool result middle pruned ...]')
+    expect(kept.startsWith('a'.repeat(1000))).toBe(true)
+    expect(kept.endsWith('c'.repeat(1000))).toBe(true)
+    expect(kept).not.toContain('b'.repeat(5000))
+    expect(kept).toContain('b'.repeat(200))
+  })
+
+  test('a tool result inside the price is left alone', () => {
+    const events = oldToolResult([{ type: 'text', text: 'short enough' }])
+
+    expect(pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })).toBeUndefined()
+  })
+
+  test('an old image becomes a reference that says how to see it again', () => {
+    const events = oldToolResult([
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        data: 'QUJD'.repeat(1000),
+        name: '/work/pic.png',
+      },
+    ])
+
+    const prune = pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })
+    const content = prune?.replacements[0]?.content ?? []
+
+    expect(content).toEqual([
+      {
+        type: 'text',
+        text: '[image offloaded: /work/pic.png; read it again with the read_image tool to see it]',
+      },
+    ])
+    const recorded = [...events, event(4, 'compaction/prune', prune as CompactionPrune)]
+    expect(JSON.stringify(deriveMessages(recorded))).not.toContain('QUJD')
   })
 })
 

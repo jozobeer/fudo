@@ -27,6 +27,39 @@ const stub = (text: string): ContentBlock => ({
   text: '[earlier output of ' + String(bytesOf(text)) + ' bytes] ' + text.slice(0, 120),
 })
 
+/** The marker a tool result keeps in place of a span the pruner removed. */
+export const TOOL_RESULT_PRUNE_MARKER = '\n\n[... tool result middle pruned ...]\n\n'
+/** A tool result past this many characters keeps only its ends. */
+export const TOOL_RESULT_PRUNE_CHARS = 8192
+/** How much of a pruned tool result's head stays. */
+export const TOOL_RESULT_KEEP_HEAD_CHARS = 4096
+/** How much of a pruned tool result's tail stays. */
+export const TOOL_RESULT_KEEP_TAIL_CHARS = 1024
+
+/**
+ * A tool result past the price keeps its head and tail, with a marker between
+ * them. Sliced by code point, so a retained boundary cannot split a surrogate
+ * pair. Reading the tool again is the way back to the middle.
+ */
+const middlePruned = (text: string): string => {
+  const points = Array.from(text)
+  if (points.length <= TOOL_RESULT_PRUNE_CHARS) return text
+  return (
+    points.slice(0, TOOL_RESULT_KEEP_HEAD_CHARS).join('') +
+    TOOL_RESULT_PRUNE_MARKER +
+    points.slice(points.length - TOOL_RESULT_KEEP_TAIL_CHARS).join('')
+  )
+}
+
+/** An image the request stops carrying, with what it says instead. */
+const imageReference = (block: Extract<ContentBlock, { type: 'image' }>): ContentBlock => ({
+  type: 'text',
+  text:
+    '[image offloaded: ' +
+    (block.name ?? block.mediaType) +
+    '; read it again with the read_image tool to see it]',
+})
+
 interface PrunedBlocks {
   readonly content: ReadonlyArray<ContentBlock>
   /** Whether the request carries something other than this content. */
@@ -35,23 +68,46 @@ interface PrunedBlocks {
   readonly replacedBytes: number
 }
 
-/** Reasoning is dropped and oversized text is stubbed; the newest messages never reach here. */
-const pruneBlocks = (content: ReadonlyArray<ContentBlock>, maxBytes: number): PrunedBlocks => {
+/** How many bytes the request stops carrying for one block that changed. */
+const freedBytesOf = (block: ContentBlock): number => {
+  if (block.type === 'image') return block.data.length
+  return block.type === 'text' ? bytesOf(block.text) : 0
+}
+
+/**
+ * One block as the request keeps it: reasoning is dropped, an image becomes a
+ * reference, a tool result past its own price keeps only its ends, and any other
+ * oversized text is stubbed. The same block comes back when it is left alone.
+ */
+const pruneBlock = (
+  block: ContentBlock,
+  options: { readonly maxBytes: number; readonly toolResult: boolean },
+): ContentBlock | undefined => {
+  if (block.type === 'reasoning') return undefined
+  if (block.type === 'image') return imageReference(block)
+  if (block.type !== 'text') return block
+  if (options.toolResult) {
+    const cut = middlePruned(block.text)
+    if (cut !== block.text) return { type: 'text', text: cut }
+  }
+  return bytesOf(block.text) > options.maxBytes ? stub(block.text) : block
+}
+
+/** What one old message stops carrying; the newest messages never reach here. */
+const pruneBlocks = (
+  content: ReadonlyArray<ContentBlock>,
+  options: { readonly maxBytes: number; readonly toolResult: boolean },
+): PrunedBlocks => {
+  const kept: Array<ContentBlock> = []
   let changed = false
   let replacedBytes = 0
-  const kept: Array<ContentBlock> = []
   for (const block of content) {
-    if (block.type === 'reasoning') {
+    const pruned = pruneBlock(block, options)
+    if (pruned !== block) {
       changed = true
-      continue
+      replacedBytes += freedBytesOf(block)
     }
-    if (block.type === 'text' && bytesOf(block.text) > maxBytes) {
-      replacedBytes += bytesOf(block.text)
-      kept.push(stub(block.text))
-      changed = true
-      continue
-    }
-    kept.push(block)
+    if (pruned !== undefined) kept.push(pruned)
   }
   return { content: kept, changed, replacedBytes }
 }
@@ -124,7 +180,10 @@ export function pruneFor(
     ) {
       return
     }
-    const pruned = pruneBlocks(entry.message.content, options.maxBytes)
+    const pruned = pruneBlocks(entry.message.content, {
+      maxBytes: options.maxBytes,
+      toolResult: entry.message.role === 'tool',
+    })
     if (!pruned.changed) return
     shadowedBytes += pruned.replacedBytes
     replacements.push({ seq: entry.seq, content: pruned.content })
