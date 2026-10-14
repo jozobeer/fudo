@@ -1,8 +1,9 @@
-import { dirname, resolve, relative, isAbsolute } from 'node:path'
+import { dirname } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { guardWrite, look, type ObservedFiles } from './observed-files.ts'
+import { resolveInside } from './workspace.ts'
 import { normalizeNewlines } from './text.ts'
 
 const Parameters = Schema.Struct({
@@ -17,18 +18,6 @@ export type WriteArgs = Schema.Schema.Type<typeof Parameters>
 export interface WriteValue {
   readonly path: string
   readonly bytes: number
-}
-
-/** Resolves `path` under `root`; anything escaping the root is refused. */
-export const resolveInside = (root: string, path: string): Effect.Effect<string, ToolError> => {
-  const target = isAbsolute(path) ? resolve(path) : resolve(root, path)
-  const inside = relative(resolve(root), target)
-  if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) {
-    return Effect.fail(
-      new ToolError({ code: 'denied', message: 'path escapes the workspace: ' + path }),
-    )
-  }
-  return Effect.succeed(target)
 }
 
 /**

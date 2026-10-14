@@ -22,11 +22,15 @@
 | ツール | needs | 要点 |
 |---|---|---|
 | read | read | 1 始まりの行番号、offset / limit、末尾の空行は落とす |
-| write | write | 親ディレクトリを作る。resolveInside で workspace 外を拒否 |
+| write | write | 親ディレクトリを作る。workspace.ts の resolveInside で workspace 外とリンク経由を拒否 |
 | edit | write | 一意一致を要求。all で全置換 |
 | glob | read | Bun.Glob で走査し、相対パスをソートして返す |
 | grep | read | 正規表現を先にコンパイル。file / line / text を返す |
 | bash | exec | sandbox.wrap を通してから bash -lc を spawn。非 0 は出力付きのエラー |
+
+## パスをどこで 1 本にするか（2026-10-14 追記）
+
+書き込みと、コマンドを走らせるディレクトリの解決は `packages/core/tools-tier0/src/workspace.ts` の `resolveInside` に集める（write / edit / bash の cwd）。判定は 2 段である: (1) 字句的に workspace の下にあること（`relative` が `..` で始まらない。`startsWith` では `/work-other` を誤って通す）、(2) **root の下の既存の成分を順に `lstat` し、リンクが 1 つでもあれば拒否する**。リンクは workspace の中を指していても拒否する（指し先は我々の関知しないうちに変わる）。まだ無い成分は新規の仕事として通す。`realpath` で親を canonical 化するだけでは足りない: 宙に浮いたリンクは canonical にできず、`mkdir -p` がリンクをたどって外に作ってしまう。
 
 ## 検証
 

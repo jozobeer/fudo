@@ -2,7 +2,7 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
 import { normalizeNewlines, readUtf8 } from './text.ts'
-import { resolveInside } from './write.ts'
+import { resolveInside } from './workspace.ts'
 
 const Parameters = Schema.Struct({
   path: Schema.String.annotate({

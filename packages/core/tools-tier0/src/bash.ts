@@ -1,7 +1,7 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { noneSandbox, type SandboxShape } from '@fudo/safety'
-import { resolveInside } from './write.ts'
+import { resolveInside } from './workspace.ts'
 
 /** A command that has not finished by then is killed. */
 export const BASH_DEFAULT_TIMEOUT_MS = 120_000

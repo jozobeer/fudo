@@ -9,7 +9,8 @@ import { systemPromptPlugin } from '@fudo/system-prompt'
 import { toolsPlugin } from '@fudo/tools'
 import { tier0Plugin } from '@fudo/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, symlink } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -139,6 +140,41 @@ describe('writing over a file through the command', () => {
 
     await rm(root, { recursive: true, force: true })
     await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a path that leaves the workspace through a link is not written', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-guard-'))
+    const dir = await workspace()
+    const outside = await mkdtemp(join(tmpdir(), 'fudo-guard-out-'))
+    await symlink(outside, join(dir, 'out'))
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(root)],
+        plugins: plugins(
+          stub([
+            toolTurn('write', { path: 'out/hacked.txt', content: 'got out\n' }, 'c1'),
+            textTurn('done'),
+          ]),
+        ),
+        cwd: dir,
+        route: 'stub/model',
+        task: 'write outside',
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+    expect(code).toBe(0)
+
+    // The refusal names the link, and nothing was written on the other side of it.
+    const results = await resultsOf(root)
+    expect(results[0]?.isError).toBe(true)
+    expect(JSON.stringify(results[0]?.content)).toContain('goes through a link')
+    expect(existsSync(join(outside, 'hacked.txt'))).toBe(false)
+
+    await rm(root, { recursive: true, force: true })
+    await rm(dir, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
   })
 
   test('a file the model never read is not clobbered', async () => {

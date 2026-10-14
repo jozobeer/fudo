@@ -1,5 +1,6 @@
 export * from './read.ts'
 export * from './write.ts'
+export * from './workspace.ts'
 export * from './bash.ts'
 export * from './edit.ts'
 export * from './glob.ts'
