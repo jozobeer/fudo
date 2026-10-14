@@ -31,15 +31,16 @@ cp .env.example .env   # OLLAMA_API_KEY=... を書く
 
 `fudo auth add ollama` は `~/.config/fudo/secrets.env` にモード 600 で保存する。
 
-### 使うモデル
+### 使うモデルを決める
 
-使えるモデルは `fudo models` で一覧できる。プロバイダの `GET /models` を問い合わせ、`provider/model` の形で 1 行ずつ出す。
+1. `fudo models` で使えるモデルを見る。プロバイダの `GET /models` を問い合わせ、`provider/model` の形で 1 行ずつ出す。
+2. `~/.config/fudo/config.yaml` に `model:` を書く。無いファイルなら作るだけでよい。
 
-既定のモデルは `~/.config/fudo/config.yaml` に書く。
+   ```yaml
+   model: ollama-cloud/deepseek-v4.1-flash
+   ```
 
-```yaml
-model: ollama-cloud/deepseek-v4.1-flash
-```
+3. `fudo "Reply with the single word pong"` が `pong` を返せば効いている。1 回だけ変えるなら `fudo --model ollama-cloud/glm-5.3 "..."` のように `--model` を付ける。
 
 ### 動かす
 
