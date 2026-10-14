@@ -1,5 +1,6 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { discoverSkills, parseSkillDocument } from './skills.ts'
 
 const Parameters = Schema.Struct({ name: Schema.String })
 
@@ -20,7 +21,14 @@ const readIfPresent = (path: string): Effect.Effect<string | undefined> =>
     return yield* Effect.promise(() => file.text())
   })
 
-/** Reads one skill's SKILL.md from the first root that has it. */
+const availableIn = (names: ReadonlyArray<string>): string =>
+  names.length === 0 ? '' : ' (available: ' + names.join(', ') + ')'
+
+/**
+ * Reads one skill's SKILL.md from the first root that holds it. The roots are
+ * searched again on every call, so the tool and the published catalog cannot
+ * drift apart, and the model never contributes to a path.
+ */
 export const makeSkillTool = (
   roots: ReadonlyArray<string>,
 ): ToolDefinition<SkillArgs, SkillValue> => ({
@@ -42,13 +50,27 @@ export const makeSkillTool = (
           }),
         )
       }
-      for (const root of roots) {
-        const path = root + '/' + args.name + '/SKILL.md'
-        const body = yield* readIfPresent(path)
-        if (body !== undefined) return { name: args.name, path, body }
+      const skills = yield* discoverSkills(roots)
+      const match = skills.find((skill) => skill.name === args.name)
+      if (match === undefined) {
+        return yield* Effect.fail(
+          new ToolError({
+            code: 'execution',
+            message: 'unknown skill: ' + args.name + availableIn(skills.map((skill) => skill.name)),
+          }),
+        )
       }
-      return yield* Effect.fail(
-        new ToolError({ code: 'execution', message: 'unknown skill: ' + args.name }),
-      )
+      const text = yield* readIfPresent(match.path)
+      const document = text === undefined ? undefined : parseSkillDocument(text)
+      if (document === undefined) {
+        return yield* Effect.fail(
+          new ToolError({
+            code: 'execution',
+            message: 'the skill file changed since it was listed: ' + match.path,
+          }),
+        )
+      }
+      // The model reads the instructions, not the metadata it already saw listed.
+      return { name: document.name, path: match.path, body: document.body }
     }),
 })

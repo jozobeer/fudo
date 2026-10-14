@@ -31,35 +31,51 @@ const call = (
     }),
   )
 
+const skillText = (name: string, body = 'steps'): string =>
+  '---\nname: ' + name + '\ndescription: ' + name + ' does things\n---\n\n' + body + '\n'
+
 describe('skill tool', () => {
-  test('reads the first matching SKILL.md', async () => {
+  test('reads the SKILL.md of a skill the roots hold', async () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
-    await Bun.write(join(root, 'demo', 'SKILL.md'), '# demo\nsteps\n')
+    const path = join(root, 'demo', 'SKILL.md')
+    await Bun.write(path, skillText('demo', '# demo\nsteps'))
 
     const result = await Effect.runPromise(
       call(makeSkillTool([root, '/missing']), { name: 'demo' }),
     )
 
     expect(result?.isError).toBe(false)
-    expect(result?.value).toEqual({
-      name: 'demo',
-      path: join(root, 'demo', 'SKILL.md'),
-      body: '# demo\nsteps\n',
-    })
+    expect(result?.value).toEqual({ name: 'demo', path, body: '# demo\nsteps' })
     await rm(root, { recursive: true, force: true })
   })
 
   test('refuses a name that could escape the root', async () => {
-    const result = await Effect.runPromise(call(makeSkillTool(['/tmp']), { name: '../secrets' }))
+    const result = await Effect.runPromise(call(makeSkillTool([]), { name: '../secrets' }))
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('lower-case letters')
   })
 
-  test('an unknown skill is an error result', async () => {
-    const result = await Effect.runPromise(call(makeSkillTool(['/tmp']), { name: 'nope' }))
+  test('an unknown skill names what is available', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
+    await Bun.write(join(root, 'demo', 'SKILL.md'), skillText('demo'))
+
+    const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'nope' }))
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('unknown skill: nope')
+    expect(JSON.stringify(result?.content)).toContain('demo')
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('a skill file that fails validation is not readable', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
+    await Bun.write(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
+
+    const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'broken' }))
+
+    expect(result?.isError).toBe(true)
+    expect(JSON.stringify(result?.content)).toContain('unknown skill: broken')
+    await rm(root, { recursive: true, force: true })
   })
 })

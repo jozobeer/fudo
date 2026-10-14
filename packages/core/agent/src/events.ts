@@ -1,4 +1,5 @@
 import {
+  USER_MESSAGE_SOURCES,
   registerSessionEventSchemas,
   type SessionEventSchemaMap,
   type UserMessageSource,
@@ -23,7 +24,8 @@ declare module '@fudo/session/events' {
 
 const UserMessageSchema = Schema.Struct({
   text: Schema.String,
-  source: Schema.Literals(['user', 'inject', 'runtime-context']),
+  // One list of sources, so a new one cannot be accepted here but refused by the log.
+  source: Schema.Literals(USER_MESSAGE_SOURCES),
 })
 
 const InboxEventDataSchema = Schema.Struct({

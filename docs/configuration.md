@@ -21,10 +21,20 @@ plugin ごとの config キー、フラグ、環境変数の一覧は `fudo --du
 |---|---|---|
 | `model` | `provider/model` | 使うルート。`--model` > この値 > 行の `config.model` |
 | `profile` | profile 名 | 層2で重ねる profile。既定は `headless`。`--profile` > この値 |
-| `skills` | 文字列の配列 | `<name>/SKILL.md` を持つディレクトリ。1つ以上あると `skill` tool が付く |
+| `skills` | 文字列の配列 | `<name>/SKILL.md` を持つディレクトリを追加する。```/x``` は展開する |
 | `plugins` | 行の配列 | 層3として重なる |
 
 `profile` が指せるのは同梱の `base` / `headless` / `repl` だけである。同梱に無い名前は `no bundled profile named <name>` で起動が止まる。
+
+`skills` は追加の探索先である。`skill` tool は常に次の順で探し、同じ名前は先の根が勝つ。
+
+| 順 | ディレクトリ |
+|---|---|
+| 1 | `<workspace>/.fudo/skills` |
+| 2 | `skills` に書いた順 |
+| 3 | `<fudo home>/skills`（既定 `~/.fudo/skills`） |
+
+`SKILL.md` は YAML frontmatter に `name` と `description` を必ず持つ。欠けたファイルは一覧にも読込にも現れない。セッションの開始時に、見つかった skill の一覧がモデルへ届く。
 
 ## 行
 

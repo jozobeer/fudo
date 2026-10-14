@@ -97,7 +97,10 @@ describe('skill through the command', () => {
     const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
     const skills = await mkdtemp(join(tmpdir(), 'fudo-skills-'))
     const MARKER = 'SKILL-BODY-MARKER'
-    await Bun.write(join(skills, 'demo', 'SKILL.md'), MARKER + '\nstep one\n')
+    await Bun.write(
+      join(skills, 'demo', 'SKILL.md'),
+      '---\nname: demo\ndescription: Steps for the demo\n---\n\n' + MARKER + '\nstep one\n',
+    )
 
     const code = await Effect.runPromise(
       runCommand({

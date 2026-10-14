@@ -13,7 +13,8 @@ import {
   type PluginError,
   type PluginRow,
 } from '@fudo/kernel'
-import { cwdOf, type SessionId } from '@fudo/session'
+import { cwdOf, lastSkillCatalog, type SessionId } from '@fudo/session'
+import { expandHome } from '@fudo/session-jsonl'
 import {
   SystemPrompt,
   additionalInstructionsText,
@@ -37,6 +38,9 @@ import {
   type SearchHost,
   makeSubagentTool,
   makeWorkingDirectoryTool,
+  discoverSkills,
+  renderSkillCatalog,
+  skillRoots,
   tier1Tools,
 } from '@fudo/tools-tier1'
 import {
@@ -93,7 +97,7 @@ export interface CommandOptions {
   readonly approve?: (request: ApprovalRequested) => Effect.Effect<boolean>
   /** Answers ask_user questions; without it the question waits for an Ask answer. */
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
-  /** Directories searched by the skill tool, in order. */
+  /** Extra skill roots from the settings file; the workspace and the fudo home always rank around them. */
   readonly skills?: ReadonlyArray<string>
   /** The fudo home: user-global AGENTS.md and skills live here. */
   readonly fudoHome?: string
@@ -217,6 +221,7 @@ const installTier1 = (
   agent: Agent,
   route: string,
   answer: CommandOptions['answer'],
+  skills: ReadonlyArray<string>,
 ) =>
   Effect.gen(function* () {
     const ask = installAsk(
@@ -224,7 +229,7 @@ const installTier1 = (
       agent.session,
     )
     const jobs = yield* makeJobs()
-    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs)) {
+    for (const tool of tier1ToolList(ask, options, agent, route, agents, jobs, skills)) {
       yield* tools.register(tool)
     }
   })
@@ -236,8 +241,9 @@ const tier1ToolList = (
   route: string,
   agents: AgentsShape,
   jobs: JobsShape,
+  skills: ReadonlyArray<string>,
 ) => {
-  const list = [...tier1Tools(ask, options.skills ?? [])]
+  const list = [...tier1Tools(ask, skills)]
   if (options.search !== undefined) list.push(makeWebSearchTool(options.search))
   for (const tool of jobTools(jobs)) list.push(tool)
   list.push(
@@ -364,6 +370,28 @@ const serveAgent = (agent: Agent, options: CommandOptions, work: Work) =>
 const agentsOptionsOf = (options: CommandOptions): AgentsMdOptions =>
   options.fudoHome === undefined ? {} : { home: options.fudoHome }
 
+/** The skill roots of this run: the workspace, the settings, then the fudo home. */
+const skillsOf = (options: CommandOptions): ReadonlyArray<string> =>
+  skillRoots({
+    cwd: options.cwd,
+    custom: (options.skills ?? []).map(expandHome),
+    ...(options.fudoHome === undefined ? {} : { home: options.fudoHome }),
+  })
+
+/**
+ * The skill catalog this agent still needs to read: the current skills, or undefined
+ * when there are none or the newest catalog in its log is already this text. The log
+ * is the only memory, so a resumed session does not restate the same catalog.
+ */
+const skillCatalogOf = (
+  agent: Agent,
+  roots: ReadonlyArray<string>,
+): Effect.Effect<string | undefined> =>
+  Effect.gen(function* () {
+    const text = renderSkillCatalog(yield* discoverSkills(roots))
+    return text === '' || text === lastSkillCatalog(agent.session.events()) ? undefined : text
+  })
+
 /** Tools whose first argument names the file they touched. */
 const TOUCHED_PATH_TOOLS = new Set(['read', 'write', 'edit'])
 
@@ -416,6 +444,8 @@ interface ProfileWiring {
   readonly answer: CommandOptions['answer']
   readonly approve: CommandOptions['approve']
   readonly hooks: HookRegistry
+  /** The skill roots of this run, so the tool and the catalog search the same ones. */
+  readonly skills: ReadonlyArray<string>
   /** Read only inside a branch: an absent row means the service was never built. */
   readonly context: Context.Context<any>
 }
@@ -436,6 +466,7 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<void, ToolErro
         wiring.agent,
         wiring.route,
         wiring.answer,
+        wiring.skills,
       )
     }
     // Plan mode hides every tool that could change the workspace.
@@ -548,12 +579,28 @@ const runSession = (
       loaded: loadedAgentsOf(agents),
     })
 
+    // A catalog this agent has not read yet opens its turn, before the input it claimed.
+    const skills = skillsOf(options)
+    yield* hooks.on('agent/pre-step', (input, next) =>
+      Effect.gen(function* () {
+        const decision = yield* next()
+        if (decision?.kind === 'reject') return decision
+        const text = yield* skillCatalogOf(input.agent, skills)
+        if (text === undefined) return decision
+        return {
+          kind: 'enter' as const,
+          messages: [...(decision?.messages ?? []), { text, source: 'skill-catalog' as const }],
+        }
+      }),
+    )
+
     yield* installFromProfile({
       rows,
       options,
       route,
       agent,
       hooks,
+      skills,
       ...answerersOf(ui, options),
       context,
     })

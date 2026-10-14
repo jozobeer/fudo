@@ -5,7 +5,7 @@ import {
   LlmUsageSchema,
 } from '@fudo/llm'
 import { Schema } from 'effect'
-import type { TurnEndReason } from './events.ts'
+import { USER_MESSAGE_SOURCES, type TurnEndReason } from './events.ts'
 
 /** Event schemas a decoder accepts, keyed by event type. Plugins add their own. */
 export type SessionEventSchemaMap = ReadonlyMap<string, Schema.Schema<unknown>>
@@ -47,7 +47,7 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
     'user/message',
     Schema.Struct({
       text: Schema.String,
-      source: Schema.Literals(['user', 'inject', 'runtime-context']),
+      source: Schema.Literals(USER_MESSAGE_SOURCES),
     }),
   ],
   [

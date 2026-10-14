@@ -36,7 +36,23 @@ fudo auth list         # 入っている名前を見る
 
 ## スキルを読ませる
 
-`SKILL.md` を置いたディレクトリを登録する。
+```
+.fudo/skills/<name>/SKILL.md   作業ディレクトリの中（ほかの作業ディレクトリへは効かない）
+~/.fudo/skills/<name>/SKILL.md 自分のマシン全体
+```
+
+`SKILL.md` の先頭に frontmatter を置く。
+
+```markdown
+---
+name: release
+description: リリース手順を踏むときに読む
+---
+
+手順の本文。
+```
+
+`description` はセッション開始時にモデルへ配る一覧に載る。`name` と `description` の無いファイルは無視される。別のディレクトリを足す場合は設定ファイルに書く。
 
 ```sh
 fudo config add skills ~/skills     # <name>/SKILL.md を持つディレクトリ
@@ -44,7 +60,7 @@ fudo config remove skills ~/skills  # 外す
 fudo config                         # 入ったことを確かめる
 ```
 
-同じディレクトリを二度足しても増えない。`skills` が1つ以上あると `skill` tool が付く。
+同じディレクトリを二度足しても増えない。
 
 ## 書き込みと実行の許可を変える
 
