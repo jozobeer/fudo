@@ -366,7 +366,8 @@ const agentLoopEffect: Effect.Effect<AgentRunner, never, Hooks | Tools | SystemP
           })
           return
         }
-        const completed = yield* runSteps(agent, turn, claimed)
+        // Context the pre-step listeners supplied opens the turn, before its claimed input.
+        const completed = yield* runSteps(agent, turn, [...(decision?.messages ?? []), ...claimed])
         if (!completed) return
         yield* hooks.serial('agent/turn-stopping', agent)
         yield* append(agent, 'turn/end', { turn, reason: { kind: 'completed' } })

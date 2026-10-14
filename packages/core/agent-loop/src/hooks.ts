@@ -9,7 +9,11 @@ export interface PreStepInput {
 }
 
 export type PreStepDecision =
-  | { readonly kind: 'enter' }
+  | {
+      readonly kind: 'enter'
+      /** Context the turn opens with, before the input that was claimed for it. */
+      readonly messages?: ReadonlyArray<UserMessage>
+    }
   | { readonly kind: 'reject'; readonly reason: string }
 
 /** The request as the loop will send it, after every adjustment. */

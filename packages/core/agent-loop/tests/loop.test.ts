@@ -260,6 +260,37 @@ describe('agent loop', () => {
     expect(stored[injected]?.type === 'user/message' ? stored[injected].data.text : '').toBe(note)
   })
 
+  test('a pre-step listener opens the turn with its messages', async () => {
+    const note = crypto.randomUUID()
+    const events = await scenario([chunks(textTurn('done'))], (ctx) =>
+      Effect.gen(function* () {
+        yield* ctx.hooks.on('agent/pre-step', (_input, next) =>
+          Effect.map(next(), (decision) =>
+            decision?.kind === 'reject'
+              ? decision
+              : {
+                  kind: 'enter' as const,
+                  messages: [{ text: note, source: 'inject' as const }],
+                },
+          ),
+        )
+        const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+        yield* agent.followup({ text: 'go', source: 'user' })
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    const stored = events.session.events()
+    const messages = stored.flatMap((event) =>
+      event.type === 'user/message' ? [{ text: event.data.text, source: event.data.source }] : [],
+    )
+    expect(messages).toEqual([
+      { text: note, source: 'inject' },
+      { text: 'go', source: 'user' },
+    ])
+  })
+
   test('retries a failed attempt without repeating the request header', async () => {
     const text = crypto.randomUUID()
     const events = await scenario(
