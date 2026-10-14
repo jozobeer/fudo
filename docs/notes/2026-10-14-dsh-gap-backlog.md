@@ -199,7 +199,13 @@
   - 検証: `team.test.ts` 6 本（spawn が子を作り roster に記録する／同名は拒否／畳み込みは revision の大きい方が勝ち未知 id は undefined／create と update が 1 つずつイベントを書く／古い revision と未知 id は拒否／list が roster と板を出す）、e2e `team-e2e.test.ts`（実 CLI で、lead が spawn → create → send_message → wait_agent → update を通し、lead のログに roster 1 行と revise 済みの task が残り、子のログに仕事が user メッセージとして届き、2 つの session ができる）。`bun run check` 689 pass / 0 fail。
   - 学び: 子の turn と親の次の step は同じ LLM を奪い合う。脚本を呼び出し回数で数えると、`send_message` が待たないために競合する。**リクエストの最後の user メッセージで脚本を選ぶ**（既存の agent-control-e2e と同じ形）と決定的になり、子の id もツール結果から読める。ツール結果の綴りを subagent と揃えた（`[child session: <id>]`）のはそのためでもある。
   - 未確認: dsh の team は Lead / teammate の権限制御と remote 越しの compare-and-set を持つ。fudo は 1 親とその子だけで、板の CAS は revision の比較としてツール内にある。task の owner 欄と send_message の宛先は自動では結びつかない（dsh は owner への配送を持つ）。子は lead のログから fork するので、teammate 自身も spawn できる。
-- [ ] **C9 subagent の seam**。fudo は route を構築時に固定した fire-and-forget の子を1つ作るだけ（`fudo:packages/core/tools-tier1/src/subagent.ts:56`）。dsh は provider を差し替えられ（fresh / fork / 他製品への委譲）、継続可能な子を選べる（`dsh:packages/subagent/tool-subagent-control/src/index.ts:29`）。
+- [x] **C9 subagent の seam**。fudo は route を構築時に固定した fire-and-forget の子を1つ作るだけ（`fudo:packages/core/tools-tier1/src/subagent.ts:56`）。dsh は provider を差し替えられ（fresh / fork / 他製品への委譲）、継続可能な子を選べる（`dsh:packages/subagent/tool-subagent-control/src/index.ts:29`）。
+  - 実装（2026-10-14）:
+    - 設計文書を改訂した。kernel の B6 表の `subagent_fork` 行（「fudo は常に fork する」→ fresh も選べる）と `list_subagent_models` 行、tier3 の決定 5 に C9 の改訂を追記。
+    - `subagent` ツールに 3 つ足した: `model`（子の route を `provider/model` として指名する。形はツールが検査し、通らなければ**子を起こす前に**拒否する）、`context: 'fork' | 'fresh'`（fresh は親の履歴を渡さず、種を空にする）、`task` を省略可能に（起こして何も走らせず idle のまま残す。render は「send_message で仕事を渡せ」と言う）。route は Agent ごとの `options.route` に載り、runner がそれを `request/header` の provider / model にするので、子は自分の route で走る。
+  - 検証: `subagent.test.ts` 5 本（既定は親の route を引き継ぐ／cwd を取る／別 route を指名できる／形が違えば子を起こさずに拒否する／idle かつ fresh で種が空）、e2e `apps/cli/tests/subagent-seam-e2e.test.ts`（実 CLI で、`model: 'other/cheap'` の子のリクエストが adapter に provider=other / model=cheap として届き、子のログの `request/header` にも残る。task を省いて fresh で起こした子は `send_message` の 1 通だけを user メッセージに持ち（親の履歴が無い）、session が 3 つできる）。`bun run check` 693 pass / 0 fail。
+  - 学び: seam を広げるときは既存の既定（fork と親の route）を既定のまま残し、呼び出し引数で選ばせるのが最小だった。検証は子のログ（`request/header`）と adapter が受け取ったリクエストの**二重**で取った。ログだけでは「記録はしたが送っていない」を排除できない。
+  - 未確認: `workflow` と `team` は構成時に route を固定したままで、呼び出しごとの指名はできない（同じ seam は `AgentsShape.create({ options: { route } })` にあるので、要るときは同じ形で足せる）。dsh の「他製品への委譲」は ACP 相当で除外のまま。存在しない provider を指す route は、ツールではなく request 時に provider エラーとして返る（ツールは形しか検査しない）。
 
 ## D. 安全・耐久
 

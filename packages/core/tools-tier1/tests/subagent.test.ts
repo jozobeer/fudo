@@ -28,16 +28,33 @@ const childEvents = (text: string): Array<SessionEvent> =>
     },
   ] as unknown as Array<SessionEvent>
 
-const fakeAgents = (seen: Array<{ cwd: string; task: string }>, text: string): AgentsShape =>
+interface Created {
+  readonly cwd: string
+  readonly task: string
+  readonly route: string | undefined
+  readonly seed: ReadonlyArray<SessionEvent> | undefined
+}
+
+const fakeAgents = (seen: Array<Created>, text: string): AgentsShape =>
   ({
-    create: (options: { cwd: string }) => {
-      seen.push({ cwd: options.cwd, task: '' })
+    create: (options: {
+      cwd: string
+      options?: { readonly route?: string }
+      seed?: ReadonlyArray<SessionEvent>
+    }) => {
+      seen.push({
+        cwd: options.cwd,
+        task: '',
+        route: options.options?.route,
+        seed: options.seed,
+      })
       const agent = {
         id: 'child-1',
         session: { events: () => childEvents(text) },
         followup: (message: { text: string }) =>
           Effect.sync(() => {
-            seen[seen.length - 1] = { cwd: options.cwd, task: message.text }
+            const last = seen[seen.length - 1]
+            if (last !== undefined) seen[seen.length - 1] = { ...last, task: message.text }
           }),
         whenIdle: Effect.void,
       } as unknown as Agent
@@ -65,7 +82,7 @@ const call = (
 
 describe('subagent tool', () => {
   test('runs the task in a child and returns its answer', async () => {
-    const seen: Array<{ cwd: string; task: string }> = []
+    const seen: Array<Created> = []
     const result = await Effect.runPromise(
       call(
         makeSubagentTool({
@@ -82,11 +99,11 @@ describe('subagent tool', () => {
     expect(result?.isError).toBe(false)
     expect(result?.value).toEqual({ sessionId: 'child-1', text: 'child says hi' })
     expect(JSON.stringify(result?.content)).toContain('[child session: child-1]')
-    expect(seen).toEqual([{ cwd: '/work', task: 'look around' }])
+    expect(seen).toEqual([{ cwd: '/work', task: 'look around', route: 'stub/model', seed: [] }])
   })
 
   test('takes the cwd it is given', async () => {
-    const seen: Array<{ cwd: string; task: string }> = []
+    const seen: Array<Created> = []
     await Effect.runPromise(
       call(
         makeSubagentTool({
@@ -102,5 +119,67 @@ describe('subagent tool', () => {
     )
 
     expect(seen[0]?.cwd).toBe('/elsewhere')
+  })
+
+  test('a child can run on another route', async () => {
+    const seen: Array<Created> = []
+    const result = await Effect.runPromise(
+      call(
+        makeSubagentTool({
+          agents: fakeAgents(seen, 'child says hi'),
+          route: 'stub/model',
+          parentEvents: () => [],
+        }),
+        { task: 'look around', model: 'other/cheap-model' },
+      ),
+    )
+
+    expect(seen[0]?.route).toBe('other/cheap-model')
+    expect(result?.isError).toBe(false)
+  })
+
+  test('a route has to name a provider and a model', async () => {
+    const seen: Array<Created> = []
+    const result = await Effect.runPromise(
+      call(
+        makeSubagentTool({
+          agents: fakeAgents(seen, 'ok'),
+          route: 'stub/model',
+          parentEvents: () => [],
+        }),
+        { task: 'look around', model: 'cheap-model' },
+      ),
+    )
+
+    expect(result?.isError).toBe(true)
+    expect(JSON.stringify(result?.content)).toContain('provider and a model')
+    // No child was started for a call that could never run.
+    expect(seen).toEqual([])
+  })
+
+  test('a child can be left idle, and start from nothing', async () => {
+    const seen: Array<Created> = []
+    const parent = [
+      {
+        seq: 1,
+        time: 1,
+        type: 'user/message',
+        data: { text: 'earlier', source: 'user' },
+      } as unknown as SessionEvent,
+    ]
+    const result = await Effect.runPromise(
+      call(
+        makeSubagentTool({
+          agents: fakeAgents(seen, ''),
+          route: 'stub/model',
+          parentEvents: () => parent,
+        }),
+        { context: 'fresh' },
+      ),
+    )
+
+    expect(seen).toEqual([{ cwd: '/work', task: '', route: 'stub/model', seed: [] }])
+    expect(result?.value).toEqual({ sessionId: 'child-1', text: '' })
+    expect(JSON.stringify(result?.content)).toContain('send_message')
   })
 })

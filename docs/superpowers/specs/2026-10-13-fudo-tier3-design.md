@@ -21,7 +21,7 @@
    - 入力はデータ（task の配列）にする。dsh のように JavaScript のオーケストレーションスクリプトを解釈する engine は持たない（fudo には script を走らせる sandbox と interpreter が無く、その分のコストが v1 の規模を超える）。ループ・分岐・逐次依存は、モデルが workflow を何回か呼ぶことで表す。
    - 扇状実行そのものは S6 の並列ツール呼び出し（isConcurrencySafe）と同じ仕組みで行う。1 つの task が失敗してもその項目だけが null になり、他の task と run 全体は生き残る。
    - 結果の検証は「task が expect: json を宣言していれば JSON として読む」に留める。dsh は結果を schema で検証して分岐に使うが、その schema 言語は持たない。
-5. **subagent の fork は、親の履歴を子に渡す形で表す。** 子のセッションを親のイベントから派生させて作り、cwd と route を引き継ぐ。
+5. **subagent の fork は、親の履歴を子に渡す形で表す。** 子のセッションを親のイベントから派生させて作り、cwd と route を引き継ぐ。**2026-10-14 改訂（[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md) C9）**: 引き継ぐのは既定であって唯一の形ではない。呼び出しは (a) `model` で子の route を `provider/model` として指名できる（形はツールが検査し、通らなければ子を起こす前に拒否する）、(b) `context: 'fresh'` で種を空にできる（親の履歴を渡さない）、(c) `task` を省くと子を起こして何も走らせない（idle のまま残り、`send_message` で仕事を渡せる）。route は Agent ごとの `options.route` に載り、runner がそれを `request/header` の provider / model にするので、子は自分の route で走る。
 6. **schedule はログのイベントで表し、時計は 1 本の fiber が持つ（2026-10-14 追加）。** 予定は `schedule/created` / `schedule/updated` / `schedule/deleted` としてログに残し、`currentSchedules(events)` が最新の状態を畳む（goal と同じ方針）。期限到達は `schedule/fired` として記録し、発火の判定は「ルールから計算した次の時刻」と「最後に発火した時刻」の比較だけで行う。時計は起動時に一度だけ立てる scoped fiber が持ち、次の期限まで `Effect.sleep` して `followup` する。したがって予定はプロセスをまたいで生き、再開したセッションでも期限が来ていれば発火する。
    - 種別は every（秒）・daily（ローカル時刻）・weekly（曜日 + ローカル時刻）・cron（5 フィールド）。
    - 時間帯はプロセスのローカル 1 つだけを使う。dsh は予定ごとに IANA の zone を持つが、fudo の v1 は持たない（差分として記録する）。
@@ -40,4 +40,4 @@
 
 ## 実装の記録
 
-- subagent: packages/core/tools-tier1/src/subagent.ts（makeSubagentTool(agents, route)）。CLI は subagents: true のとき登録する。
+- subagent: packages/core/tools-tier1/src/subagent.ts（makeSubagentTool(agents, route)）。CLI は subagents: true のとき登録する。引数は task / cwd / model / context（2026-10-14 に model と context を足した）。

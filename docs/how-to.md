@@ -127,6 +127,8 @@ team update id=task-1 state=done revision=1
 
 `team list` が roster（子の状態つき）と板を出す。板の revision は更新のたびに増え、古い revision での update は拒否される。
 
+子を 1 つだけ使うときは `subagent` で足りる。`model` で別の route（`provider/model`）を走らせ、`context=fresh` で親の履歴を渡さず、`task` を省くと起こしたまま idle で残せる（あとから `send_message` で仕事を渡す）。
+
 ## モデルにプラグイン行を直させる
 
 モデルは `plugin` ツールで settings の `plugins` 行を list / add / remove / disable できる。1 回ごとに承認を求められ、効くのは**次の起動から**である（走っているプロセスの構成は変わらない）。足せるのは同梱のパッケージ名だけ。

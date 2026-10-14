@@ -56,8 +56,8 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | `pwsh` | 除外。fudo の sandbox は macOS Seatbelt（S2）で、対象は POSIX シェルだけである |
 | `job_list` | 採用。S6 の jobs。`JobsShape.list` が既にあり、走っている背景仕事をモデルが見る手段が要る |
 | subagent 制御（`send_message` / `interrupt_agent` / `list_agents` / `wait_agent`） | 採用。S6 の subagent。子に話しかけ、止め、終わるのを待つ |
-| `subagent_fork` | 対応済み。S6 の範囲表の「fork を含む」は、`subagent` が `forkSeed` で親のログから子を起こすことで満たしている（証拠は `apps/cli/tests/subagent-fork-e2e.test.ts`）。fudo の `subagent` は常に fork するので、dsh の fork しない `subagent` に当たる道具は持たない |
-| `list_subagent_models` | 除外。fudo はモデルを起動時の `route` で選び、model registry を持たない |
+| `subagent_fork` | 対応済み。S6 の範囲表の「fork を含む」は、`subagent` が `forkSeed` で親のログから子を起こすことで満たしている（証拠は `apps/cli/tests/subagent-fork-e2e.test.ts`）。**2026-10-14 改訂**: fork しない子も選べるようにした（`context: 'fresh'` で種を空にする）。あわせて `model` で子の route を呼び出しごとに指名でき、`task` を省くと子を起こして待たせる（idle のまま残し、`send_message` で続ける）。 |
+| `list_subagent_models` | 除外。fudo はモデルを起動時の `route` で選び、model registry を持たない。**2026-10-14 追記**: 子の route は呼び出しごとに `model` で指名できるが、列挙できる registry は無いのでこの道具は依然として持たない |
 | `exit_plan_mode` | 採用。S5 の plan-mode。制限を解く出口をモデルに与える |
 | `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である |
 | `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |

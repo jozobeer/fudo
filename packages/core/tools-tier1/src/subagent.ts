@@ -4,15 +4,42 @@ import type { Agent, AgentsShape } from '@fudo/agent'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  task: Schema.String.annotate({
-    description: 'The whole task for the child, written as if the child sees nothing else.',
-  }),
+  task: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        'The whole task for the child, written as if the child sees nothing else. Leave it out to start a child that waits for send_message.',
+    }),
+  ),
   cwd: Schema.optionalKey(
     Schema.String.annotate({
       description: 'The directory the child starts in. Defaults to this working directory.',
     }),
   ),
+  model: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "The route the child runs on, provider/model. Defaults to this agent's route.",
+    }),
+  ),
+  context: Schema.optionalKey(
+    Schema.Literals(['fork', 'fresh']).annotate({
+      description:
+        "Whether the child starts from this conversation's log (fork, the default) or from nothing (fresh).",
+    }),
+  ),
 })
+
+/** The route a child runs on: the one asked for, checked, or this agent's own. */
+const routeFor = (asked: string | undefined, fallback: string): string | ToolError => {
+  if (asked === undefined) return fallback
+  const slash = asked.indexOf('/')
+  if (slash <= 0 || slash === asked.length - 1) {
+    return new ToolError({
+      code: 'invalid-arguments',
+      message: 'a route names a provider and a model, like provider/model: ' + asked,
+    })
+  }
+  return asked.slice(0, slash) + '/' + asked.slice(slash + 1)
+}
 
 export type SubagentArgs = Schema.Schema.Type<typeof Parameters>
 
@@ -45,43 +72,57 @@ export interface SubagentHost {
   readonly parentEvents: () => ReadonlyArray<SessionEvent>
 }
 
-export const makeSubagentTool = ({
-  agents,
-  route,
-  parentEvents,
-}: SubagentHost): ToolDefinition<SubagentArgs, SubagentValue> => ({
-  name: 'subagent',
-  description:
-    'Runs one task in a child agent and returns what it said. Delegate only work that needs none of this conversation: the child starts fresh.',
-  parameters: Parameters,
-  output: {
-    schema: Schema.Struct({ sessionId: Schema.String, text: Schema.String }),
-    // The session id rides along, so the parent can send the child more work or wait for it.
-    render: (_args, value) => [
-      { type: 'text', text: value.text + '\n\n[child session: ' + value.sessionId + ']' },
-    ],
-  },
-  execute: (args, context) =>
-    Effect.gen(function* () {
-      const child = yield* agents
-        .create({
-          cwd: args.cwd ?? context.cwd,
-          options: { route },
-          seed: forkSeed(parentEvents()),
-        })
-        .pipe(
-          Effect.mapError(
-            () => new ToolError({ code: 'execution', message: 'cannot start a child agent' }),
-          ),
-        )
-      yield* child
-        .followup({ text: args.task, source: 'user' })
-        .pipe(
-          Effect.mapError(
-            () => new ToolError({ code: 'execution', message: 'the child agent took no message' }),
-          ),
-        )
-      yield* child.whenIdle
-      return { sessionId: child.id, text: textOf(child) }
-    }),
-})
+export const makeSubagentTool = (
+  host: SubagentHost,
+): ToolDefinition<SubagentArgs, SubagentValue> => {
+  const { agents, parentEvents } = host
+  return {
+    name: 'subagent',
+    description:
+      "Starts a child agent with one task and returns what it said, or starts it with no task and leaves it idle for send_message. The child runs on this agent's route unless another one is named, and starts from this conversation (fork) or from nothing (fresh).",
+    parameters: Parameters,
+    output: {
+      schema: Schema.Struct({ sessionId: Schema.String, text: Schema.String }),
+      // The session id rides along, so the parent can send the child more work or wait for it.
+      render: (_args, value) => [
+        {
+          type: 'text',
+          text:
+            (value.text === ''
+              ? '(the child is idle; send it work with send_message)'
+              : value.text) +
+            '\n\n[child session: ' +
+            value.sessionId +
+            ']',
+        },
+      ],
+    },
+    execute: (args, context) =>
+      Effect.gen(function* () {
+        const route = routeFor(args.model, host.route)
+        if (route instanceof ToolError) return yield* Effect.fail(route)
+        const child = yield* agents
+          .create({
+            cwd: args.cwd ?? context.cwd,
+            options: { route },
+            seed: args.context === 'fresh' ? [] : forkSeed(parentEvents()),
+          })
+          .pipe(
+            Effect.mapError(
+              () => new ToolError({ code: 'execution', message: 'cannot start a child agent' }),
+            ),
+          )
+        if (args.task === undefined) return { sessionId: child.id, text: '' }
+        yield* child
+          .followup({ text: args.task, source: 'user' })
+          .pipe(
+            Effect.mapError(
+              () =>
+                new ToolError({ code: 'execution', message: 'the child agent took no message' }),
+            ),
+          )
+        yield* child.whenIdle
+        return { sessionId: child.id, text: textOf(child) }
+      }),
+  }
+}
