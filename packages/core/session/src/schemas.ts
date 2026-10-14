@@ -31,6 +31,7 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
     Schema.Struct({ formatVersion: Schema.Int, createdAt: Schema.Number, cwd: Schema.String }),
   ],
   ['session/cwd/changed', Schema.Struct({ cwd: Schema.String }) as Schema.Schema<unknown>],
+  ['session/repaired', Schema.Struct({ tornBytes: Schema.Int }) as Schema.Schema<unknown>],
   [
     'compaction/prune',
     Schema.Struct({
@@ -110,6 +111,7 @@ const catalog = new Map<string, Schema.Schema<unknown>>([
 registerLogOnlySessionEvents([
   'session/header',
   'session/cwd/changed',
+  'session/repaired',
   'turn/start',
   'turn/end',
   'step/start',

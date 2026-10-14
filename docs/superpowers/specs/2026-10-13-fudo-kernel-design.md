@@ -42,7 +42,7 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | 二言語ドキュメント | 個人の基盤には不要 |
 | OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる |
 | plugin-manager、typert | **2026-10-14 改訂**: 「Layer は起動時に一度組み立てる」方針はそのまま（HMR の行と同じ理由。実行中の mount / unmount はしない）。ただし dsh の plugin-manager に当たる「モデルが承認下で自分のプラグインを入れ替える」は、**宣言を編集する `plugin` ツール**として採る。モデルは settings の `plugins` 行を list / add / remove / disable でき、変更は 1 回ごとの承認を要し、**次の起動から**効く。すでに走っているプロセスの Layer は変えない（C6 の「セッションは始めた構成を覚える」とも整合する）。dsh の bundle install（npm から取ってきて build script を走らせる）は持たない: fudo の plugin は同梱のパッケージで、行が指せるのはこの build が持っている名前だけである。typert は持たない |
-| session format の世代 migration | 移行元が無い。`formatVersion` は最初から持ち、migration の連鎖は互換性の無い変更が初めて生じたときに作る |
+| session format の世代 migration | **2026-10-14 改訂**: [dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の D4 が「古いログを捨てずに読める」ことを求めるので、**読み手が寛容になり、世代の表を持つ**。header の `formatVersion` が現在以下なら表を通して現在の形に上げ、**現在より新しい**ものだけを拒否する（意味を知らないものは読めない）。表の最初の段は v0 = 「header が世代を言わない」で、`formatVersion: 1` を足し、`createdAt` はファイルの mtime（ディスクにある事実）で埋め、`cwd` は `'(not recorded)'` にする（書かれた場所を後から知る手立ては無く、ありそうな道をでっち上げると runtime context が嘘を繰り返す）。くわえて**切れた末尾の修復**を入れる: 最終行が途中で切れていたら、そこまでを読み、末尾を切り落として `session/repaired` を残す（圧縮・lease・export・全文検索は、この項目の受け入れ線の外にある別の能力なので持たない） |
 | SurfaceOp / SurfaceIntent / `sourceEventSeqs`、`prepareCall` の capability フェーズ、`request/context` | dsh ではプロンプトキャッシュを保ったまま surface を差分更新するための仕組みである。Ollama Cloud の OpenAI 互換 API には明示的なキャッシュ制御が無い。Anthropic adapter を足すときに必要性を再判断する。`request/header` に組み立て済みの tool schema と series を記録するのはこれに含めない（キャッシュ差分ではなく、送った内容をログから再構成するため。2026-10-14 追記） |
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |
 | パッケージのファイルごとに 100% のカバレッジ gate | Bun の coverage がファイル単位の閾値を持つかは未確認である。主な証拠は replay snapshot と contract テストが担う。coverage report は出力する |
@@ -331,6 +331,8 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 | `session/event` の observer の例外 | session | 隔離して報告し、append の成否に影響させない |
 
 ログの append に失敗した Agent を止めるのは、記録されない状態で作業を続けると、model に見えたものとログが食い違うからである。observer の例外を隔離するのは、observer がログの下流にあり、その失敗がログの正しさに影響しないからである。
+
+**ログは読み手が寛容になる（2026-10-14 追記）**: `formatVersion` を完全一致で要求すると、形が 1 つ進んだだけで過去のログが開けなくなる。世代の表（`upgradeHeader`）を通して現在の形に上げ、現在より新しい世代だけを「この fudo より新しい」として拒否する。壊れた（途中で切れた）末尾は、そこまでを読んで切り落とし、`session/repaired` としてログに残す——黙って捨てるのではなく、捨てた事実をログ自身に書く。
 
 **sandbox は既定で効く（2026-10-14 追記）**: S2 の sandbox provider は当初 `sandbox ?? 'none'` で、同梱 profile もキーを書かなかったため既定は無制限だった。いまは `sandbox ?? 'seatbelt'` とし、`bundle/base` も `sandbox: seatbelt` を明示する。書き込めるのは**コマンドが走るディレクトリと一時ディレクトリ**、それに `writableRoots` の追加分で、読めるのは system のパス（`/usr`、`/bin`、`/System`、`/private/etc`、`/dev`、`/opt` など）と書き込み可能な根である——ここを空にすると bash が自分の interpreter を読めず、sandbox を既定にしても何も動かない。ネットワークは開けたままにする: 呼び出しが外へ出てよいかを決めるのは `preset` と承認であり、sandbox の仕事はファイルシステムの封じ込めである。`seatbelt` が使えない platform では、無制限に落とさず loader を失敗させる（`PluginError{ code: 'unavailable' }`）。無制限は `sandbox: none` の明示的な選択になる。
 

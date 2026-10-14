@@ -230,7 +230,15 @@
   - 検証: `workspace.test.ts` 5 本（中は通る／外・兄弟プレフィックス `/work-other`・root 自身は拒否／外を指すリンク・中を指すリンク・リンクの下の新規作成は拒否／リンクそのものと宙ぶらりんのリンクは拒否／まだ無い深いパスは通る）、e2e `write-guard-e2e.test.ts` に 1 本（実 CLI で `write` が `out/hacked.txt`（out は外を指すリンク）を拒否し、外側に何も書かれない）。`bun run check` 708 pass / 1 skip / 0 fail。
   - 学び: 封じ込めの判定は「字句 → 実体」の 2 段で、**両方**要る。字句だけではリンクで抜けられ、実体（realpath）だけでは宙ぶらりんのリンクで抜けられる。テストは「ありうる誤実装が落ちること」を狙って、`/work-other`（`startsWith` の穴）と宙ぶらりんリンク（realpath の穴）を入力に置いた。
   - 未確認: `read` / `glob` / `grep` は workspace の外も読める（読み取りの封じ込めは dsh の fs-sandbox の対象外で、この項目も書き込み経路を求めた）。symlink 判定は lstat と実際の open の間に隙がある（検査後に差し替えられれば意味を失う。ローカルの単一ユーザー前提で、`O_NOFOLLOW` での open は持たない）。`bash` の cwd はこの seam を通るが、コマンド自身が `cd` でどこへ行くかは sandbox の領分である。
-- [ ] **D4 session の耐久性**。fudo は `formatVersion=1` 以外を読み込み拒否し、切れた末尾の修復・圧縮・lease・export・検索がない（`fudo:packages/core/session-jsonl/src/index.ts:67`）。dsh は v0→v4 の migration、修復、zstd、flock、ZIP export、FTS 検索を持つ（`dsh:packages/session/session-format-v0-to-v1`、`dsh:packages/session-query/session-query/src/index.ts:153`）。受け入れ: 古いログを捨てずに読める。
+- [x] **D4 session の耐久性**。fudo は `formatVersion=1` 以外を読み込み拒否し、切れた末尾の修復・圧縮・lease・export・検索がない（`fudo:packages/core/session-jsonl/src/index.ts:67`）。dsh は v0→v4 の migration、修復、zstd、flock、ZIP export、FTS 検索を持つ（`dsh:packages/session/session-format-v0-to-v1`、`dsh:packages/session-query/session-query/src/index.ts:153`）。受け入れ: 古いログを捨てずに読める。
+  - 実装（2026-10-14）:
+    - 設計文書を改訂した（除外表の「session format の世代 migration」行 + 失敗表の隣に追記）。**読み手が寛容になり、世代の表を持つ**: header の `formatVersion` が現在以下なら表を通して現在の形に上げ、**現在より新しい**ものだけを拒否する（「この fudo より新しい」と言う）。表の最初の段は v0 = 「header が世代を言わない」で、`formatVersion: 1` を足し、`createdAt` はファイルの mtime（ディスクにある事実）で埋め、`cwd` は `(not recorded)` にする——書かれた場所を知る手立ては無く、ありそうな道をでっち上げると runtime context が嘘を繰り返す。
+    - **切れた末尾の修復**: 書き手は 1 行（改行込み）ずつ append するので、最後の行が改行で終わっていなければ crash の跡である。そこまでを読み、末尾を切り落とし、`session/repaired {tornBytes}` を**ログのイベントとして**書く（捨てた事実をログ自身に残す）。修復は 1 回の `writeFile` で行い、書けなければ prefix だけで開く（次の append は切り株の後ろに付き、次の読みでまた直る）。一覧（stat）は読むだけで書かない。
+    - 新しいイベント `session/repaired` は `@fudo/session` に置き、log-only（モデルの履歴には入らない）。
+    - 圧縮（zstd）・lease（flock）・ZIP export・全文検索は、この項目の受け入れ線の外にある別の能力なので持たない（dsh との差として記録）。
+  - 検証: `durability.test.ts` 9 本（v0 のログが開いて現在の形になる／`cwd` は `(not recorded)` で `createdAt` はディスクから／現在より新しい世代は「newer fudo」と言って拒否／切れた末尾は prefix を読み `session/repaired` が入り `tornBytes` が正しく、ファイルが直り、2 回目の読みでは修復が起きない／header の前に切れたログは開けない／一覧は古いログを見せてファイルを触らない／`splitTornTail` の境界（空・完備・途中・改行なし）／`upgradeHeader` が現在の世代を素通しする）。`bun run check` 717 pass / 1 skip / 0 fail。
+  - 学び: 修復の注記を**ファイルに書いただけ**にしたら、メモリ上の events とファイルが食い違い、次の append が同じ seq を二重に使うところだった。ログは唯一の記憶なので、書いたものは返り値にも入れる（ファイルとセッションが同じものを見る）——テストがこの食い違いを捕まえた。
+  - 未確認: 圧縮・lease・export・検索は無い。`session/repaired` は log-only なので会話 view には notice として出ない（人間はログで見る）。世代の表はいまのところ v0 → v1 の 1 段だけで、互換性の無い変更が生じたらここに足す。修復は「最後の行が切れている」場合だけで、途中の壊れた行は今も拒否する（本当の破損は黙って飛ばさない）。
 - [ ] **D5 settings / credentials / identity / telemetry**。fudo は config.yaml と secrets.env のみ（`fudo:apps/cli/src/config.ts:16`）。dsh は設定の seam、資格情報の優先順位、匿名 id、mount するまで送らない OTLP を持つ。
 
 ## E. UI・提示・検証

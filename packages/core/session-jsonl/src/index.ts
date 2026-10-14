@@ -1,5 +1,4 @@
 import {
-  SESSION_FORMAT_VERSION,
   SessionError,
   decodeSessionEvent,
   type SessionEventSchemaMap,
@@ -13,7 +12,9 @@ import {
 } from '@fudo/session'
 import { Effect } from 'effect'
 import type { Dirent } from 'node:fs'
-import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, stat as statFile, writeFile } from 'node:fs/promises'
+import { upgradeHeaderLine } from './upgrade.ts'
+import { splitTornTail, type SplitLog } from './repair.ts'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -48,48 +49,68 @@ const parseLine = (
     catch: (cause) => persistenceError(`line ${lineNumber} of session ${id} is not JSON`, cause),
   })
 
+/** What one read of a log gave back: its events, and how far it had to be carried forward. */
+interface DecodedLog {
+  readonly events: ReadonlyArray<SessionEvent>
+  readonly from: number
+  readonly changed: boolean
+}
+
 const decodeEvents = (
   id: SessionId,
   text: string,
+  mtimeMs: number,
   schemas: SessionEventSchemaMap | undefined,
-): Effect.Effect<ReadonlyArray<SessionEvent>, SessionError> =>
+): Effect.Effect<DecodedLog, SessionError> =>
   Effect.gen(function* () {
+    const lines = text.split('\n').filter((line) => line.trim() !== '')
+    const firstLine = lines[0]
+    if (firstLine === undefined) {
+      return yield* Effect.fail(persistenceError(`session ${id} is empty`))
+    }
+    // The header is carried forward before it is decoded: a log written by an older
+    // build must open, not read as a stranger.
+    const upgraded = upgradeHeaderLine(yield* parseLine(id, 1, firstLine), { mtimeMs })
+    if ('message' in upgraded) {
+      return yield* Effect.fail(persistenceError(`session ${id}: ${upgraded.message}`))
+    }
     const events: Array<SessionEvent> = []
-    for (const [index, line] of text.split('\n').entries()) {
-      if (line.trim() === '') continue
-      const event = yield* decodeSessionEvent(yield* parseLine(id, index + 1, line), schemas)
+    for (const [index, line] of lines.entries()) {
+      const raw = index === 0 ? upgraded.line : yield* parseLine(id, index + 1, line)
+      const event = yield* decodeSessionEvent(raw, schemas)
       if (event !== undefined) events.push(event)
     }
-    return yield* requireCurrentHeader(id, events)
+    yield* requireHeader(id, events)
+    return { events, from: upgraded.from, changed: upgraded.changed }
   })
 
-/** The log must open with a header of the format this build knows. */
-const requireCurrentHeader = (
+/** The log must open with a header, whatever generation it was written in. */
+const requireHeader = (
   id: SessionId,
   events: ReadonlyArray<SessionEvent>,
-): Effect.Effect<ReadonlyArray<SessionEvent>, SessionError> => {
+): Effect.Effect<void, SessionError> => {
   const first = events[0]
-  if (first === undefined || first.type !== 'session/header') {
-    return Effect.fail(persistenceError(`session ${id} does not start with session/header`))
-  }
-  if (first.data.formatVersion !== SESSION_FORMAT_VERSION) {
-    return Effect.fail(
-      persistenceError(`session ${id} has unsupported formatVersion ${first.data.formatVersion}`),
-    )
-  }
-  return Effect.succeed(events)
+  return first !== undefined && first.type === 'session/header'
+    ? Effect.void
+    : Effect.fail(persistenceError(`session ${id} does not start with session/header`))
 }
 
-const readHeader = (
+/** The header of a log, carried forward to this build's shape. */
+const upgradeFirstLine = (
   id: SessionId,
   text: string,
+  mtimeMs: number,
   schemas: SessionEventSchemaMap | undefined,
 ): Effect.Effect<SessionHeader, SessionError> =>
   Effect.gen(function* () {
     const firstLine = text.split('\n').find((line) => line.trim() !== '')
     if (firstLine === undefined)
       return yield* Effect.fail(persistenceError(`session ${id} is empty`))
-    const event = yield* decodeSessionEvent(yield* parseLine(id, 1, firstLine), schemas)
+    const upgraded = upgradeHeaderLine(yield* parseLine(id, 1, firstLine), { mtimeMs })
+    if ('message' in upgraded) {
+      return yield* Effect.fail(persistenceError(`session ${id}: ${upgraded.message}`))
+    }
+    const event = yield* decodeSessionEvent(upgraded.line, schemas)
     if (event === undefined || event.type !== 'session/header') {
       return yield* Effect.fail(
         persistenceError(`session ${id} does not start with session/header`),
@@ -143,15 +164,70 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
       return { id, events: [first], sink }
     })
 
+  const mtimeOf = (id: SessionId): Effect.Effect<number, SessionError> =>
+    Effect.tryPromise({
+      try: async () => (await statFile(fileOf(id))).mtimeMs,
+      catch: (cause) =>
+        isMissing(cause) ? notFound(id) : persistenceError(`cannot look at session ${id}`, cause),
+    })
+
+  /**
+   * Writes the kept prefix back, with a note that the log lost its torn tail. The
+   * note is an event of this log, so it comes back to the caller too: what the file
+   * holds and what the session holds must stay the same thing.
+   */
+  const repairLog = (
+    id: SessionId,
+    split: SplitLog,
+    lastSeq: number,
+  ): Effect.Effect<SessionEvent, SessionError> => {
+    const note: SessionEvent = {
+      seq: lastSeq + 1,
+      time: Date.now(),
+      type: 'session/repaired',
+      data: { tornBytes: split.tornBytes },
+    }
+    return Effect.tryPromise({
+      try: () => writeFile(fileOf(id), split.keep + JSON.stringify(note) + '\n'),
+      catch: (cause) => persistenceError(`cannot repair session ${id}`, cause),
+    }).pipe(Effect.map(() => note))
+  }
+
   const open = (id: SessionId): Effect.Effect<OpenedSession, SessionError> =>
     Effect.gen(function* () {
-      const events = yield* decodeEvents(id, yield* readText(id), options.schemas)
-      return { id, events, sink: sinkFor(fileOf(id), id) }
+      const mtimeMs = yield* mtimeOf(id)
+      const split = splitTornTail(yield* readText(id))
+      if (split.keep === '' && split.tornBytes > 0) {
+        return yield* Effect.fail(
+          persistenceError(`session ${id} was cut off before its header was written`),
+        )
+      }
+      const decoded = yield* decodeEvents(id, split.keep, mtimeMs, options.schemas)
+      if (split.tornBytes === 0) {
+        return { id, events: decoded.events, sink: sinkFor(fileOf(id), id) }
+      }
+      const lastSeq = decoded.events.reduce((most, event) => Math.max(most, event.seq), 0)
+      // A repair that cannot be written still opens the session: the kept prefix is
+      // what matters, and a later append lands after the torn tail, which the next
+      // read repairs again.
+      const note = yield* repairLog(id, split, lastSeq).pipe(Effect.orElseSucceed(() => undefined))
+      return {
+        id,
+        events: note === undefined ? decoded.events : [...decoded.events, note],
+        sink: sinkFor(fileOf(id), id),
+      }
     })
 
   const stat = (id: SessionId): Effect.Effect<SessionSummary, SessionError> =>
     Effect.gen(function* () {
-      const header = yield* readHeader(id, yield* readText(id), options.schemas)
+      const mtimeMs = yield* mtimeOf(id)
+      // Listing reads; it never repairs, so a look at the sessions leaves them alone.
+      const header = yield* upgradeFirstLine(
+        id,
+        splitTornTail(yield* readText(id)).keep,
+        mtimeMs,
+        options.schemas,
+      )
       return { id, cwd: header.cwd, createdAt: header.createdAt }
     })
 
@@ -184,3 +260,5 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
   return { create, open, stat, list }
 }
 export * from './plugin.ts'
+export * from './upgrade.ts'
+export * from './repair.ts'

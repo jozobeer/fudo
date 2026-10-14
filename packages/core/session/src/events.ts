@@ -64,9 +64,15 @@ export interface AssistantAttemptData {
 }
 
 /** Every event the S1 kernel and its packages log. Plugins extend this interface. */
+/** A log that lost its torn tail when it was opened: how much was dropped. */
+export interface SessionRepaired {
+  readonly tornBytes: number
+}
+
 export interface SessionEventMap {
   'session/header': SessionHeader
   'session/cwd/changed': CwdChanged
+  'session/repaired': SessionRepaired
   'compaction/prune': CompactionPrune
   'turn/start': { readonly turn: number }
   'turn/end': { readonly turn: number; readonly reason: TurnEndReason }
