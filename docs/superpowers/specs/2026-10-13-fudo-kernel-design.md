@@ -363,9 +363,9 @@ S1 が出荷する profile は `headless` と `repl` の二つで、どちらも
 | 層 | 内容 |
 |---|---|
 | Unit（`bun test`） | 各パッケージの `tests/**`。すべての registry に、plugin を dispose すると登録が消えることを確かめるテストを書く。agent loop には contract-regression テストを置く |
-| Replay snapshot | `snapshots/session/<case>/session.v1.jsonl` と `snapshot.yml`（profile と patch）。録画した assistant stream を adapter の出力として再生し、`fudo` CLI と実物の registry・pipeline・JSONL を通す。出力ログの id と時刻をトークンに置き換えて fixture と比べる。ワークスペースを変更する case は `workspace.expected/` と全体を比べる |
+| Replay snapshot | **2026-10-14 実装（E3）**: `packages/test-support/replay/src/scenario.ts` が 1 つの記録を「使い捨ての作業ディレクトリ + 記録された stream + 走らせる関数」として再生し、出てきたログと workspace を 1 つのテキストに正規化する（`time` / `timeN` / `dt` / `createdAt` は 0、uuid は `<uuid>`、一時パスは `<workspace>` / `<logs>` / `<tmp>` / `<tmpdir>`）。`apps/cli/tests/snapshot.test.ts` が**出荷構成のまま**（`bundle/base` の profile + 実物の registry・pipeline・JSONL。差し替えるのは Llm を記録にすることと session の置き場だけ）で走らせ、`apps/cli/tests/snapshots/<case>.txt` と行単位で比べる。差分は「recorded / replayed」の行として出る。記録を更新するのは `UPDATE_SNAPSHOTS=1 bun test snapshot` で、差分はレビューしてからコミットする。いまの case は tool call のある 1 ターンと、実記録 `ollama-cloud-tool-call.sse` の再生の 2 本 |
 | Real-API e2e | `OLLAMA_API_KEY` が無ければ skip する。profile を起動してプロンプトを送り、書き込まれたファイルなど外部の状態を確かめる。agent 自身の出力の文言では判定しない |
-| 録画 | `bun run snapshot:record` が API キーを使って fixture を作り直す。差分はレビューしてからコミットする |
+| 録画 | `bun run snapshot:record` が API キーを使って fixture を作り直す。差分はレビューしてからコミットする。**2026-10-14 追記**: この script はまだ無い。実記録は `packages/llm/llm-openai/fixtures/` に手で置き、`bun run snapshot:record` を足すのは API キーで記録を更新する運用を始めるときにする |
 
 mock は LLM の境界だけに置き、その下流は実物を使う。
 

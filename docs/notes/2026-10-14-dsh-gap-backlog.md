@@ -267,7 +267,13 @@
   - 検証: `session-list.test.ts` 5 本（root は行から取り `~` を展開する／行が無い・無効な行は既定に落ちる／一覧は新しい順で空ならそう言う／transcript は user / assistant / tool を出す／空のログは「まだ何も」と言う）、e2e `sessions-e2e.test.ts` 2 本（実 CLI で、走らせたセッションが `fudo sessions` に出て `fudo sessions <id>` が `[user] how many files` と `[assistant] …` を出す／存在しない id は `no session <id>` で exit 1）。`bun run check` 738 pass / 1 skip / 0 fail。
   - 学び: 一覧のテストで `split(/\s+/)` を書いたつもりが `split(/s+/)` になっており、id が 65 文字になって落ちた（エスケープが 1 つ落ちた）。**表示の検証は「受け取った文字列そのもの」を先に見せる**と原因が一目で分かる（今回は期待値を空文字にして received を出し、リスト自体は正しいと分かった）。
   - 未確認: TUI と Web はセッション一覧を出さない（Web は設計で除外、TUI は `--resume <id>` で 1 つ選ぶ）。デスクトップ・SDK・ACP は無い。ブラウズは会話（メッセージ）だけで、承認・ask・job の往復は出さない（`deriveMessages` が畳む範囲のみ）。`fudo sessions` は `--json` を無視する（一覧は素のテキスト）。
-- [ ] **E3 検証機構**。fudo の記録 fixture は SSE 1 本、coverage 閾値・doc gate・重複 gate・i18n・real-API lane は無い（`fudo:packages/test-support/replay/src/index.ts:9`、`package.json:13`）。dsh は 227 シナリオをキー無しで出荷構成のまま再生し、ファイル単位 100% coverage を gate する（`dsh:vitest.snapshot.config.ts:32`、`dsh:vitest.config.ts:381`）。受け入れ: 退行が記録の再生で捕まる。
+- [x] **E3 検証機構**。fudo の記録 fixture は SSE 1 本、coverage 閾値・doc gate・重複 gate・i18n・real-API lane は無い（`fudo:packages/test-support/replay/src/index.ts:9`、`package.json:13`）。dsh は 227 シナリオをキー無しで出荷構成のまま再生し、ファイル単位 100% coverage を gate する（`dsh:vitest.snapshot.config.ts:32`、`dsh:vitest.config.ts:381`）。受け入れ: 退行が記録の再生で捕まる。
+  - 実装（2026-10-14）:
+    - 設計文書に追記した（テスト表の Replay snapshot 行と録画の行）。**記録の再生が gate になった**: `packages/test-support/replay/src/scenario.ts` が 1 つの記録を「使い捨ての作業ディレクトリ + 記録された stream + 走らせる関数」として再生し、出てきたログと workspace を 1 つのテキストへ正規化する（`time` / `timeN` / `dt` / `createdAt` は 0、uuid は `<uuid>`、一時パスは `<workspace>` / `<logs>` / `<tmp>` / `<tmpdir>`。長いパスから先に置換する）。
+    - `apps/cli/tests/snapshot.test.ts` が**出荷構成のまま**走らせる（`bundle/base` の profile + 実物の registry・pipeline・JSONL。差し替えるのは Llm を記録にすることと session の置き場だけ）。`apps/cli/tests/snapshots/<case>.txt` と行単位で比べ、差分は recorded / replayed の行として出る。更新は `UPDATE_SNAPSHOTS=1 bun test snapshot`。case は 2 本: tool call（read → write → 本文）と、実記録 `ollama-cloud-tool-call.sse` の再生。
+  - 検証: 上記 2 本が `bun run check` の中で走る（`740 pass / 1 skip / 0 fail`）。**gate が実際に捕まえることを確かめた**: read の footer の文言をわざと変えて記録を作り、コードを戻して走らせると `line 14: recorded … (EOF - total 2 lines) / replayed … (End of file - total 2 lines)` で落ちた。正しいコードで記録を作り直し、2 回続けて緑（安定）であることも確かめた。
+  - 学び: 最初の記録は `assistant/message` の中の `time0`（stream の時刻）を正規化しておらず、**同じコードでも毎回落ちる**不安定な gate だった。落ちた理由を「差分の行」として見せたので、退行ではなく正規化漏れだと即座に分かった。記録の gate は「何を不安定とみなすか」を先に決めてから作る。
+  - 未確認: dsh は 227 シナリオを持つが fudo は 2 本で、approval の往復・失敗の再試行・compaction・resume の case はまだ無い（`scenario.ts` は `approve` を受け取れるので足せる）。coverage 閾値・doc gate・重複 gate は持たない。real-API lane は無く、`bun run snapshot:record`（API キーで記録を作り直す script）も未実装。i18n は設計で除外（二言語ドキュメントを持たない）。記録の fixture のうち実記録は 1 本で、tool call の case は同じ形で書いた固定入力である。
 
 ## 未確認
 

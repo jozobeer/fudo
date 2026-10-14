@@ -1,3 +1,5 @@
+export * from './scenario.ts'
+
 import type { Plugin } from '@fudo/kernel'
 import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
 import { OpenAiStreamDecoder } from '@fudo/llm-openai'
