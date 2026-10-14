@@ -36,7 +36,7 @@ export const IDENTITY_TEXT = [
 const TOOL_GUIDANCE: ReadonlyArray<readonly [name: string, line: string]> = [
   [
     'read',
-    'Use read instead of cat, head, or tail to view a file; it returns 1-based line numbers you can cite.',
+    'Use read instead of cat, head, or tail to view a file; it returns 1-based line numbers you can cite, and its footer says whether more lines follow.',
   ],
   ['glob', 'Use glob to find files by name pattern; do not shell out to find or ls.'],
   ['grep', 'Use grep to search file contents; do not shell out to grep or rg.'],

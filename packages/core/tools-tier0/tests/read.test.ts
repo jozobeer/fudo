@@ -5,7 +5,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { readTool } from '../src/index.ts'
+import { READ_MAX_BYTES, READ_MAX_LINE_CHARS, readTool } from '../src/index.ts'
 
 const call = (
   args: unknown,
@@ -25,26 +25,94 @@ const call = (
     }),
   )
 
+const textOf = (result: ToolExecutionResult | undefined): string =>
+  (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
+
 describe('read tool', () => {
-  test('returns numbered lines and the total', async () => {
+  test('returns numbered lines and says where the file ends', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
     await Bun.write(join(dir, 'a.txt'), 'alpha\nbeta\ngamma\n')
 
     const result = await Effect.runPromise(call({ path: 'a.txt' }, dir))
 
     expect(result?.isError).toBe(false)
-    expect(result?.content).toEqual([{ type: 'text', text: '1\talpha\n2\tbeta\n3\tgamma' }])
-    expect(result?.value).toEqual({ text: '1\talpha\n2\tbeta\n3\tgamma', totalLines: 3 })
+    expect(textOf(result)).toBe('1\talpha\n2\tbeta\n3\tgamma\n\n(End of file - total 3 lines)')
+    expect(result?.value).toMatchObject({ totalLines: 3, from: 1, to: 3, truncated: false })
     await rm(dir, { recursive: true, force: true })
   })
 
-  test('honours offset and limit', async () => {
+  test('a window that stops short tells the model how to continue', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
     await Bun.write(join(dir, 'b.txt'), 'one\ntwo\nthree\nfour\n')
 
     const result = await Effect.runPromise(call({ path: 'b.txt', offset: 2, limit: 2 }, dir))
 
-    expect(result?.value).toEqual({ text: '2\ttwo\n3\tthree', totalLines: 4 })
+    expect(textOf(result)).toBe(
+      '2\ttwo\n3\tthree\n\n(Showing lines 2-3 of 4. Continue with offset=4.)',
+    )
+    expect(result?.value).toMatchObject({ totalLines: 4, from: 2, to: 3, truncated: true })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a line over the cap is cut and named', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const long = 'x'.repeat(READ_MAX_LINE_CHARS + 100)
+    await Bun.write(join(dir, 'long.txt'), long + '\nshort\n')
+
+    const result = await Effect.runPromise(call({ path: 'long.txt' }, dir))
+
+    const text = textOf(result)
+    expect(text).toContain('... (line truncated to ' + READ_MAX_LINE_CHARS + ' chars)')
+    expect(text).toContain('1\t' + 'x'.repeat(READ_MAX_LINE_CHARS) + '... (line truncated')
+    expect(result?.value).toMatchObject({ shortened: 1, totalLines: 2, truncated: false })
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('an offset past the end is an error that names the size', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    await Bun.write(join(dir, 'c.txt'), 'a\nb\n')
+
+    const result = await Effect.runPromise(call({ path: 'c.txt', offset: 5 }, dir))
+
+    expect(result?.isError).toBe(true)
+    expect(JSON.stringify(result?.content)).toContain('offset 5')
+    expect(JSON.stringify(result?.content)).toContain('2 lines')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('an empty file reads as empty rather than as an error', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    await Bun.write(join(dir, 'empty.txt'), '')
+
+    const result = await Effect.runPromise(call({ path: 'empty.txt' }, dir))
+
+    expect(result?.isError).toBe(false)
+    expect(textOf(result)).toBe('(End of file - total 0 lines)')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a file that is not UTF-8 is refused before it reaches the model', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    await Bun.write(join(dir, 'binary.bin'), new Uint8Array([0xff, 0xfe, 0x00, 0x41, 0x42]))
+
+    const result = await Effect.runPromise(call({ path: 'binary.bin' }, dir))
+
+    expect(result?.isError).toBe(true)
+    expect(JSON.stringify(result?.content)).toContain('UTF-8')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('the byte cap stops the window and says the output was capped', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    await Bun.write(join(dir, 'big.txt'), ('y'.repeat(1000) + '\n').repeat(200))
+
+    const result = await Effect.runPromise(call({ path: 'big.txt' }, dir))
+
+    expect(textOf(result)).toContain('(Output capped.')
+    expect(textOf(result)).toContain('Continue with offset=')
+    const value = result?.value as { readonly text?: string } | undefined
+    expect(Buffer.byteLength(value?.text ?? '', 'utf8')).toBeLessThanOrEqual(READ_MAX_BYTES)
+    expect(result?.value).toMatchObject({ totalLines: 200, truncated: true })
     await rm(dir, { recursive: true, force: true })
   })
 
