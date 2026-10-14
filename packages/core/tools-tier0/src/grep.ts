@@ -2,9 +2,17 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  pattern: Schema.String,
-  include: Schema.optionalKey(Schema.String),
-  limit: Schema.optionalKey(Schema.Int),
+  pattern: Schema.String.annotate({
+    description: 'A JavaScript regular expression to search for in each line.',
+  }),
+  include: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "A glob that limits which files are read, for example 'src/**/*.ts'.",
+    }),
+  ),
+  limit: Schema.optionalKey(
+    Schema.Int.annotate({ description: 'The most matches to return. Defaults to 200.' }),
+  ),
 })
 
 export type GrepArgs = Schema.Schema.Type<typeof Parameters>
@@ -53,7 +61,8 @@ const findMatches = async (
 /** Searches workspace files line by line with a regular expression. */
 export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
   name: 'grep',
-  description: 'Searches workspace files for a regular expression, one match per line.',
+  description:
+    'Searches workspace files for a regular expression and returns file, line, and text for each match. Use it instead of shelling out to grep or rg.',
   parameters: Parameters,
   needs: ['read'],
   output: {

@@ -1,7 +1,12 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
-const Parameters = Schema.Struct({ path: Schema.String })
+const Parameters = Schema.Struct({
+  path: Schema.String.annotate({
+    description:
+      'The png, jpeg, webp, or gif file to show, absolute or relative to the working directory.',
+  }),
+})
 
 export type ReadImageArgs = Schema.Schema.Type<typeof Parameters>
 
@@ -29,7 +34,8 @@ const mediaTypeOf = (path: string): string | undefined => {
 /** Reads one image file and hands it to the model as an image block. */
 export const readImageTool: ToolDefinition<ReadImageArgs, ReadImageValue> = {
   name: 'read_image',
-  description: 'Reads a png, jpeg, webp, or gif file and shows it to the model.',
+  description:
+    'Reads a png, jpeg, webp, or gif file and shows it to the model. Use it instead of read for images: read returns bytes as text.',
   parameters: Parameters,
   needs: ['read'],
   output: {

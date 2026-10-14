@@ -3,10 +3,19 @@ import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { resolveInside } from './write.ts'
 
 const Parameters = Schema.Struct({
-  path: Schema.String,
-  oldString: Schema.String,
-  newString: Schema.String,
-  all: Schema.optionalKey(Schema.Boolean),
+  path: Schema.String.annotate({
+    description: 'The file to change, absolute or relative to the working directory.',
+  }),
+  oldString: Schema.String.annotate({
+    description: 'The exact text to replace. It must appear exactly once unless all is true.',
+  }),
+  newString: Schema.String.annotate({ description: 'The text to put in its place.' }),
+  all: Schema.optionalKey(
+    Schema.Boolean.annotate({
+      description:
+        'Replace every occurrence instead of refusing an ambiguous match. Defaults to false.',
+    }),
+  ),
 })
 
 export type EditArgs = Schema.Schema.Type<typeof Parameters>
@@ -29,7 +38,8 @@ const countOf = (text: string, needle: string): number => {
 /** Replaces text in one file. Without \`all\`, the old text must be unique. */
 export const editTool: ToolDefinition<EditArgs, EditValue> = {
   name: 'edit',
-  description: 'Replaces text in one workspace file; the old text must match exactly once.',
+  description:
+    'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file.',
   parameters: Parameters,
   needs: ['write'],
   output: {

@@ -2,9 +2,15 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  path: Schema.String,
-  offset: Schema.optionalKey(Schema.Int),
-  limit: Schema.optionalKey(Schema.Int),
+  path: Schema.String.annotate({
+    description: 'The file to read, absolute or relative to the working directory.',
+  }),
+  offset: Schema.optionalKey(
+    Schema.Int.annotate({ description: 'First line to return, 1-based. Defaults to 1.' }),
+  ),
+  limit: Schema.optionalKey(
+    Schema.Int.annotate({ description: 'How many lines to return. Defaults to 2000.' }),
+  ),
 })
 
 export type ReadArgs = Schema.Schema.Type<typeof Parameters>
@@ -23,7 +29,8 @@ const numbered = (lines: ReadonlyArray<string>, offset: number, limit: number): 
 /** Reads one UTF-8 text file. Line numbers are 1-based, like an editor. */
 export const readTool: ToolDefinition<ReadArgs, ReadValue> = {
   name: 'read',
-  description: 'Reads a UTF-8 text file and returns its lines with 1-based line numbers.',
+  description:
+    'Reads a UTF-8 text file and returns its lines with 1-based line numbers. Use it instead of cat, head, or tail; page through a long file with offset and limit.',
   parameters: Parameters,
   needs: ['read'],
   output: {

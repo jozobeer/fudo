@@ -2,8 +2,12 @@ import { Schema, Effect } from 'effect'
 import type { ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  objective: Schema.String,
-  note: Schema.optionalKey(Schema.String),
+  objective: Schema.String.annotate({
+    description: 'The outcome the work pursues, in one sentence.',
+  }),
+  note: Schema.optionalKey(
+    Schema.String.annotate({ description: 'Anything the objective alone does not say.' }),
+  ),
 })
 
 export type GoalArgs = Schema.Schema.Type<typeof Parameters>
@@ -16,7 +20,8 @@ export interface GoalValue {
 /** Records the objective as a tool result, so the log keeps what the work was for. */
 export const goalTool: ToolDefinition<GoalArgs, GoalValue> = {
   name: 'goal',
-  description: 'Records the objective this work pursues; it is stored as the tool result.',
+  description:
+    'Records the objective this work pursues and keeps it in the tool result. Use it when the aim is worth surviving the next restart.',
   parameters: Parameters,
   output: {
     schema: Schema.Struct({ objective: Schema.String, note: Schema.optionalKey(Schema.String) }),

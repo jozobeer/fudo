@@ -3,17 +3,25 @@ import type { ToolDefinition } from '@fudo/tools'
 import type { JobsShape } from './jobs.ts'
 
 const StartParameters = Schema.Struct({
-  command: Schema.String,
-  cwd: Schema.optionalKey(Schema.String),
+  command: Schema.String.annotate({ description: 'The shell command line to start.' }),
+  cwd: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        'The directory to run in, inside the workspace. Defaults to the working directory.',
+    }),
+  ),
 })
-const IdParameters = Schema.Struct({ id: Schema.String })
+const IdParameters = Schema.Struct({
+  id: Schema.String.annotate({ description: 'The job id a start returned.' }),
+})
 
 /** Starts a command in the background, so long work can overlap with the turn. */
 export const makeJobStartTool = (
   jobs: JobsShape,
 ): ToolDefinition<{ command: string; cwd?: string }, { id: string; command: string }> => ({
   name: 'job_start',
-  description: 'Starts a command in the background and returns its job id.',
+  description:
+    'Starts a command in the background and returns its job id. Use it for a command that outlives one call, then read it with job_output.',
   parameters: StartParameters,
   needs: ['exec'],
   output: {
@@ -33,7 +41,8 @@ export const makeJobOutputTool = (
   jobs: JobsShape,
 ): ToolDefinition<{ id: string }, { id: string; running: boolean; output: string }> => ({
   name: 'job_output',
-  description: 'Reads the output a background job has produced so far.',
+  description:
+    'Reads the output a background job has produced so far. Poll it to follow long work; job_kill stops one that no longer matters.',
   parameters: IdParameters,
   needs: ['read'],
   output: {
@@ -53,7 +62,8 @@ export const makeJobKillTool = (
   jobs: JobsShape,
 ): ToolDefinition<{ id: string }, { id: string }> => ({
   name: 'job_kill',
-  description: 'Stops a background job.',
+  description:
+    'Stops a background job and returns what it had produced. Use it when the job no longer matters, so its process does not outlive the work.',
   parameters: IdParameters,
   needs: ['exec'],
   output: {

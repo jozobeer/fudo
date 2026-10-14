@@ -2,7 +2,11 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 import { discoverSkills, parseSkillDocument } from './skills.ts'
 
-const Parameters = Schema.Struct({ name: Schema.String })
+const Parameters = Schema.Struct({
+  name: Schema.String.annotate({
+    description: 'The exact skill name from the available-skills catalog.',
+  }),
+})
 
 export type SkillArgs = Schema.Schema.Type<typeof Parameters>
 
@@ -33,7 +37,8 @@ export const makeSkillTool = (
   roots: ReadonlyArray<string>,
 ): ToolDefinition<SkillArgs, SkillValue> => ({
   name: 'skill',
-  description: 'Reads one skill by name from the skill directories.',
+  description:
+    'Reads the full instructions of one skill by name. Call it before acting on a task that names a skill or clearly matches one in the catalog.',
   parameters: Parameters,
   needs: ['read'],
   output: {

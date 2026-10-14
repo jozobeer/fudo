@@ -3,8 +3,14 @@ import type { AskShape } from '@fudo/safety'
 import type { ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  question: Schema.String,
-  options: Schema.optionalKey(Schema.Array(Schema.String)),
+  question: Schema.String.annotate({
+    description: 'The one question only the human can answer.',
+  }),
+  options: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: 'Choices to offer, when the answer is one of a few.',
+    }),
+  ),
 })
 
 export type AskArgs = Schema.Schema.Type<typeof Parameters>
@@ -21,7 +27,8 @@ export interface AskValue {
  */
 export const askUserToolFor = (ask: AskShape): ToolDefinition<AskArgs, AskValue> => ({
   name: 'ask_user',
-  description: 'Asks the user one question and waits for the answer.',
+  description:
+    'Asks the user one question and waits for the answer. Use it when only the human can decide; do not guess at their choice.',
   parameters: Parameters,
   output: {
     schema: Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String }),

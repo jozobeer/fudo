@@ -31,7 +31,8 @@ export interface ToolRegistry {
   presentResult(tool: string, argumentsJson: string, result: ToolResultView): ToolResultView
 }
 
-const declarationOf = (tool: AnyTool): ToolSchema => {
+/** What the model sees of one tool: name, description, and the JSON Schema of its arguments. */
+export const toolDeclaration = (tool: AnyTool): ToolSchema => {
   const document = Schema.toJsonSchemaDocument(tool.parameters)
   return {
     name: tool.name,
@@ -83,7 +84,7 @@ export function makeTools(hooks: HookRegistry): ToolRegistry {
     schemas: () =>
       [...registered.values()]
         .filter((tool) => allowed(tool.name))
-        .map((tool) => declarationOf(tool)),
+        .map((tool) => toolDeclaration(tool)),
 
     isConcurrencySafe: (tool, argumentsJson) => {
       const definition = registered.get(tool)

@@ -79,7 +79,12 @@
 
 ## B. ツール実行面
 
-- [ ] **B1 ツール説明とパラメータ説明**。fudo は全ツールでパラメータ説明がゼロ、説明は1文（read 87 B 対 dsh 419 B＋141 B、bash 84 B 対 923 B＋191 B）。受け入れ: 各ツールの用途・使い分け・引数の意味がモデルに届く。
+- [x] **B1 ツール説明とパラメータ説明**。fudo は全ツールでパラメータ説明がゼロ、説明は1文（read 87 B 対 dsh 419 B＋141 B、bash 84 B 対 923 B＋191 B）。受け入れ: 各ツールの用途・使い分け・引数の意味がモデルに届く。
+  - 実装（2026-10-14）: 同梱ツール 16 種（tier0 の 6、tier1 の todo_write / goal / ask_user / web_fetch / read_image / skill / job_start / job_output / job_kill / working_directory、テストが足す web_search と subagent）の説明を、用途と使い分けが読める文に書き直し、全パラメータに説明を付けた。Effect Schema の `annotate({ description })` を使い、`Schema.toJsonSchemaDocument` が JSON Schema の `description` として出す（値レベルの注釈だけを使う。キー注釈は `allOf` を作るので使わない）。
+  - 機構: `@fudo/tools` に `toolSchemaIssues(declaration)` を足した。説明が 40 文字未満、または description の無いパラメータがあれば指摘を返す。`toolDeclaration(tool)` を公開したので、単体テストもモデルが実際に受け取った宣言も同じ規則で検査できる。
+  - 検証: `packages/core/tools-tier0/tests/schema.test.ts` と `packages/core/tools-tier1/tests/schema.test.ts`（全ツールで issues が空）、e2e `apps/cli/tests/tool-schema-e2e.test.ts`（実 CLI で provider が受け取った 16 ツールの宣言が issues 空で、名前の一覧も固定）。`bun run check` 562 pass / 0 fail。
+  - 学び: 説明を書くのは一度きりの作業なので、`toolSchemaIssues` という検査に落とした。以後ツールを足したときにパラメータ説明を忘れるとテストが落ちる（指示ではなく機構）。
+  - 未確認: dsh の 419 B / 923 B という量は写していない（文面の濃さは測っていない）。`parameters` の JSON Schema は `additionalProperties: true` のまま（説明の付与とは別件）。MCP 由来のツールはサーバーの説明をそのまま通すので、説明が無いサーバーでは付かない。
 - [ ] **B2 read**。fudo は 2000 行の既定だけで、打ち切りを EOF と区別できず、行長・バイトの上限もない（`fudo:packages/core/tools-tier0/src/read.ts:43`）。dsh は行長とバイトの上限、打ち切りフッターと offset 案内、EOF 越えのエラー、非 UTF-8 の拒否を持つ（`dsh:packages/fs/tool-fs/src/read-render.ts:11`）。受け入れ: モデルが「まだ続きがある」と分かる。
 - [ ] **B3 write / edit**。fudo は未読ファイルを黙って上書きし、陳腐化も CRLF もバイナリも見ない（`fudo:packages/core/tools-tier0/src/write.ts:44`、`edit.ts:51`）。dsh は未読・陳腐化を拒否して読み直しを促し、CRLF を正規化し、失敗時はファイルを変えない（`dsh:packages/fs/fs-observation-policy/src/index.ts:65`）。受け入れ: 外部変更を踏み潰さない。
 - [ ] **B4 glob / grep**。fudo は Bun.Glob と JS 正規表現で、ignore もバイナリ除外も並び順もなく、超過分は捨てる（`fudo:packages/core/tools-tier0/src/glob.ts:30`、`grep.ts:83`）。dsh は ripgrep 相当で、ignore 尊重・バイナリ除外・上限超過分の退避 locator を持つ（`dsh:packages/fs/tool-fs-search/src/grep.ts:113`）。受け入れ: node_modules とバイナリを掘らず、結果の全量に手が届く。

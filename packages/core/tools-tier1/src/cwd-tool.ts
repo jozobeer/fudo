@@ -2,7 +2,11 @@ import { isAbsolute, relative, resolve } from 'node:path'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
-const Parameters = Schema.Struct({ path: Schema.String })
+const Parameters = Schema.Struct({
+  path: Schema.String.annotate({
+    description: 'The directory to move to, inside the workspace.',
+  }),
+})
 
 export type WorkingDirectoryArgs = Schema.Schema.Type<typeof Parameters>
 
@@ -22,7 +26,8 @@ export const makeWorkingDirectoryTool = (
   host: WorkingDirectoryHost,
 ): ToolDefinition<WorkingDirectoryArgs, WorkingDirectoryValue> => ({
   name: 'working_directory',
-  description: 'Moves the working directory inside the workspace for later tools.',
+  description:
+    'Moves the working directory inside the workspace for the tools that follow. Use it instead of chaining cd into every bash command.',
   parameters: Parameters,
   output: {
     schema: Schema.Struct({ cwd: Schema.String }),

@@ -4,8 +4,13 @@ import { noneSandbox, type SandboxShape } from '@fudo/safety'
 import { resolveInside } from './write.ts'
 
 const Parameters = Schema.Struct({
-  command: Schema.String,
-  cwd: Schema.optionalKey(Schema.String),
+  command: Schema.String.annotate({ description: 'The shell command line to run.' }),
+  cwd: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        'The directory to run in, inside the workspace. Defaults to the current working directory.',
+    }),
+  ),
 })
 
 export type BashArgs = Schema.Schema.Type<typeof Parameters>
@@ -24,7 +29,8 @@ export const makeBashTool = (
   sandbox: SandboxShape = noneSandbox,
 ): ToolDefinition<BashArgs, BashValue> => ({
   name: 'bash',
-  description: 'Runs a shell command in the workspace through the configured sandbox.',
+  description:
+    'Runs a shell command in the workspace through the configured sandbox. Check the [exit code: N] marker on the result: a non-zero exit means the command failed, not that it printed nothing.',
   parameters: Parameters,
   needs: ['exec'],
   output: {

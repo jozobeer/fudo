@@ -4,8 +4,14 @@ import type { Agent, AgentsShape } from '@fudo/agent'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  task: Schema.String,
-  cwd: Schema.optionalKey(Schema.String),
+  task: Schema.String.annotate({
+    description: 'The whole task for the child, written as if the child sees nothing else.',
+  }),
+  cwd: Schema.optionalKey(
+    Schema.String.annotate({
+      description: 'The directory the child starts in. Defaults to this working directory.',
+    }),
+  ),
 })
 
 export type SubagentArgs = Schema.Schema.Type<typeof Parameters>
@@ -45,7 +51,8 @@ export const makeSubagentTool = ({
   parentEvents,
 }: SubagentHost): ToolDefinition<SubagentArgs, SubagentValue> => ({
   name: 'subagent',
-  description: 'Runs one task in a child agent and returns what it said.',
+  description:
+    'Runs one task in a child agent and returns what it said. Delegate only work that needs none of this conversation: the child starts fresh.',
   parameters: Parameters,
   output: {
     schema: Schema.Struct({ sessionId: Schema.String, text: Schema.String }),

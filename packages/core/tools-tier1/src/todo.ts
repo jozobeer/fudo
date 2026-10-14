@@ -2,11 +2,17 @@ import { Schema, Effect } from 'effect'
 import type { ToolDefinition } from '@fudo/tools'
 
 const Todo = Schema.Struct({
-  content: Schema.String,
-  status: Schema.Literals(['pending', 'in_progress', 'completed']),
+  content: Schema.String.annotate({ description: 'What the step is, in one line.' }),
+  status: Schema.Literals(['pending', 'in_progress', 'completed']).annotate({
+    description: 'Where the step stands: pending, in_progress, or completed.',
+  }),
 })
 
-const Parameters = Schema.Struct({ todos: Schema.Array(Todo) })
+const Parameters = Schema.Struct({
+  todos: Schema.Array(Todo).annotate({
+    description: 'The complete task list, in the order the work should happen.',
+  }),
+})
 
 export type TodoArgs = Schema.Schema.Type<typeof Parameters>
 export type TodoItem = Schema.Schema.Type<typeof Todo>
@@ -29,7 +35,8 @@ const marks: Readonly<Record<string, string>> = {
 /** Records the plan. The list is kept in the tool result, so it lives in the log. */
 export const todoWriteTool: ToolDefinition<TodoArgs, TodoValue> = {
   name: 'todo_write',
-  description: 'Records the task list for the current work; it is stored as the tool result.',
+  description:
+    'Records the task list for the current work and keeps it in the tool result. Use it to keep a multi-step plan visible; update it as steps finish.',
   parameters: Parameters,
   output: {
     schema: Schema.Struct({

@@ -4,8 +4,10 @@ import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@fudo/tools'
 
 const Parameters = Schema.Struct({
-  path: Schema.String,
-  content: Schema.String,
+  path: Schema.String.annotate({
+    description: 'The file to write, absolute or relative to the working directory.',
+  }),
+  content: Schema.String.annotate({ description: 'The complete new contents of the file.' }),
 })
 
 export type WriteArgs = Schema.Schema.Type<typeof Parameters>
@@ -30,7 +32,8 @@ export const resolveInside = (root: string, path: string): Effect.Effect<string,
 /** Writes one UTF-8 text file, creating parent directories. */
 export const writeTool: ToolDefinition<WriteArgs, WriteValue> = {
   name: 'write',
-  description: 'Writes a UTF-8 text file inside the workspace, creating parent directories.',
+  description:
+    'Writes a UTF-8 text file inside the workspace, creating parent directories. Read a file before you overwrite it: write replaces the whole file.',
   parameters: Parameters,
   needs: ['write'],
   output: {
