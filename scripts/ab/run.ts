@@ -27,6 +27,14 @@ const MODEL = ROUTE.includes('/') ? ROUTE.slice(ROUTE.indexOf('/') + 1) : ROUTE
 const TIMEOUT_MS = Number(process.env.FUDO_AB_TIMEOUT_MS ?? '300000')
 /** How many times each cell runs; one run cannot tell a harness difference from noise. */
 const REPEATS = Math.max(1, Number(process.env.FUDO_AB_REPEATS ?? '1'))
+/** The tasks to run, by name and comma-separated; every task when unset. */
+const ONLY = process.env.FUDO_AB_TASKS?.split(',').map((name) => name.trim())
+const tasks = TASKS.filter((task) => ONLY === undefined || ONLY.includes(task.name))
+/**
+ * fudo compacts at the smaller of window × 0.8 and window − headroom: 16,000
+ * tokens here, the same line dsh-provider.patch.yml gives dsh.
+ */
+const FUDO_COMPACT = { contextWindow: 20_000, headroomTokens: 4_000 }
 const root = process.cwd()
 const abRoot = join(root, '.tmp', 'ab')
 const dshTemplate = join(abRoot, 'dsh-template')
@@ -121,13 +129,14 @@ const spawn = (
   argv: ReadonlyArray<string>,
   cwd: string,
   env: Record<string, string>,
+  timeout: number,
 ): { code: number | undefined; output: string } => {
   const run = Bun.spawnSync([...argv], {
     cwd,
     env,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: TIMEOUT_MS,
+    timeout,
     killSignal: 'SIGKILL',
   })
   return { code: run.exitCode, output: run.stdout.toString() + run.stderr.toString() }
@@ -141,6 +150,11 @@ const fudoPatch = (sessions: string): string =>
     "    name: '@fudo/session-jsonl'",
     '    config:',
     '      root: ' + sessions,
+    '  - id: agent-loop',
+    "    name: '@fudo/agent-loop'",
+    '    config:',
+    '      contextWindow: ' + String(FUDO_COMPACT.contextWindow),
+    '      headroomTokens: ' + String(FUDO_COMPACT.headroomTokens),
     '',
   ].join('\n')
 
@@ -164,6 +178,7 @@ const runFudo = async (
     ],
     workspace,
     process.env as Record<string, string>,
+    task.timeoutMs ?? TIMEOUT_MS,
   )
   const log = await newestFile(sessions, (name) => name === 'session.v1.jsonl', started)
   const events = log === undefined ? undefined : jsonl(await readFile(log, 'utf8'))
@@ -185,11 +200,16 @@ const runDsh = async (
 ): Promise<Omit<Cell, 'repeat'>> => {
   const started = Date.now()
   const key = ollamaKey()
-  const { code, output } = spawn(['dsh', 'headless', task.prompt], workspace, {
-    ...dshEnv,
-    DSH_HOME: dshHome,
-    ...(key === undefined ? {} : { OLLAMA_API_KEY: key }),
-  })
+  const { code, output } = spawn(
+    ['dsh', 'headless', task.prompt],
+    workspace,
+    {
+      ...dshEnv,
+      DSH_HOME: dshHome,
+      ...(key === undefined ? {} : { OLLAMA_API_KEY: key }),
+    },
+    task.timeoutMs ?? TIMEOUT_MS,
+  )
   const log = await newestFile(
     join(dshHome, 'sessions'),
     (name) => name.endsWith('.jsonl.zstd'),
@@ -251,7 +271,7 @@ const HARNESSES: ReadonlyArray<'fudo' | 'dsh'> = ['fudo', 'dsh']
 
 await prepare()
 const cells: Array<Cell> = []
-for (const task of TASKS) {
+for (const task of tasks) {
   for (const harness of HARNESSES) {
     for (let repeat = 0; repeat < REPEATS; repeat += 1) {
       process.stdout.write(
@@ -270,7 +290,7 @@ for (const task of TASKS) {
   }
 }
 
-const groups = TASKS.flatMap((task) =>
+const groups = tasks.flatMap((task) =>
   HARNESSES.map((harness) =>
     cells.filter((cell) => cell.harness === harness && cell.task === task.name),
   ),

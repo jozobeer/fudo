@@ -1,8 +1,10 @@
 /**
- * The three coding tasks both harnesses are asked to do. Each one starts from a
+ * The coding tasks both harnesses are asked to do. Each one starts from a
  * fresh workspace, and whether it is done is judged from the files afterwards —
  * never from what the model said about itself.
  */
+
+import { fixRules } from './rules-task.ts'
 
 export interface AbTask {
   readonly name: string
@@ -10,6 +12,8 @@ export interface AbTask {
   readonly prompt: string
   /** Files the workspace starts with, keyed by a path relative to it. */
   readonly files: Readonly<Record<string, string>>
+  /** How long one run may take; the run script's default when absent. */
+  readonly timeoutMs?: number
   /** Whether the work landed, read from the workspace. */
   readonly done: (workspace: string) => Promise<boolean>
 }
@@ -64,4 +68,5 @@ export const TASKS: ReadonlyArray<AbTask> = [
       )
     },
   },
+  fixRules,
 ]

@@ -2,6 +2,11 @@
 # through dsh's pi-ai adapter. The harness copies this into the workspace-local
 # DSH_HOME as cordis.patch.yml, so both harnesses run the same model on the same
 # endpoint and only the harness differs.
+#
+# dsh compacts at the smaller of window × 0.8 and window − reserved output −
+# headroom. Its requests reserve maxTokens (32,768), so a 52,768 window with
+# 4,000 headroom puts the line at 16,000 tokens, where run.ts puts fudo's. The
+# summary's own cap would follow headroom down to 4,000; it stays at 8,000.
 - id: llm-pi-ai
   config:
     providers:
@@ -12,9 +17,13 @@
         models:
           - id: deepseek-v4.1-flash
             name: deepseek-v4.1-flash
-            contextWindow: 262144
+            contextWindow: 52768
             maxTokens: 32768
             input: [text]
+- id: compaction-basic
+  config:
+    headroomTokens: 4000
+    maxTokens: 8000
 - id: agent-default-model
   config:
     provider: ollama-cloud
