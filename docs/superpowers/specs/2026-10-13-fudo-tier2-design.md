@@ -25,7 +25,7 @@
 2. read_image は ContentBlock の拡張が要るため、S1 側の追加として先に型を決める。
 3. web と MCP は provider / 外部プロセスの寿命が絡むため、最後に回す。
 
-## 実装（2026-10-13）
+## 実装（2026-10-13、2026-10-14 追記）
 
 | 項目 | 状態 |
 |---|---|
@@ -34,10 +34,9 @@
 | skill | 実装済み。ルートを順に見て <name>/SKILL.md を読む。名前は ^[a-z0-9][a-z0-9-]*$ のみ（パス脱出の拒否は名前の段階）。CLI は options.skills で roots を渡す |
 | read_image | 実装済み。ContentBlock に image を追加（llm）。拡張子から mediaType を決め、未知は読む前に拒否。value に base64 を載せ、render が画像ブロックを返す |
 | web(fetch) | fetch は実装済み（needs: network。http(s) 以外は拒否、maxBytes で切る）。preset は full 以外で承認要求になる |
-| web(search) | 未了。API キーがない場合にツールを登録しない形にする |
-| MCP | 未了 |
+| web(search) | 実装済み。BRAVE_API_KEY があるときだけ search host を渡し、無ければ web_search を登録しない（apps/cli/src/search-env.ts、apps/cli/tests/search-e2e.test.ts） |
+| MCP | 実装済み。stdio のクライアント（startMcpServer）が tools/list を読み、tool ごとに prefix（既定 mcp__）を付けて登録する。CLI の plugin 一覧にも入ったので、設定ファイルの行から起動できる（apps/cli/src/plugins.ts） |
 
 ## 未了（S4 から持ち越し）
 
-- CLI が spill writer を提供する配線（セッションの隣に書き、profile の行から閾値を受け取る）。
-- 長い履歴で compaction が実際に発火することを観測するテスト。
+- なし。spill の CLI 配線と compaction の発火観測はどちらも入った（証拠は tier1 設計の「実装の追加」にある）。
