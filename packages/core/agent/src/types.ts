@@ -12,6 +12,8 @@ export type AgentCancelCause = TurnCancelCause
 export interface AgentOptions {
   /** Results larger than this are written away; unset keeps the loop default. */
   readonly maxSpillBytes?: number
+  /** Where spilled text is kept; unset keeps the loop's managed default. */
+  readonly spillDir?: string
   /** `provider/model` route. */
   readonly route: string
   readonly reasoningEffort?: string

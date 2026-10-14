@@ -17,6 +17,9 @@ export type SpillPlan =
 /** How many characters of a spilled result stay in the conversation. */
 export const SPILL_PREVIEW_CHARS = 2000
 
+/** Tools whose result is never written away: reading it again is the way back. */
+const REREADABLE = new Set(['read'])
+
 /** The plain text of a result: text blocks joined, other blocks ignored. */
 export const textOf = (content: ReadonlyArray<ContentBlock>): string =>
   content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
@@ -45,44 +48,53 @@ export function planSpill(
 /** How the pipeline writes a spilled result away; returns the reference to show. */
 export type SpillWriter = (callId: string, text: string) => Effect.Effect<string>
 
+/** The call a result belongs to, as much of it as the spill policy reads. */
+export interface SpillSubject {
+  readonly callId: string
+  readonly tool: string
+}
+
 export interface SpillOptions {
   /** Results larger than this are written away. Unset means no spilling. */
   readonly maxSpillBytes?: number
   readonly spill?: SpillWriter
 }
 
+/** The notice that tells the model where the rest is and how to read it. */
+const spillNotice = (path: string, plan: Extract<SpillPlan, { kind: 'spill' }>): string =>
+  '[spilled to ' +
+  path +
+  ': ' +
+  String(plan.lines) +
+  ' lines, ' +
+  String(plan.bytes) +
+  ' bytes. Use the read tool with offset and limit to page through it.]\n'
+
 /**
  * Replaces an oversized result with a reference and a preview. Errors are left
- * alone: the model needs to see what failed.
+ * alone: the model needs to see what failed. Tools whose result can be read again
+ * are left alone too, because spilling them would hide the way back. A store that
+ * cannot write leaves the content inline rather than failing the call.
  */
 export function applySpill(
   result: ToolExecutionResult,
-  callId: string,
+  subject: SpillSubject,
   options: SpillOptions,
 ): Effect.Effect<ToolExecutionResult> {
   return Effect.gen(function* () {
     const maxBytes = options.maxSpillBytes
     const write = options.spill
     if (maxBytes === undefined || write === undefined || result.isError) return result
+    if (REREADABLE.has(subject.tool)) return result
     const plan = planSpill(result.content, maxBytes)
     if (plan.kind === 'keep') return result
-    const reference = yield* write(callId, plan.text)
+    const reference = yield* write(subject.callId, plan.text).pipe(
+      Effect.catchCause(() => Effect.succeed(undefined)),
+    )
+    if (reference === undefined) return result
     return {
       ...result,
-      content: [
-        {
-          type: 'text',
-          text:
-            '[spilled to ' +
-            reference +
-            ': ' +
-            String(plan.lines) +
-            ' lines, ' +
-            String(plan.bytes) +
-            ' bytes]\n' +
-            plan.preview,
-        },
-      ],
+      content: [{ type: 'text', text: spillNotice(reference, plan) + plan.preview }],
     }
   })
 }

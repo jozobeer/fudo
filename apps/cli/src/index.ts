@@ -297,6 +297,8 @@ const createAgent = (
     const agentOptions: AgentOptions = {
       route,
       ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
+      // Spilled text belongs in the fudo home, under the session that owns it.
+      ...(options.fudoHome === undefined ? {} : { spillDir: join(options.fudoHome, 'spill') }),
     }
     return options.resume === undefined
       ? yield* agents.create({ cwd: options.cwd, options: agentOptions })

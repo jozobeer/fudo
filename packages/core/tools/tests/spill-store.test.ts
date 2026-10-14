@@ -1,0 +1,84 @@
+import { describe, expect, test } from 'bun:test'
+import { Effect } from 'effect'
+import { mkdir, mkdtemp, readdir, rm, stat, utimes } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { makeSpillWriter, pruneSpills } from '../src/index.ts'
+
+const DAY = 24 * 60 * 60 * 1000
+
+const root = async (): Promise<string> => await mkdtemp(join(tmpdir(), 'fudo-store-'))
+
+describe('makeSpillWriter', () => {
+  test('writes one file per call under the session directory and returns its path', async () => {
+    const store = await root()
+    const write = makeSpillWriter({ root: store, sessionId: 'session-1' })
+
+    const path = await Effect.runPromise(write('call-1', 'the whole text'))
+
+    expect(path).toBe(join(store, 'session-1', 'call-1.txt'))
+    expect(await Bun.file(path).text()).toBe('the whole text')
+    await rm(store, { recursive: true, force: true })
+  })
+
+  test('the session directory is readable only by its owner', async () => {
+    const store = await root()
+    const write = makeSpillWriter({ root: store, sessionId: 'session-1' })
+
+    await Effect.runPromise(write('call-1', 'text'))
+
+    const info = await stat(join(store, 'session-1'))
+    expect(info.mode & 0o777).toBe(0o700)
+    await rm(store, { recursive: true, force: true })
+  })
+
+  test('opening a store for a new session clears the sessions that went stale', async () => {
+    const store = await root()
+    const stale = join(store, 'old-session')
+    const fresh = join(store, 'fresh-session')
+    await mkdir(stale, { recursive: true })
+    await mkdir(fresh, { recursive: true })
+    const now = Date.now()
+    await utimes(stale, new Date(now - 30 * DAY), new Date(now - 30 * DAY))
+    const write = makeSpillWriter({ root: store, sessionId: 'new-session', now: () => now })
+
+    await Effect.runPromise(write('call-1', 'text'))
+
+    expect(await readdir(store)).toEqual(expect.arrayContaining(['fresh-session', 'new-session']))
+    expect(await readdir(store)).not.toContain('old-session')
+    await rm(store, { recursive: true, force: true })
+  })
+})
+
+describe('pruneSpills', () => {
+  test('removes a stale session and keeps a fresh one', async () => {
+    const store = await root()
+    const stale = join(store, 'old-session')
+    const fresh = join(store, 'fresh-session')
+    await mkdir(stale, { recursive: true })
+    await mkdir(fresh, { recursive: true })
+    const now = Date.now()
+    await utimes(stale, new Date(now - 30 * DAY), new Date(now - 30 * DAY))
+
+    await Effect.runPromise(pruneSpills(store, 7 * DAY, () => now))
+
+    expect(await readdir(store)).toEqual(['fresh-session'])
+    await rm(store, { recursive: true, force: true })
+  })
+
+  test('a loose file at the root is not a session and stays', async () => {
+    const store = await root()
+    await Bun.write(join(store, 'notes.txt'), 'not mine')
+
+    await Effect.runPromise(pruneSpills(store, 7 * DAY, () => Date.now()))
+
+    expect(await readdir(store)).toEqual(['notes.txt'])
+    await rm(store, { recursive: true, force: true })
+  })
+
+  test('a missing root has nothing to remove', async () => {
+    const store = join(tmpdir(), 'fudo-store-missing-' + crypto.randomUUID())
+
+    await Effect.runPromise(pruneSpills(store, 7 * DAY, () => Date.now()))
+  })
+})

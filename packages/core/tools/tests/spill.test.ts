@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { applySpill, planSpill, SPILL_PREVIEW_CHARS, textOf } from '../src/index.ts'
 import { Effect } from 'effect'
+import { applySpill, planSpill, SPILL_PREVIEW_CHARS, textOf } from '../src/index.ts'
 
 const blocks = (text: string) => [{ type: 'text' as const, text }]
 
@@ -45,32 +45,55 @@ describe('textOf', () => {
 
 describe('applySpill', () => {
   const result = (text: string) => ({ isError: false, content: blocks(text) })
+  const subject = { callId: 'c1', tool: 'bash' }
 
-  test('writes a big result away and keeps a preview', async () => {
+  test('writes a big result away and keeps a preview with the way back', async () => {
     const written: Array<{ callId: string; text: string }> = []
     const spilled = await Effect.runPromise(
-      applySpill(result('x'.repeat(100)), 'c1', {
+      applySpill(result('x'.repeat(100)), subject, {
         maxSpillBytes: 10,
         spill: (callId, text) =>
           Effect.sync(() => {
             written.push({ callId, text })
-            return 'spill/c1.txt'
+            return '/managed/spill/s1/c1.txt'
           }),
       }),
     )
 
     expect(written).toEqual([{ callId: 'c1', text: 'x'.repeat(100) }])
     const first = spilled.content[0]
-    expect(first?.type === 'text' ? first.text : '').toContain(
-      '[spilled to spill/c1.txt: 1 lines, 100 bytes]',
+    const notice = first?.type === 'text' ? first.text : ''
+    expect(notice).toContain('[spilled to /managed/spill/s1/c1.txt: 1 lines, 100 bytes')
+    expect(notice).toContain('read')
+    expect(notice).toContain('offset')
+    expect(notice).toContain('x'.repeat(50))
+  })
+
+  test('a read result is never spilled: the model rereads it instead', async () => {
+    let writes = 0
+    const kept = await Effect.runPromise(
+      applySpill(
+        result('x'.repeat(100)),
+        { callId: 'c1', tool: 'read' },
+        {
+          maxSpillBytes: 10,
+          spill: () =>
+            Effect.sync(() => {
+              writes += 1
+              return 'x'
+            }),
+        },
+      ),
     )
-    expect(first?.type === 'text' ? first.text.length : 0).toBeGreaterThan(50)
+
+    expect(writes).toBe(0)
+    expect(kept.content).toEqual(blocks('x'.repeat(100)))
   })
 
   test('keeps a small result and never writes', async () => {
     let writes = 0
     const kept = await Effect.runPromise(
-      applySpill(result('small'), 'c1', {
+      applySpill(result('small'), subject, {
         maxSpillBytes: 100,
         spill: () =>
           Effect.sync(() => {
@@ -86,7 +109,7 @@ describe('applySpill', () => {
 
   test('leaves an error result alone', async () => {
     const failed = await Effect.runPromise(
-      applySpill({ isError: true, content: blocks('boom'.repeat(50)) }, 'c1', {
+      applySpill({ isError: true, content: blocks('boom'.repeat(50)) }, subject, {
         maxSpillBytes: 1,
         spill: () => Effect.succeed('x'),
       }),
@@ -94,5 +117,16 @@ describe('applySpill', () => {
 
     expect(failed.isError).toBe(true)
     expect(failed.content).toEqual(blocks('boom'.repeat(50)))
+  })
+
+  test('a write that fails leaves the content where it was', async () => {
+    const failed = await Effect.runPromise(
+      applySpill(result('x'.repeat(100)), subject, {
+        maxSpillBytes: 10,
+        spill: () => Effect.die(new Error('the disk is full')),
+      }),
+    )
+
+    expect(failed.content).toEqual(blocks('x'.repeat(100)))
   })
 })

@@ -131,7 +131,8 @@ describe('spilling through the command', () => {
     expect(text).toContain('[spilled to ')
     expect(path.length).toBeGreaterThan(0)
     expect((await Bun.file(path).text()).length).toBe(40_000)
-    await rm(path, { force: true })
+    // The session directory goes with the run; the spill root stays for the next one.
+    await rm(join(path, '..'), { recursive: true, force: true })
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })
   })

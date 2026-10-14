@@ -23,10 +23,11 @@ import {
   type SessionEventMap,
 } from '@fudo/session'
 import { SystemPrompt } from '@fudo/system-prompt'
-import { applySpill, type SpillOptions } from '@fudo/tools'
+import { applySpill, makeSpillWriter, type SpillOptions } from '@fudo/tools'
 import { Tools } from '@fudo/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { groupCalls, type CallBatch } from './batch.ts'
 import type { AgentRequest } from './hooks.ts'
 
@@ -53,14 +54,15 @@ const COMPACT_DEFAULTS: CompactOptions = {
 /** Results larger than this are written to a file; only their head stays in the log. */
 const SPILL_BYTES = 32_000
 
+/** Where spilled text goes without a profile saying otherwise: the managed default. */
+const SPILL_ROOT = join(tmpdir(), 'fudo-spill')
+
 const spillOf = (agent: Agent): SpillOptions => ({
   maxSpillBytes: agent.options.maxSpillBytes ?? SPILL_BYTES,
-  spill: (callId, text) =>
-    Effect.promise(async () => {
-      const path = tmpdir() + '/fudo-spill/' + callId + '.txt'
-      await Bun.write(path, text)
-      return path
-    }),
+  spill: makeSpillWriter({
+    root: agent.options.spillDir ?? SPILL_ROOT,
+    sessionId: agent.id,
+  }),
 })
 
 const isToolCall = (block: ContentBlock): block is ToolCall => block.type === 'tool-call'
@@ -268,7 +270,11 @@ const agentLoopEffect = (
             callId: call.id,
           },
         })
-        const shown = yield* applySpill(outcome, call.id, spillOf(agent))
+        const shown = yield* applySpill(
+          outcome,
+          { callId: call.id, tool: call.name },
+          spillOf(agent),
+        )
         yield* append(agent, 'tool/result', {
           callId: call.id,
           isError: shown.isError,

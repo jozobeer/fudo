@@ -151,7 +151,7 @@ export const executeTool = (
       return finalize(tool, exec, posted ?? executed)
     }).pipe(Effect.catchCause((cause) => Effect.succeed(errorResult(describeCause(cause)))))
 
-    const shown = yield* applySpill(result, request.callId, spill)
+    const shown = yield* applySpill(result, { callId: request.callId, tool: tool.name }, spill)
     yield* hooks.emit('tools/result', shown)
     return shown
   })
