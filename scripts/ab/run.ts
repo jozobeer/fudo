@@ -30,11 +30,15 @@ const REPEATS = Math.max(1, Number(process.env.JZH_AB_REPEATS ?? '1'))
 /** The tasks to run, by name and comma-separated; every task when unset. */
 const ONLY = process.env.JZH_AB_TASKS?.split(',').map((name) => name.trim())
 const tasks = TASKS.filter((task) => ONLY === undefined || ONLY.includes(task.name))
+/** The harnesses to run; both when unset. */
+const ONLY_HARNESS = process.env.JZH_AB_HARNESS?.split(',').map((name) => name.trim())
 /**
  * jozo-harness compacts at the smaller of window × 0.8 and window − headroom: 16,000
- * tokens here, the same line dsh-provider.patch.yml gives dsh.
+ * tokens here, the same line dsh-provider.patch.yml gives dsh. A run that asks for the
+ * profile's own budget skips the patch, so the line is the shipped one.
  */
 const JZH_COMPACT = { contextWindow: 20_000, headroomTokens: 4_000 }
+const SHIPPED_WINDOW = process.env.JZH_AB_SHIPPED_WINDOW === '1'
 const root = process.cwd()
 const abRoot = join(root, '.tmp', 'ab')
 const dshTemplate = join(abRoot, 'dsh-template')
@@ -150,11 +154,15 @@ const jozoHarnessPatch = (sessions: string): string =>
     "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + sessions,
-    '  - id: agent-loop',
-    "    name: '@jozo-harness/agent-loop'",
-    '    config:',
-    '      contextWindow: ' + String(JZH_COMPACT.contextWindow),
-    '      headroomTokens: ' + String(JZH_COMPACT.headroomTokens),
+    ...(SHIPPED_WINDOW
+      ? []
+      : [
+          '  - id: agent-loop',
+          "    name: '@jozo-harness/agent-loop'",
+          '    config:',
+          '      contextWindow: ' + String(JZH_COMPACT.contextWindow),
+          '      headroomTokens: ' + String(JZH_COMPACT.headroomTokens),
+        ]),
     '',
   ].join('\n')
 
@@ -271,7 +279,9 @@ const cellOf = async (
   return { ...result, repeat }
 }
 
-const HARNESSES: ReadonlyArray<'jozo-harness' | 'dsh'> = ['jozo-harness', 'dsh']
+const HARNESSES: ReadonlyArray<'jozo-harness' | 'dsh'> = ['jozo-harness', 'dsh'].filter(
+  (name) => ONLY_HARNESS === undefined || ONLY_HARNESS.includes(name),
+) as ReadonlyArray<'jozo-harness' | 'dsh'>
 
 await prepare()
 const cells: Array<Cell> = []

@@ -4,6 +4,8 @@
  * never from what the model said about itself.
  */
 
+import { longPrompt } from './prompt-task.ts'
+import { readReport } from './read-task.ts'
 import { fixRules } from './rules-task.ts'
 
 export interface AbTask {
@@ -69,4 +71,6 @@ export const TASKS: ReadonlyArray<AbTask> = [
     },
   },
   fixRules,
+  readReport,
+  longPrompt,
 ]
