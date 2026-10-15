@@ -237,7 +237,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
       {
         id: 'agent-loop',
         name: '@jozo-harness/agent-loop',
-        config: { keepLast: 1, maxBytes: 10, contextWindow: 100, headroomTokens: 0 },
+        config: { retainTokens: 1, maxBytes: 10, contextWindow: 100, headroomTokens: 0 },
       },
     ],
     // The first stream answers the auxiliary summary call, the second the turn.

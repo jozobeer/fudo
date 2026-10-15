@@ -19,7 +19,6 @@ import {
 } from '@jozo-harness/llm'
 import {
   COMPACT_SUMMARY_INSTRUCTION,
-  DEFAULT_COMPACT_KEEP_LAST,
   DEFAULT_COMPACT_MAX_BYTES,
   checkpointOf,
   cwdOf,
@@ -63,18 +62,18 @@ interface PromptBuild {
   readonly tools: ReadonlyArray<ToolSchema>
 }
 
-/** What a profile that names no threshold gets: the newest stay intact, old output is stubbed. */
-const COMPACT_DEFAULTS: CompactOptions = {
-  keepLast: DEFAULT_COMPACT_KEEP_LAST,
-  maxBytes: DEFAULT_COMPACT_MAX_BYTES,
-}
-
 /** The context window assumed when neither the profile nor the adapter names one. */
 export const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000
 /** The share of the window a request may reach before compaction fires. */
 export const DEFAULT_COMPACT_THRESHOLD_RATIO = 0.8
 /** The tokens kept free under the window whatever the ratio says. */
 export const DEFAULT_COMPACT_HEADROOM_TOKENS = 65_536
+/**
+ * The share of the window a compaction leaves untouched. A summary therefore hands
+ * the next request a tail well under the line, with the frame and the summary
+ * sharing what is left; dsh keeps the same share of its window.
+ */
+export const DEFAULT_COMPACT_RETAIN_RATIO = 0.16
 
 /** Results larger than this are written to a file; only their head stays in the log. */
 const SPILL_BYTES = 32_000
@@ -113,15 +112,16 @@ const agentLoopEffect = (
     const tools = yield* Tools
     const promptService = yield* SystemPrompt
     const llm = yield* Llm
-    const compact: CompactOptions = {
-      keepLast: config.keepLast ?? COMPACT_DEFAULTS.keepLast,
-      maxBytes: config.maxBytes ?? COMPACT_DEFAULTS.maxBytes,
-    }
     const budget: TokenBudget = {
       contextWindow:
         config.contextWindow ?? llm.capabilities.contextWindow ?? DEFAULT_CONTEXT_WINDOW_TOKENS,
       thresholdRatio: config.thresholdRatio ?? DEFAULT_COMPACT_THRESHOLD_RATIO,
       headroomTokens: config.headroomTokens ?? DEFAULT_COMPACT_HEADROOM_TOKENS,
+    }
+    const compact: CompactOptions = {
+      retainTokens:
+        config.retainTokens ?? Math.floor(budget.contextWindow * DEFAULT_COMPACT_RETAIN_RATIO),
+      maxBytes: config.maxBytes ?? DEFAULT_COMPACT_MAX_BYTES,
     }
 
     // A session that cannot be written stops the agent: `orDie` turns the failure into
@@ -559,8 +559,8 @@ export const agentLoopLayer: Layer.Layer<AgentLoop, never, Hooks | Tools | Syste
   Layer.effect(AgentLoop, agentLoopEffect())
 
 export const agentLoopConfigSchema = Schema.Struct({
-  /** Messages at the tail this profile never prunes. */
-  keepLast: Schema.optionalKey(Schema.Int),
+  /** The tail this profile never prunes, in estimated tokens. Defaults to 16% of the window. */
+  retainTokens: Schema.optionalKey(Schema.Int),
   /** One text block larger than this many bytes is stubbed, outside the retention. */
   maxBytes: Schema.optionalKey(Schema.Int),
   /** The routed model's context window in tokens. Defaults to the adapter's, or 128000. */

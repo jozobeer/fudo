@@ -84,6 +84,32 @@ describe('meterOf', () => {
     expect(meter.estimated).toBe(220)
   })
 
+  test('a recorded checkpoint lowers the estimate by the span it stopped carrying', () => {
+    const events = [
+      headerEvent(),
+      userTurn(2, textOfBytes(4000)),
+      assistantWithUsage(3, 1000, 20),
+      userTurn(4, textOfBytes(40)),
+    ]
+    const summarized = [
+      ...events,
+      event(5, 'compaction/checkpoint', {
+        shadowedSeqs: [2],
+        shadowedRange: { start: 2, end: 2 },
+        summary: 'condensed',
+        provider: 'p',
+        model: 'm',
+      }),
+    ]
+
+    const before = meterOf(events, budget)
+    const after = meterOf(summarized, budget)
+
+    // The 4,000-byte message is no longer sent: the fold carries a short summary for it.
+    expect(before.estimated).toBe(1_030)
+    expect(after.estimated).toBeLessThan(100)
+  })
+
   test('a context window too small for the headroom still leaves a threshold', () => {
     const events = [headerEvent(), userTurn(2, 'go')]
 

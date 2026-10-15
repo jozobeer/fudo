@@ -13,7 +13,8 @@ import { event, headerEvent } from './support.ts'
 /** Content the test makes up, so the rule cannot be satisfied by memorising an input. */
 const longText = (size: number): string => crypto.randomUUID() + 'x'.repeat(size)
 
-const options = { keepLast: 1, maxBytes: 100 }
+// A target only the newest message fits in, so the tests name one message at a time.
+const options = { retainTokens: 5, maxBytes: 100 }
 
 /** One assistant tool call, its oversized result, and the newest user message. */
 const history = (size: number) => {
@@ -103,10 +104,45 @@ describe('pruneFor', () => {
       event(3, 'user/message', { text: 'go', source: 'user' as const }),
     ]
 
-    const prune = pruneFor(events, { keepLast: 1, maxBytes: 10_000 })
+    const prune = pruneFor(events, { retainTokens: 5, maxBytes: 10_000 })
 
     expect(prune?.shadowedSeqs).toEqual([2])
     expect(prune?.replacements[0]?.content.map((block) => block.type)).toEqual(['text'])
+  })
+})
+
+describe('the retention boundary', () => {
+  /** Four messages of the same size, so only the token target decides where the tail starts. */
+  const fourMessages = () => {
+    const texts = [400, 400, 400, 400].map(longText)
+    return {
+      texts,
+      events: [
+        headerEvent(),
+        event(2, 'system/message', { text: 'the frame' }),
+        ...texts.map((text, index) =>
+          event(3 + index, 'user/message', { text, source: 'user' as const }),
+        ),
+      ],
+    }
+  }
+
+  test('is a token target, not a message count', () => {
+    const { events } = fourMessages()
+
+    // Each message is 436 bytes, 109 tokens: 250 keeps the newest two and no more.
+    const prune = pruneFor(events, { retainTokens: 250, maxBytes: 10 })
+
+    expect(prune?.shadowedSeqs).toEqual([3, 4])
+  })
+
+  test('keeps the newest message even when it alone is over the target', () => {
+    const { events } = fourMessages()
+
+    const prune = pruneFor(events, { retainTokens: 1, maxBytes: 10 })
+
+    // Everything older is outside; the message the model just answered stays.
+    expect(prune?.shadowedSeqs).toEqual([3, 4, 5])
   })
 })
 
@@ -121,7 +157,7 @@ describe('the tool-result pruner', () => {
     const text = 'a'.repeat(1000) + 'b'.repeat(8000) + 'c'.repeat(1000)
     const events = oldToolResult([{ type: 'text', text }])
 
-    const prune = pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })
+    const prune = pruneFor(events, { retainTokens: 5, maxBytes: 1_000_000 })
     const kept = stubOf(prune?.replacements[0]?.content ?? [])
 
     expect(kept).toContain('[... tool result middle pruned ...]')
@@ -134,7 +170,7 @@ describe('the tool-result pruner', () => {
   test('a tool result inside the price is left alone', () => {
     const events = oldToolResult([{ type: 'text', text: 'short enough' }])
 
-    expect(pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })).toBeUndefined()
+    expect(pruneFor(events, { retainTokens: 5, maxBytes: 1_000_000 })).toBeUndefined()
   })
 
   test('an old image becomes a reference that says how to see it again', () => {
@@ -147,7 +183,7 @@ describe('the tool-result pruner', () => {
       },
     ])
 
-    const prune = pruneFor(events, { keepLast: 1, maxBytes: 1_000_000 })
+    const prune = pruneFor(events, { retainTokens: 5, maxBytes: 1_000_000 })
     const content = prune?.replacements[0]?.content ?? []
 
     expect(content).toEqual([

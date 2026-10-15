@@ -20,6 +20,10 @@
 - CLI の配線: 行の maxSpillBytes を spillBytesOf が読み、agent の options 経由で tools に渡す。apps/cli/tests/spill-e2e.test.ts が 40KB の出力の退避を観測する。
 - compaction の発火: apps/cli/tests/compaction-e2e.test.ts が長い履歴を作り、リクエスト内の古い tool/result が印（`[earlier output of N bytes]`）に置き換わることを assert する。
 
+## 実装の追加（2026-10-15）
+
+- compaction の保持と計測を変えた。`keepLast`（メッセージ数、既定 12）を `retainTokens`（推定トークンの目標、既定は窓の 16%）に置き換え、要約の範囲と prune の境界を同じ 1 本（`retainedFrom`）が決める。あわせてメーター（`meterOf`）は生ログではなく畳んだ履歴（記録済みの compaction を適用したもの）を測る。保持だけでは要約直後のリクエストは線の下に戻らず、計測だけでは保持が大きすぎるため、両方を変えた。受け入れは apps/cli/tests/compaction-e2e.test.ts の「a request right after a summary is under the line」で、記録された各 checkpoint の時点の畳み込みが線未満であることを見る。測定は [dsh との差の残りリスト](../../notes/2026-10-14-dsh-gap-remaining.md) にある。
+
 ## 未了
 
 - AGENTS.md の読み込みを profile の行から外せるようにするか（未決）。

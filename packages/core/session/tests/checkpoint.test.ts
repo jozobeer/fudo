@@ -11,7 +11,8 @@ import {
 } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
 
-const options = { keepLast: 1, maxBytes: 100 }
+// The newest message is 19 bytes, 5 tokens: a target this size keeps it alone.
+const options = { retainTokens: 5, maxBytes: 100 }
 
 /** One old exchange, its oversized tool result, and the newest user message. */
 const history = () => {
@@ -65,7 +66,17 @@ describe('summarizableMessages', () => {
   test('leaves nothing when the whole history is retained', () => {
     const { events } = history()
 
-    expect(summarizableMessages(events, { ...options, keepLast: 10 })).toEqual([])
+    expect(summarizableMessages(events, { ...options, retainTokens: 1_000 })).toEqual([])
+  })
+
+  test('counts tokens, so a big retained message ends the range earlier', () => {
+    const { events } = history()
+
+    // The newest message (5 tokens) plus the tool result before it (109) is 114: a
+    // 114-token target keeps both and stops before the tool call that produced it.
+    const range = summarizableMessages(events, { ...options, retainTokens: 114 })
+
+    expect(range.map((entry) => entry.seq)).toEqual([3, 4])
   })
 })
 

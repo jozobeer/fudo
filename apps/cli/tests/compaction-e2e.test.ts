@@ -3,7 +3,7 @@ import { agentLoopPlugin } from '@jozo-harness/agent-loop'
 import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
 import { Llm, type LlmAdapter, type LlmUsage, type StreamChunk } from '@jozo-harness/llm'
 import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
-import { deriveMessages, sessionPlugin } from '@jozo-harness/session'
+import { deriveMessages, sessionPlugin, type SessionEvent } from '@jozo-harness/session'
 import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
 import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
@@ -133,6 +133,23 @@ const open = async (root: string) => {
   }
 }
 
+/**
+ * The size of the request each checkpoint was recorded for, in the tokens the meter's
+ * own rule counts. Nothing is appended between the checkpoint and the request it was
+ * written for, so the fold at the checkpoint is that request; a summary that leaves it
+ * over the line makes the next step compact again.
+ */
+const tokensAfterCheckpoints = (events: ReadonlyArray<SessionEvent>): ReadonlyArray<number> =>
+  events
+    .filter((event) => event.type === 'compaction/checkpoint')
+    .map((checkpoint) => {
+      const bytes = asSeen(deriveMessages(events.slice(0, events.indexOf(checkpoint) + 1))).reduce(
+        (sum, message) => sum + Buffer.byteLength(message.text, 'utf8'),
+        0,
+      )
+      return Math.ceil(bytes / 4)
+    })
+
 /** Runs one task per turn in the same session and reports the last request and log. */
 const runTasks = async (
   root: string,
@@ -197,7 +214,7 @@ describe('compaction through the command', () => {
     const { sent, opened } = await runTasks(
       root,
       [small, 'second'],
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
     )
 
     const checkpoint = opened.events.find((event) => event.type === 'compaction/checkpoint')
@@ -205,6 +222,54 @@ describe('compaction through the command', () => {
       'condensed',
     )
     expect(sent.some((message) => message.text === small)).toBe(false)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('a request right after a summary is under the line', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    // 16,000 tokens of window and no headroom: the line sits at 12,800.
+    const line = 12_800
+    const big = 'z'.repeat(4_800)
+
+    const longAnswers = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
+      name: 'stub-llm',
+      config: Schema.Struct({}),
+      provides: [Llm],
+      requires: [],
+      layer: () =>
+        Layer.succeed(Llm, {
+          name: 'stub',
+          capabilities: {
+            toolChoice: false,
+            reasoningEffort: null,
+            images: 'none',
+            promptCacheControl: false,
+          },
+          stream: (request) => {
+            const messages = asSeen(request.messages)
+            const last = messages[messages.length - 1]?.text ?? ''
+            if (last.includes('compaction engine')) {
+              return Stream.fromIterable(textTurn('the earlier span, condensed'))
+            }
+            seen.push(messages)
+            return Stream.fromIterable(textTurn(big))
+          },
+        } satisfies LlmAdapter),
+    })
+
+    // Eleven exchanges of 1,200 tokens each: a retention counted in messages keeps the
+    // last twelve, which is twice the line, so the request never comes back under it.
+    const { opened } = await runTasks(
+      root,
+      Array.from({ length: 11 }, () => big),
+      'contextWindow: 16000\nheadroomTokens: 0',
+      longAnswers,
+    )
+
+    const checkpoints = opened.events.filter((event) => event.type === 'compaction/checkpoint')
+    expect(checkpoints.length).toBeGreaterThan(0)
+    expect(tokensAfterCheckpoints(opened.events).every((tokens) => tokens < line)).toBe(true)
 
     await rm(root, { recursive: true, force: true })
   })
@@ -218,12 +283,12 @@ describe('compaction through the command', () => {
     const under = await runTasks(
       roomy,
       tasks,
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100000\nheadroomTokens: 0',
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 100000\nheadroomTokens: 0',
     )
     const over = await runTasks(
       tight,
       tasks,
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
     )
 
     // The same history, the same prune price: only the budget decides.
@@ -242,7 +307,7 @@ describe('compaction through the command', () => {
     const first = 'the first thing the model was told'
     const tasks = [first, 'second']
     const budget =
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 1000\nthresholdRatio: 0.9\nheadroomTokens: 0'
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 1000\nthresholdRatio: 0.9\nheadroomTokens: 0'
 
     // The bytes are tiny in both runs; only the reported usage differs.
     const under = await runTasks(roomy, tasks, budget, (seen) =>
@@ -292,7 +357,7 @@ describe('compaction through the command', () => {
     const { sent, opened } = await runTasks(
       root,
       [first, 'second'],
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
       noSummary,
     )
 
@@ -343,7 +408,7 @@ describe('compaction through the command', () => {
     const { sent, opened } = await runTasks(
       root,
       [first, 'second'],
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 120\nheadroomTokens: 0',
+      'retainTokens: 1\nmaxBytes: 10\ncontextWindow: 120\nheadroomTokens: 0',
       summaryLlm,
     )
 

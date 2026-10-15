@@ -8,16 +8,16 @@ import type {
   SessionSeq,
 } from './events.ts'
 import { registerMessageProjection, type MessageProjection } from './projections.ts'
+import { messageTokens } from './token-meter.ts'
 
 export interface CompactOptions {
-  /** Messages at the end that are never touched. */
-  readonly keepLast: number
+  /** The newest messages are never touched: together they fit in this many estimated tokens. */
+  readonly retainTokens: number
   /** Text blocks larger than this many bytes are replaced by a shorter form. */
   readonly maxBytes: number
 }
 
-/** What a profile gets when its agent-loop row names no threshold. */
-export const DEFAULT_COMPACT_KEEP_LAST = 12
+/** What a profile gets when its agent-loop row names no prune price. */
 export const DEFAULT_COMPACT_MAX_BYTES = 32_000
 
 const bytesOf = (text: string): number => new TextEncoder().encode(text).length
@@ -148,6 +148,26 @@ export const pruneProjection: MessageProjection = {
 registerMessageProjection(pruneProjection)
 
 /**
+ * Where the untouched tail starts: the newest messages whose estimated tokens together
+ * fit in the target. The newest is kept whatever its size, so a request never ends up
+ * with nothing the model just said. A target that fits the whole history returns 0.
+ */
+const retainedFrom = (derived: ReadonlyArray<DerivedMessage>, retainTokens: number): number => {
+  const target = Math.max(0, retainTokens)
+  let index = derived.length
+  let kept = 0
+  while (index > 0) {
+    const entry = derived[index - 1]
+    if (entry === undefined) break
+    const tokens = messageTokens(entry.message)
+    if (index < derived.length && kept + tokens > target) break
+    kept += tokens
+    index -= 1
+  }
+  return index
+}
+
+/**
  * What the next request stops carrying: every message outside the retention whose
  * content is over the price, with what it carries instead. Pure, so the loop can
  * record the decision before the request that follows it. An already-pruned log
@@ -158,7 +178,7 @@ export function pruneFor(
   options: CompactOptions,
 ): CompactionPrune | undefined {
   const derived = deriveMessagesWithSeqs(events)
-  const boundary = Math.max(0, derived.length - options.keepLast)
+  const boundary = retainedFrom(derived, options.retainTokens)
   const alreadyPruned = prunedSeqs(events)
   // The system prompt is the request's frame, not history: a prune never hides it.
   const frame = new Set(
@@ -209,7 +229,7 @@ export function summarizableMessages(
   options: CompactOptions,
 ): ReadonlyArray<DerivedMessage> {
   const derived = deriveMessagesWithSeqs(events)
-  const boundary = Math.max(0, derived.length - options.keepLast)
+  const boundary = retainedFrom(derived, options.retainTokens)
   const frame = new Set(
     events.filter((event) => event.type === 'system/message').map((event) => event.seq),
   )

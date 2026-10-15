@@ -66,6 +66,6 @@
 
 ## 未確認
 
-- jozo-harness の compaction が実際の窓の大きさで期待どおり縮むかは、実測していない。発火点を 16,000 に縮めた A/B では、両ハーネスとも要約の直後に線の下へ戻りきらず、続けて発火した（[A/B の記録](2026-10-14-ab-measurement.md)の長いタスク）。jozo-harness は保持をメッセージ数（末尾 12 件）で決め、圧縮後の大きさの目標を持たない。
-- dsh の発火条件の既定は jozo-harness と同じ（threshold 0.8、headroom 65,536、pruner 8,192 / 4,096 / 1,024。`dsh:packages/compaction/compaction-basic/src/config.ts`、`dsh:packages/compaction/compaction-tool-result-pruner/src/config.ts`）。違いは、dsh が出力予約（リクエストの maxTokens）も窓から差し引くこと、保持をトークン（窓の 16%）で決めることである。
+- jozo-harness の compaction が実際の窓の大きさで期待どおり縮むかは、実測していない。発火点を 16,000 に縮めた A/B では、両ハーネスとも要約の直後に線の下へ戻りきらず、続けて発火した（[A/B の記録](2026-10-14-ab-measurement.md)の長いタスク）。jozo-harness は保持をメッセージ数（末尾 12 件）で決め、圧縮後の大きさの目標を持たない。**2026-10-15 追記**: その空回りは直した。保持は `retainTokens`（既定は窓の 16%）になり、要約の範囲と prune の境界を同じ 1 本が決め、メーターは生ログではなく記録済みの compaction を適用した畳み込みを測る。同じ A/B の再測で、要約直後のリクエストは 11 件中 10 件が線の下に入り、compaction は 6.3 → 3.7 回になった（残る 1 件は、保持の外に置けない最新の 1 件が目標より大きい場合）。**既定の窓での実測は残っている**。
+- dsh の発火条件の既定は jozo-harness と同じ（threshold 0.8、headroom 65,536、pruner 8,192 / 4,096 / 1,024。`dsh:packages/compaction/compaction-basic/src/config.ts`、`dsh:packages/compaction/compaction-tool-result-pruner/src/config.ts`）。違いは、dsh が出力予約（リクエストの maxTokens）も窓から差し引くこと、保持をトークン（窓の 16%）で決めることである。**2026-10-15 追記**: 保持は窓の 16% で揃った。残る違いは出力予約である（jozo-harness は maxTokens を送らず、headroom がその役を兼ねる）。
 - `bun run check` の所要時間は約 18 秒（coverage 込みのテスト約 10 秒 + 静的検査 + 3 つの gate）。CI は無い。
