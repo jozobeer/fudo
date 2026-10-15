@@ -319,11 +319,14 @@ export const checkpointOf = (
   model: { readonly provider: string; readonly model: string },
 ): CompactionCheckpoint | undefined => {
   const first = range[0]
-  const last = range[range.length - 1]
-  if (first === undefined || last === undefined || summary.trim() === '') return undefined
+  if (first === undefined || summary.trim() === '') return undefined
+  const seqs = range.map((entry) => entry.seq)
   return {
-    shadowedSeqs: range.map((entry) => entry.seq),
-    shadowedRange: { start: first.seq, end: last.seq },
+    shadowedSeqs: seqs,
+    // The fold holds the previous summary at the head of its span with the seq the
+    // checkpoint was recorded at, newer than the messages after it, so the range
+    // names the oldest and the newest seq rather than the two ends.
+    shadowedRange: { start: Math.min(...seqs), end: Math.max(...seqs) },
     summary,
     provider: model.provider,
     model: model.model,

@@ -1,8 +1,10 @@
 import { Effect } from 'effect'
+import type { RequestMessage } from '@jozo-harness/llm'
 import { describe, expect, test } from 'bun:test'
 import {
   CHECKPOINT_PREAMBLE,
   SessionError,
+  checkpointOf,
   decodeSessionEvent,
   deriveMessages,
   messagesWithPrune,
@@ -89,6 +91,26 @@ describe('messagesWithPrune', () => {
 
     expect(JSON.stringify(messages)).not.toContain(text)
     expect(JSON.stringify(messages)).toContain('[earlier output of')
+  })
+})
+
+describe('checkpointOf', () => {
+  test('names the range in seq order, whatever order the fold is in', () => {
+    const message = (text: string): RequestMessage => ({
+      role: 'user',
+      content: [{ type: 'text', text }],
+    })
+    // A second compaction takes the previous summary, which the fold puts at the head of
+    // its span with the seq the checkpoint was recorded at, and newer messages after it.
+    const range = [
+      { seq: 9, message: message('the previous summary') },
+      { seq: 4, message: message('an older message') },
+      { seq: 5, message: message('a newer one') },
+    ]
+
+    const checkpoint = checkpointOf(range, 'condensed', { provider: 'p', model: 'm' })
+
+    expect(checkpoint?.shadowedRange).toEqual({ start: 4, end: 9 })
   })
 })
 
