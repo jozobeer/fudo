@@ -4,6 +4,7 @@
  * never from what the model said about itself.
  */
 
+import { findDisagreement } from './find-task.ts'
 import { longPrompt } from './prompt-task.ts'
 import { readReport } from './read-task.ts'
 import { fixRules } from './rules-task.ts'
@@ -73,4 +74,5 @@ export const TASKS: ReadonlyArray<AbTask> = [
   fixRules,
   readReport,
   longPrompt,
+  findDisagreement,
 ]
