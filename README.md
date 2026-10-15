@@ -69,7 +69,7 @@ jzh web              # http://127.0.0.1:<port>/ を stderr に出す（--port �
 
 ## 開発
 
-変更したら `bun run check` を通す。fmt → lint → typecheck → complexity → test の順に走る。`bun install` が pre-push hook を有効にし、push 前に test 以外の静的チェック（`bun run check:static`）が走る。
+変更したら `bun run check` を通す。fmt → lint → typecheck → doc gate → 重複検出 → complexity → テスト（coverage の床つき）の順に走る。`bun install` が pre-push hook を有効にし、push 前に test 以外の静的チェック（`bun run check:static`）が走る。同じ `bun run check` を GitHub Actions（[.github/workflows/check.yml](.github/workflows/check.yml)、macOS）が push と PR ごとに走らせるので、手元の hook は速いままにしてある。
 
 ```sh
 bun run check

@@ -1,0 +1,19 @@
+name: check
+
+# The end-to-end tests run the sandbox the profile defaults to (seatbelt, macOS), so the
+# job runs where that exists; a host that refuses to apply it is covered by a test of its
+# own. The tools come from mise.toml, so the runner and a laptop run the same versions.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
