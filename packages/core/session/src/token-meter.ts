@@ -1,6 +1,7 @@
 import type { ContentBlock, RequestMessage } from '@jozo-harness/llm'
 import { deriveMessagesWithSeqs } from './derive.ts'
 import type { SessionEvent } from './events.ts'
+import { lastRequestHeader } from './request-header.ts'
 
 /** What one token is estimated to carry when only bytes are known. */
 export const BYTES_PER_TOKEN = 4
@@ -13,15 +14,27 @@ export interface TokenBudget {
   readonly thresholdRatio: number
   /** Always leave this many tokens between the threshold and the window. */
   readonly headroomTokens: number
+  /**
+   * Output tokens one request reserves. The provider charges them to the same window,
+   * so they are gone before the headroom is. Unset reserves nothing.
+   */
+  readonly reserveTokens?: number
 }
 
-/** The pressure line: the tighter of the window fraction and the room after headroom. */
+/** What is left of the window for messages once the answer's room is reserved. */
+export const messageBudgetOf = (budget: TokenBudget): number =>
+  Math.max(0, budget.contextWindow - (budget.reserveTokens ?? 0))
+
+/**
+ * The pressure line: the tighter of the window fraction and the room left after the
+ * answer's reservation and the headroom.
+ */
 export const thresholdOf = (budget: TokenBudget): number =>
   Math.max(
     1,
     Math.min(
       Math.floor(budget.contextWindow * budget.thresholdRatio),
-      budget.contextWindow - budget.headroomTokens,
+      messageBudgetOf(budget) - budget.headroomTokens,
     ),
   )
 
@@ -66,6 +79,19 @@ const foldedBytes = (events: ReadonlyArray<SessionEvent>): number =>
   deriveMessagesWithSeqs(events).reduce((sum, entry) => sum + messageBytes(entry.message), 0)
 
 /**
+ * The bytes the tool schemas cost, as the newest recorded request carried them. Every
+ * request from that series on sends them, so they are pressure like the messages are.
+ */
+const toolsBytes = (events: ReadonlyArray<SessionEvent>): number => {
+  const header = lastRequestHeader(events)
+  return header === undefined ? 0 : bytesOf(JSON.stringify(header.tools))
+}
+
+/** What one request carries: its messages and the tools it may call. */
+const surfaceBytes = (events: ReadonlyArray<SessionEvent>): number =>
+  toolsBytes(events) + foldedBytes(events)
+
+/**
  * The newest provider count in the log, as the tokens that one request carried.
  * Everything up to and including its answer is already inside the number.
  */
@@ -90,10 +116,10 @@ const newestUsage = (
  */
 export const meterOf = (events: ReadonlyArray<SessionEvent>, budget: TokenBudget): TokenMeter => {
   const anchor = newestUsage(events)
-  const counted = anchor === undefined ? 0 : foldedBytes(events.slice(0, anchor.index + 1))
+  const counted = anchor === undefined ? 0 : surfaceBytes(events.slice(0, anchor.index + 1))
   const estimated = Math.max(
     0,
-    (anchor?.tokens ?? 0) + Math.ceil((foldedBytes(events) - counted) / BYTES_PER_TOKEN),
+    (anchor?.tokens ?? 0) + Math.ceil((surfaceBytes(events) - counted) / BYTES_PER_TOKEN),
   )
   const threshold = thresholdOf(budget)
   return {

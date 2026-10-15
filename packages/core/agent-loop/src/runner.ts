@@ -25,6 +25,7 @@ import {
   deriveMessages,
   lastRequestHeader,
   lastRuntimeContext,
+  messageBudgetOf,
   messagesWithPrune,
   meterOf,
   pruneFor,
@@ -117,10 +118,11 @@ const agentLoopEffect = (
         config.contextWindow ?? llm.capabilities.contextWindow ?? DEFAULT_CONTEXT_WINDOW_TOKENS,
       thresholdRatio: config.thresholdRatio ?? DEFAULT_COMPACT_THRESHOLD_RATIO,
       headroomTokens: config.headroomTokens ?? DEFAULT_COMPACT_HEADROOM_TOKENS,
+      reserveTokens: config.maxTokens ?? 0,
     }
     const compact: CompactOptions = {
       retainTokens:
-        config.retainTokens ?? Math.floor(budget.contextWindow * DEFAULT_COMPACT_RETAIN_RATIO),
+        config.retainTokens ?? Math.floor(messageBudgetOf(budget) * DEFAULT_COMPACT_RETAIN_RATIO),
       maxBytes: config.maxBytes ?? DEFAULT_COMPACT_MAX_BYTES,
     }
 
@@ -314,10 +316,14 @@ const agentLoopEffect = (
       return {
         provider: route.provider,
         model: route.model,
-        params:
-          agent.options.reasoningEffort === undefined
+        // Params reach the provider as written, so the cap uses the field it reads and
+        // the header records what the budget above reserved.
+        params: {
+          ...(agent.options.reasoningEffort === undefined
             ? {}
-            : { reasoningEffort: agent.options.reasoningEffort },
+            : { reasoningEffort: agent.options.reasoningEffort }),
+          ...(config.maxTokens === undefined ? {} : { max_tokens: config.maxTokens }),
+        },
         tools: build.tools,
       }
     }
@@ -569,6 +575,11 @@ export const agentLoopConfigSchema = Schema.Struct({
   thresholdRatio: Schema.optionalKey(Schema.Number),
   /** Tokens kept free under the window. Defaults to 65536. */
   headroomTokens: Schema.optionalKey(Schema.Int),
+  /**
+   * Output tokens one request sends as `max_tokens` and reserves. The line comes down
+   * by this much before the headroom is taken off. Unset reserves nothing.
+   */
+  maxTokens: Schema.optionalKey(Schema.Int),
 })
 
 export type AgentLoopConfig = Schema.Schema.Type<typeof agentLoopConfigSchema>

@@ -23,6 +23,7 @@
 ## 実装の追加（2026-10-15）
 
 - compaction の保持と計測を変えた。`keepLast`（メッセージ数、既定 12）を `retainTokens`（推定トークンの目標、既定は窓の 16%）に置き換え、要約の範囲と prune の境界を同じ 1 本（`retainedFrom`）が決める。あわせてメーター（`meterOf`）は生ログではなく畳んだ履歴（記録済みの compaction を適用したもの）を測る。保持だけでは要約直後のリクエストは線の下に戻らず、計測だけでは保持が大きすぎるため、両方を変えた。受け入れは apps/cli/tests/compaction-e2e.test.ts の「a request right after a summary is under the line」で、記録された各 checkpoint の時点の畳み込みが線未満であることを見る。測定は [dsh との差の残りリスト](../../notes/2026-10-14-dsh-gap-remaining.md) にある。
+- 線を「リクエスト全体」の約束にした。答えのために予約する分（agent-loop 行の `maxTokens`）は provider へ `max_tokens` として送り、発火点から先に引く（`min(窓 × ratio, 窓 − 予約 − headroom)`）。dsh と同じく宣言が無ければ予約しない。あわせてメーターが tool の schema を数えていなかったのを直した（dsh のメーターは `estimateToolsTokens` で数える）。数え落としていた分は 1 リクエストあたり 3,075 トークンで、これは線の 19%（16,000 のとき）に当たる。受け入れは「a request that reserves output compacts against the shorter line」と「the window a profile does not name keeps its own line」、単位は `thresholdOf` と `meterOf` の tools 価格。
 
 ## 未了
 

@@ -28,6 +28,13 @@ describe('thresholdOf', () => {
     expect(thresholdOf({ ...budget, headroomTokens: 300 })).toBe(700)
     expect(thresholdOf({ ...budget, thresholdRatio: 0.5 })).toBe(500)
   })
+
+  test('takes what the request reserves for its answer off the window first', () => {
+    // The answer's room is gone before the headroom is: 1,000 - 200 - 100.
+    expect(thresholdOf({ ...budget, headroomTokens: 100, reserveTokens: 200 })).toBe(700)
+    // A reservation larger than the window leaves a line of one, not a negative one.
+    expect(thresholdOf({ ...budget, headroomTokens: 0, reserveTokens: 5_000 })).toBe(1)
+  })
 })
 
 describe('meterOf', () => {
@@ -108,6 +115,29 @@ describe('meterOf', () => {
     // The 4,000-byte message is no longer sent: the fold carries a short summary for it.
     expect(before.estimated).toBe(1_030)
     expect(after.estimated).toBeLessThan(100)
+  })
+
+  test('prices the tools the recorded request carried', () => {
+    const tool = { name: 'echo', description: 'x'.repeat(400), parameters: {} }
+    const events = [
+      headerEvent(),
+      event(2, 'request/header', {
+        provider: 'p',
+        model: 'm',
+        params: {},
+        tools: [tool],
+        series: 1,
+        reason: 'opened' as const,
+      }),
+      userTurn(3, textOfBytes(400)),
+    ]
+
+    const meter = meterOf(events, budget)
+
+    // The request carries the messages and the tool schemas; the provider counts both.
+    expect(meter.estimated).toBe(
+      Math.ceil((400 + Buffer.byteLength(JSON.stringify([tool]), 'utf8')) / 4),
+    )
   })
 
   test('a context window too small for the headroom still leaves a threshold', () => {

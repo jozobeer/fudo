@@ -75,6 +75,36 @@ const spy = (
     } satisfies LlmAdapter),
 })
 
+/** The same stub, answering every agent request with text of the given size. */
+const longSpy = (
+  seen: Array<ReadonlyArray<SentMessage>>,
+  answer: string,
+): Plugin<{}, Llm, never> => ({
+  name: 'stub-llm',
+  config: Schema.Struct({}),
+  provides: [Llm],
+  requires: [],
+  layer: () =>
+    Layer.succeed(Llm, {
+      name: 'stub',
+      capabilities: {
+        toolChoice: false,
+        reasoningEffort: null,
+        images: 'none',
+        promptCacheControl: false,
+      },
+      stream: (request) => {
+        const messages = asSeen(request.messages)
+        const last = messages[messages.length - 1]?.text ?? ''
+        if (last.includes('compaction engine')) {
+          return Stream.fromIterable(textTurn('the earlier span, condensed'))
+        }
+        seen.push(messages)
+        return Stream.fromIterable(textTurn(answer))
+      },
+    } satisfies LlmAdapter),
+})
+
 const profile = (root: string, loopConfig?: string): string =>
   [
     'name: test',
@@ -232,39 +262,33 @@ describe('compaction through the command', () => {
     const line = 12_800
     const big = 'z'.repeat(4_800)
 
-    const longAnswers = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
-      name: 'stub-llm',
-      config: Schema.Struct({}),
-      provides: [Llm],
-      requires: [],
-      layer: () =>
-        Layer.succeed(Llm, {
-          name: 'stub',
-          capabilities: {
-            toolChoice: false,
-            reasoningEffort: null,
-            images: 'none',
-            promptCacheControl: false,
-          },
-          stream: (request) => {
-            const messages = asSeen(request.messages)
-            const last = messages[messages.length - 1]?.text ?? ''
-            if (last.includes('compaction engine')) {
-              return Stream.fromIterable(textTurn('the earlier span, condensed'))
-            }
-            seen.push(messages)
-            return Stream.fromIterable(textTurn(big))
-          },
-        } satisfies LlmAdapter),
-    })
-
     // Eleven exchanges of 1,200 tokens each: a retention counted in messages keeps the
     // last twelve, which is twice the line, so the request never comes back under it.
     const { opened } = await runTasks(
       root,
       Array.from({ length: 11 }, () => big),
       'contextWindow: 16000\nheadroomTokens: 0',
-      longAnswers,
+      (seen) => longSpy(seen, big),
+    )
+
+    const checkpoints = opened.events.filter((event) => event.type === 'compaction/checkpoint')
+    expect(checkpoints.length).toBeGreaterThan(0)
+    expect(tokensAfterCheckpoints(opened.events).every((tokens) => tokens < line)).toBe(true)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('the window a profile does not name keeps its own line', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    // No budget in the row: 128,000 tokens of window and 65,536 of headroom.
+    const line = 62_464
+    const big = 'z'.repeat(4_800)
+
+    const { opened } = await runTasks(
+      root,
+      Array.from({ length: 30 }, () => big),
+      undefined,
+      (seen) => longSpy(seen, big),
     )
 
     const checkpoints = opened.events.filter((event) => event.type === 'compaction/checkpoint')
@@ -299,6 +323,30 @@ describe('compaction through the command', () => {
 
     await rm(roomy, { recursive: true, force: true })
     await rm(tight, { recursive: true, force: true })
+  })
+
+  test('a request that reserves output compacts against the shorter line', async () => {
+    const plain = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    const reserved = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    const tasks = ['the first thing the model was told', 'second']
+    // The window is 1,000 tokens: without a reservation the line is 800, and with 900
+    // reserved for the answer it is 100.
+    const budget = 'contextWindow: 1000\nthresholdRatio: 0.8\nheadroomTokens: 0'
+
+    const without = await runTasks(plain, tasks, budget)
+    const with900 = await runTasks(reserved, tasks, `${budget}\nmaxTokens: 900`)
+
+    expect(compacted(without.opened.events)).toBe(false)
+    expect(compacted(with900.opened.events)).toBe(true)
+
+    // The log records what the request reserved, so the line can be read back from it.
+    const header = with900.opened.events.find((event) => event.type === 'request/header')
+    expect(header?.type === 'request/header' ? header.data.params['max_tokens'] : undefined).toBe(
+      900,
+    )
+
+    await rm(plain, { recursive: true, force: true })
+    await rm(reserved, { recursive: true, force: true })
   })
 
   test('what the provider counted is what pushes the request over', async () => {
