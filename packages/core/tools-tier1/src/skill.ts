@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { discoverSkills, parseSkillDocument } from './skills.ts'
 
 const Parameters = Schema.Struct({

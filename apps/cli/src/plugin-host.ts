@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { Effect } from 'effect'
-import type { PluginRow } from '@fudo/kernel'
-import type { AskShape } from '@fudo/safety'
-import { ToolError } from '@fudo/tools'
-import type { PluginChange, PluginHost, PluginRowSummary } from '@fudo/tools-tier1'
+import type { PluginRow } from '@jozo-harness/kernel'
+import type { AskShape } from '@jozo-harness/safety'
+import { ToolError } from '@jozo-harness/tools'
+import type { PluginChange, PluginHost, PluginRowSummary } from '@jozo-harness/tools-tier1'
 import { parseConfigText } from './config-file.ts'
 import { applyEdit, type SettingsEdit } from './settings-edit.ts'
 

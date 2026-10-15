@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { callSummary, resultSummary, oneLine } from '@fudo/tools'
+import { callSummary, resultSummary, oneLine } from '@jozo-harness/tools'
 import { changedLines, exitSummaryOf, rangeOf } from '../src/index.ts'
 
 describe('the one line a tool shows', () => {

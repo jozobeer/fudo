@@ -1,12 +1,12 @@
 {
-  "name": "@fudo/system-prompt",
+  "name": "@jozo-harness/system-prompt",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
-    "@fudo/tools": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/tools": "workspace:*",
     "effect": "4.0.3"
   }
 }

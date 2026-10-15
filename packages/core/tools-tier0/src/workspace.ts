@@ -1,7 +1,7 @@
 import { lstatSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { Effect } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 
 /**
  * The one place a path becomes a path a tool may use. Everything that writes, or

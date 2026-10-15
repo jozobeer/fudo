@@ -1,15 +1,15 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { loadBundledProfile } from '@fudo/bundle-base'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { loadBundledProfile } from '@jozo-harness/bundle-base'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import {
   replayAdapter,
   runScenario,
@@ -17,7 +17,7 @@ import {
   type Scenario,
   type ScenarioRow,
   type ScenarioSession,
-} from '@fudo/test-support-replay'
+} from '@jozo-harness/test-support-replay'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
@@ -138,7 +138,7 @@ const runner = async (run: {
       } satisfies LlmAdapter),
   }
   const rows = [
-    { id: 'session-jsonl', name: '@fudo/session-jsonl', config: { root: run.logs } },
+    { id: 'session-jsonl', name: '@jozo-harness/session-jsonl', config: { root: run.logs } },
     // The recording stands in for the provider the profile names.
     { id: 'llm', name: 'replay-llm', config: {} },
     ...(run.extraRows ?? []),
@@ -236,7 +236,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     extraRows: [
       {
         id: 'agent-loop',
-        name: '@fudo/agent-loop',
+        name: '@jozo-harness/agent-loop',
         config: { keepLast: 1, maxBytes: 10, contextWindow: 100, headroomTokens: 0 },
       },
     ],

@@ -1,5 +1,5 @@
-import { decodeSessionEvent } from '@fudo/session'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@fudo/session'
+import { decodeSessionEvent } from '@jozo-harness/session'
+import type { Session, SessionEvent, SessionHeader, SessionId } from '@jozo-harness/session'
 import { Deferred, Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { Ask, askEventSchemas, askServiceLayer, installAsk, makeAsk } from '../src/index.ts'

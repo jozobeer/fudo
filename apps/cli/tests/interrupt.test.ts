@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter } from '@fudo/llm'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter } from '@jozo-harness/llm'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -18,28 +18,28 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 describe('interrupt', () => {
   test('a cancellation request stops the turn and exits 130', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-interrupt-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-interrupt-'))
     const silent: Plugin<{}, Llm, never> = {
       name: 'stub-llm',
       config: Schema.Struct({}),

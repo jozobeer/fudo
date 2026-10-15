@@ -4,16 +4,16 @@ export interface ParsedArgs {
   readonly profileFlag: string | undefined
   readonly patches: ReadonlyArray<string>
   readonly task: string | undefined
-  /** `fudo models`: list what the provider offers instead of running. */
+  /** `jzh models`: list what the provider offers instead of running. */
   readonly models: boolean
-  /** `fudo web`: serve the browser UI instead of running a turn. */
+  /** `jzh web`: serve the browser UI instead of running a turn. */
   readonly web: boolean
-  /** `fudo sessions [id]`: list the sessions, or read one back. */
+  /** `jzh sessions [id]`: list the sessions, or read one back. */
   readonly sessions: boolean
   readonly sessionId?: string | undefined
-  /** `fudo sessions --search <text>`: find sessions by what they say. */
+  /** `jzh sessions --search <text>`: find sessions by what they say. */
   readonly search?: string | undefined
-  /** Port for `fudo web`; 0 asks the system for a free one. */
+  /** Port for `jzh web`; 0 asks the system for a free one. */
   readonly port: number
   readonly resume: string | undefined
   /** Continue a resumed session even when this run's composition differs from its own. */
@@ -123,14 +123,14 @@ const wordsOf = (words: ReadonlyArray<string>): Words => {
   const first = words[0]
   if (words.length === 1 && first === 'models') return { ...NOTHING, models: true, task: undefined }
   if (words.length === 1 && first === 'web') return { ...NOTHING, web: true, task: undefined }
-  // `fudo sessions` lists them; `fudo sessions <id>` reads one back.
+  // `jzh sessions` lists them; `jzh sessions <id>` reads one back.
   if (first === 'sessions' && words.length <= 2) {
     return { ...NOTHING, sessions: true, sessionId: words[1], task: undefined }
   }
   return { ...NOTHING, task: words.length === 0 ? undefined : words.join(' ') }
 }
 
-/** Parses `fudo` arguments. Positional words join into the one-shot task. */
+/** Parses `jzh` arguments. Positional words join into the one-shot task. */
 export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
   const { values, words, errors } = scan(argv)
   const port = portOf(first(values, '--port'), errors)

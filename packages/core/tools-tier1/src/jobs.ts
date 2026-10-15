@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 
 export interface Job {
   readonly id: string

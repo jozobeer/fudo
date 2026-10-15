@@ -1,4 +1,4 @@
-import type { HookRegistry } from '@fudo/kernel'
+import type { HookRegistry } from '@jozo-harness/kernel'
 import { Cause, Effect, Option, Schema, Duration } from 'effect'
 import {
   ToolError,

@@ -7,7 +7,7 @@ import { FAULTY_RULES, fixRules, ruleFiles, wrongRules } from './rules-task.ts'
 const workspaces: Array<string> = []
 
 const workspaceWith = async (files: Readonly<Record<string, string>>): Promise<string> => {
-  const workspace = await mkdtemp(join(tmpdir(), 'fudo-ab-rules-'))
+  const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ab-rules-'))
   workspaces.push(workspace)
   for (const [path, text] of Object.entries(files)) {
     await mkdir(dirname(join(workspace, path)), { recursive: true })

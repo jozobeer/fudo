@@ -5,8 +5,8 @@ import {
   type CommandsShape,
   type Session,
   type SessionHeader,
-} from '@fudo/session'
-import { currentGoal, currentSchedules, goalRounds, ruleText } from '@fudo/tools-tier1'
+} from '@jozo-harness/session'
+import { currentGoal, currentSchedules, goalRounds, ruleText } from '@jozo-harness/tools-tier1'
 
 /** The model the last request went to, as the log recorded it. */
 const modelOf = (session: Session): string => {
@@ -57,7 +57,7 @@ export const statusText = (session: Session): string => {
   ].join('\n')
 }
 
-/** The commands every fudo session answers. Both only read the log. */
+/** The commands every jozo-harness session answers. Both only read the log. */
 export const installBuiltinCommands = (commands: CommandsShape): Effect.Effect<void> =>
   Effect.gen(function* () {
     yield* commands.register({

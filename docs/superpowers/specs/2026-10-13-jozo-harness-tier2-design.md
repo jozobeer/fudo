@@ -1,4 +1,4 @@
-# fudo 設計: S5 Tier 2
+# jozo-harness 設計: S5 Tier 2
 
 範囲は設計文書の分割表に従う: skill、web（search と fetch）、MCP、ask-user、plan-mode、read_image。
 
@@ -12,7 +12,7 @@
 
 ## 決めること
 
-1. skill の実体。SKILL.md をどのディレクトリから探し（workspace / ~/.fudo / 同梱）、どのツールで読むか。一覧を出すツール（skill）と、本文を読むツールの 2 つにするか。
+1. skill の実体。SKILL.md をどのディレクトリから探し（workspace / ~/.jzh / 同梱）、どのツールで読むか。一覧を出すツール（skill）と、本文を読むツールの 2 つにするか。
 2. web search と fetch の provider。API キーが要る検索の扱い（環境変数、未設定時はツール自体を登録しない）。
 3. read_image は ContentBlock に画像を載せる必要がある。S1 の ContentBlock は text / reasoning / tool-call の 3 種で、画像が無い。ここで追加するか、それとも結果をファイル参照 + 説明文にするか。
 4. MCP のクライアントを S5 でどこまで作るか（stdio のみ、ツール一覧の取り込みと実行だけ、等）。

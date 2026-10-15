@@ -1,5 +1,5 @@
 import { Effect, type Scope } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 import { decodeResponse, encodeRequest, type McpResponse } from './mcp-codec.ts'
 
 export interface McpServerOptions {

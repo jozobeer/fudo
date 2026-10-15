@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { ToolSchema } from '@fudo/llm'
+import type { ToolSchema } from '@jozo-harness/llm'
 import { Effect } from 'effect'
 import {
   IDENTITY_TEXT,
@@ -36,19 +36,19 @@ describe('builtinSections', () => {
     )
 
     expect(rendered).toBe(IDENTITY_TEXT)
-    expect(rendered).toContain('You are an AI coding agent powered by fudo.')
+    expect(rendered).toContain('You are an AI coding agent powered by jozo-harness.')
   })
 
   test('the guidance section sits after the identity and before user sections', () => {
     const sections = builtinSections()
 
-    expect(sections.map((section) => section.name)).toEqual(['fudo:identity', 'fudo:tool-guidance'])
+    expect(sections.map((section) => section.name)).toEqual(['jzh:identity', 'jzh:tool-guidance'])
     expect(sections[0]?.order).toBeLessThan(sections[1]?.order ?? 0)
   })
 
   test('either built-in can be turned off', async () => {
     const withoutIdentity = await renderWithBuiltins({ includeHarnessIdentity: false })
-    expect(withoutIdentity).not.toContain('powered by fudo')
+    expect(withoutIdentity).not.toContain('powered by jozo-harness')
     expect(withoutIdentity).toContain('instead of cat')
 
     const withoutGuidance = await renderWithBuiltins({ includeToolGuidance: false })

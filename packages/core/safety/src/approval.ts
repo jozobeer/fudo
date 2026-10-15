@@ -53,7 +53,7 @@ export const makeApproval = (): Effect.Effect<ApprovalShape> =>
 export const approvalLayer: Effect.Effect<ApprovalShape> = makeApproval()
 
 /** The approval holder as a service, so a pre-execute bridge can reach it. */
-export class Approval extends Context.Service<Approval, ApprovalShape>()('fudo/Approval') {}
+export class Approval extends Context.Service<Approval, ApprovalShape>()('jozo-harness/Approval') {}
 
 export const approvalServiceLayer: Layer.Layer<Approval, never> = Layer.effect(
   Approval,

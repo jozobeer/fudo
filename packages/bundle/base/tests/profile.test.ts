@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { loadBundledProfile } from '../src/index.ts'
-import { mergeRows, parseProfile, renderConfig } from '@fudo/kernel'
+import { mergeRows, parseProfile, renderConfig } from '@jozo-harness/kernel'
 
 describe('base profile', () => {
   test('parses into the S1 plugin rows in order', async () => {
@@ -22,7 +22,7 @@ describe('base profile', () => {
       'agent',
       'agent-loop',
     ])
-    expect(profile.plugins.map((row) => row.name)).toContain('@fudo/agent-loop')
+    expect(profile.plugins.map((row) => row.name)).toContain('@jozo-harness/agent-loop')
     expect(renderConfig(profile.plugins)).toContain('id=session-jsonl')
   })
 
@@ -30,7 +30,7 @@ describe('base profile', () => {
     const base = await Effect.runPromise(parseProfile(await loadBundledProfile()))
     const patch = await Effect.runPromise(
       parseProfile(
-        'name: patch\nplugins:\n  - id: llm\n    name: "@fudo/llm-openai"\n    config:\n      baseUrl: http://127.0.0.1:11434/v1',
+        'name: patch\nplugins:\n  - id: llm\n    name: "@jozo-harness/llm-openai"\n    config:\n      baseUrl: http://127.0.0.1:11434/v1',
       ),
     )
 

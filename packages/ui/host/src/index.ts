@@ -1,10 +1,10 @@
-import type { Agent } from '@fudo/agent'
-import type { HookRegistry } from '@fudo/kernel'
-import type { CommandsShape, Session } from '@fudo/session'
-import type { UiEvent, UiHost } from '@fudo/ui-protocol'
+import type { Agent } from '@jozo-harness/agent'
+import type { HookRegistry } from '@jozo-harness/kernel'
+import type { CommandsShape, Session } from '@jozo-harness/session'
+import type { UiEvent, UiHost } from '@jozo-harness/ui-protocol'
 import { Deferred, Effect, Queue, Stream, type Scope } from 'effect'
 
-export type { UiHost } from '@fudo/ui-protocol'
+export type { UiHost } from '@jozo-harness/ui-protocol'
 
 export interface MakeUiHostOptions {
   readonly session: Session

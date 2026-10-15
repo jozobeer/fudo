@@ -1,11 +1,11 @@
-import type { Emit } from '@fudo/kernel'
+import type { Emit } from '@jozo-harness/kernel'
 import type {
   AssistantStreamRecord,
   ContentBlock,
   LlmFailureData,
   LlmUsage,
   ToolSchema,
-} from '@fudo/llm'
+} from '@jozo-harness/llm'
 import type { Session } from './session.ts'
 
 export type SessionSeq = number
@@ -113,7 +113,7 @@ export type SessionEvent = {
   }
 }[SessionEventType]
 
-declare module '@fudo/kernel/hook' {
+declare module '@jozo-harness/kernel/hook' {
   interface HookMap {
     'session/event': Emit<(event: SessionEvent, session: Session) => void>
   }

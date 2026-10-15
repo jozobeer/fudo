@@ -10,8 +10,8 @@
 
 - loader の合成は健全。提供 service は built context に現れる（`packages/kernel/kernel/tests/loader.test.ts`）。
 - 行順に依存しない。二段構えの層・二依存の層も通る（同上）。
-- `@fudo/session` plugin は loader 経由で `Sessions.create` まで動く（`packages/core/session/tests/service-layer.test.ts`）。
-- `@fudo/session-jsonl` plugin は loader 経由で実ファイルへ `session/header` を書ける（`packages/core/session-jsonl/tests/plugin.test.ts`）。
+- `@jozo-harness/session` plugin は loader 経由で `Sessions.create` まで動く（`packages/core/session/tests/service-layer.test.ts`）。
+- `@jozo-harness/session-jsonl` plugin は loader 経由で実ファイルへ `session/header` を書ける（`packages/core/session-jsonl/tests/plugin.test.ts`）。
 - `bundle/base` の 5 行（kernel / sessions / session-jsonl / system-prompt / tools）を実際に読み、
   1 つの Layer に組んで `Tools` / `SystemPrompt` / `Sessions` が取れる（`packages/bundle/base/tests/assembly.test.ts`）。
 

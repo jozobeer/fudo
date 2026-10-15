@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -41,7 +41,7 @@ const makeSession = (cwd: string) => {
 
 /** A workspace with one file, read the way a careful model would read it. */
 const withReadFile = async (body: string) => {
-  const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+  const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-edit-'))
   await Bun.write(join(dir, 'a.txt'), body)
   const call = makeSession(dir)
   await Effect.runPromise(call('read', { path: 'a.txt' }))
@@ -96,7 +96,7 @@ describe('edit tool', () => {
   })
 
   test('refuses a file this session never read', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-edit-'))
     await Bun.write(join(dir, 'a.txt'), 'untouched\n')
     const call = makeSession(dir)
 
@@ -137,7 +137,7 @@ describe('edit tool', () => {
   })
 
   test('refuses a binary file before it changes anything', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-edit-'))
     const path = join(dir, 'bin.txt')
     await Bun.write(path, new Uint8Array([0x41, 0x00, 0x42]))
     const call = makeSession(dir)
@@ -154,7 +154,7 @@ describe('edit tool', () => {
   })
 
   test('a file that is not UTF-8 cannot be read, so it cannot be edited', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-edit-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-edit-'))
     const path = join(dir, 'a.txt')
     await Bun.write(path, new Uint8Array([0xff, 0xfe, 0x00, 0x41]))
     const call = makeSession(dir)

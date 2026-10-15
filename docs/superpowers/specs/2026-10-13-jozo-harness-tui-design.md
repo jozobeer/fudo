@@ -1,14 +1,14 @@
-# fudo 設計: S7 TUI と UI の共通継ぎ目
+# jozo-harness 設計: S7 TUI と UI の共通継ぎ目
 
 S1 のイベントを描画する端末 UI。行単位の REPL はここで置き換える。S8 のブラウザ UI と同じプロトコルで核を使う。
 
 ## インターフェースの方向（2026-10-14 追記）
 
-dsh のチェックアウトに TUI は無く、比べられる相手は web 側の会話 view（`dsh:packages/client/ui-conversation`）である。なので**新しい提示・画面は web（S8）を先に作り、TUI（S7）は同じ `@fudo/ui-view` を読む形で追随する**方に寄せていく（暫定。比べる相手が変われば見直す）。会話の描画・tool の 1 行・承認と ask の見せ方は、TUI と Web で同じ純関数から出す（すでに `applyEvent` がその形になっている）。TUI 固有の都合（端末の幅・キー操作）は apps/tui の中に閉じる。
+dsh のチェックアウトに TUI は無く、比べられる相手は web 側の会話 view（`dsh:packages/client/ui-conversation`）である。なので**新しい提示・画面は web（S8）を先に作り、TUI（S7）は同じ `@jozo-harness/ui-view` を読む形で追随する**方に寄せていく（暫定。比べる相手が変われば見直す）。会話の描画・tool の 1 行・承認と ask の見せ方は、TUI と Web で同じ純関数から出す（すでに `applyEvent` がその形になっている）。TUI 固有の都合（端末の幅・キー操作）は apps/tui の中に閉じる。
 
 ## 目的と範囲
 
-- 端末で引数なしの `fudo` が全画面 TUI を開く。1 セッション上で複数 turn を回す。
+- 端末で引数なしの `jzh` が全画面 TUI を開く。1 セッション上で複数 turn を回す。
 - 描くもの: 人の入力、assistant のテキスト（stream 中含む）、tool call と結果、承認要求と回答、ask_user、turn の失敗、状態行。
 - 操作: 入力編集（履歴・カーソル）、承認の y/n、ask の回答、Ctrl-C で turn の cancel、Ctrl-D で終了、`--resume` で履歴表示。
 - やらない: マウス、複数セッションの並置、添付、テーマ設定。行単位の lines 経路は非 TTY の batch mode として残す（テストと配管が使う）。
@@ -46,10 +46,10 @@ hook はアプリ全体で 1 つなので、subagent のイベントも同じ re
 
 | 置き場 | 名前 | 責務 |
 |---|---|---|
-| `packages/ui/protocol` | `@fudo/ui-protocol` | UiCommand / UiEvent と Schema。effect のデータ型のみ |
-| `packages/ui/host` | `@fudo/ui-host` | 主 agent と UI をつなぐ。events の配信、コマンドの実行、承認・ask の回答箱 |
-| `packages/ui/view` | `@fudo/ui-view` | 会話モデル（event → 表示ブロック）。純粋関数。TUI と S8 の client が共有 |
-| `apps/tui` | `@fudo/tui` | 状態 reducer、行の描画、キー解読、入力編集、端末 seam、`runTui` |
+| `packages/ui/protocol` | `@jozo-harness/ui-protocol` | UiCommand / UiEvent と Schema。effect のデータ型のみ |
+| `packages/ui/host` | `@jozo-harness/ui-host` | 主 agent と UI をつなぐ。events の配信、コマンドの実行、承認・ask の回答箱 |
+| `packages/ui/view` | `@jozo-harness/ui-view` | 会話モデル（event → 表示ブロック）。純粋関数。TUI と S8 の client が共有 |
+| `apps/tui` | `@jozo-harness/tui` | 状態 reducer、行の描画、キー解読、入力編集、端末 seam、`runTui` |
 
 `packages/` は `apps/` に依存しない。`apps/tui` は protocol / host / view に依存する。
 
@@ -80,7 +80,7 @@ makeUiHost(input: {
 ## データフロー
 
 ```
-fudo（TTY・引数なし）
+jozo-harness（TTY・引数なし）
   → bin.ts が端末 seam を作り、runCommand({ work: { kind: 'tui', io } })
   → runSession: layer 構築 → agent 作成 → makeUiHost
       → installTier1(answerAsk) / installSafety(answerApproval)
@@ -91,7 +91,7 @@ fudo（TTY・引数なし）
 
 ## 状態と描画
 
-- `ConversationBlock`（`@fudo/ui-view`）: `user` / `assistant` / `tool`（name・引数の要約・状態・結果の要約）/ `notice`（承認・ask・エラー）。
+- `ConversationBlock`（`@jozo-harness/ui-view`）: `user` / `assistant` / `tool`（name・引数の要約・状態・結果の要約）/ `notice`（承認・ask・エラー）。
 - `applyEvent(state, event)` は純粋。`seq` で重複を捨てる。assistant の stream delta は `stream` バッファへ足し、`assistant/message` が来たら確定ブロックに置き換える。
 - `render(state, size)` は `rows` 行の文字列を返す純粋関数。0 行目は状態行、最終行は入力行、間が会話。
 - 折り返しは表示幅で行う（East Asian Wide は 2 桁）。ANSI エスケープは色付けのみで、描画結果には含めてよい。
@@ -125,11 +125,11 @@ fudo（TTY・引数なし）
 |---|---|
 | Unit | view の reducer（重複 seq・stream の確定・tool の状態遷移）、描画の折り返しと行数、キー解読、入力編集、モーダル遷移 |
 | 統合 | 偽端末 + stub LLM で `runTui` を回し、書き込み内容とコマンド列を見る。承認 y/n、Ctrl-C の cancel、Ctrl-D の終了コード |
-| 本番経路 | `script`(1) などの PTY で `fudo` を起動し、代替画面と描画を実際の端末から観測する |
+| 本番経路 | `script`(1) などの PTY で `jzh` を起動し、代替画面と描画を実際の端末から観測する |
 
 ## 完了条件
 
-1. TTY の `fudo` が TUI を開き、入力 → assistant の応答 → 次の入力が 1 セッションで回る。
+1. TTY の `jzh` が TUI を開き、入力 → assistant の応答 → 次の入力が 1 セッションで回る。
 2. 承認要求が画面に出て、y で実行・n で拒否が session ログに残る。
 3. ask_user の質問が画面に出て、入力した回答がログに残る。
 4. Ctrl-C で実行中 turn が cancelled で終わり、Ctrl-D で端末が元に戻って終了コード 0 になる。

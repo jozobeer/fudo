@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test'
 import { listSecrets, removeSecret, writeSecret } from '../src/index.ts'
 
 const withFile = async (body?: string) => {
-  const directory = await mkdtemp(join(tmpdir(), 'fudo-secret-file-'))
+  const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-secret-file-'))
   const path = join(directory, 'secrets.env')
   if (body !== undefined) await Bun.write(path, body)
   return { directory, path }

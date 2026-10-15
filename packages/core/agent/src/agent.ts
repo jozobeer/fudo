@@ -1,5 +1,5 @@
 import { Deferred, Effect, Fiber, Queue, Scope } from 'effect'
-import type { Session, SessionError, SessionId } from '@fudo/session'
+import type { Session, SessionError, SessionId } from '@jozo-harness/session'
 import { makeInbox } from './inbox.ts'
 import type { UserMessage } from './events.ts'
 import type { Agent, AgentCancelCause, AgentDriver, AgentOptions, AgentStatus } from './types.ts'

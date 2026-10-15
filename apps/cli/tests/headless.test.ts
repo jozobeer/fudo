@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { runCommand } from '../src/index.ts'
 
@@ -51,23 +51,23 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     `      root: ${root}`,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 describe('runCommand', () => {
@@ -77,7 +77,7 @@ describe('runCommand', () => {
 
     const code = await Effect.runPromise(
       runCommand({
-        profiles: [profile('/tmp/fudo-cli-test')],
+        profiles: [profile('/tmp/jozo-harness-cli-test')],
         plugins,
         task: 'ping',
         cwd: '/work',
@@ -96,7 +96,7 @@ describe('runCommand', () => {
     const out: Array<string> = []
     const code = await Effect.runPromise(
       runCommand({
-        profiles: [profile('/tmp/fudo-cli-test')],
+        profiles: [profile('/tmp/jozo-harness-cli-test')],
         plugins,
         cwd: '/work',
         route: 'stub/model',

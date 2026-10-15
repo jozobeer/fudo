@@ -76,13 +76,16 @@ describe('listModels', () => {
 describe('modelEndpointOf', () => {
   const llmRow = (baseUrl: string) => ({
     id: 'llm',
-    name: '@fudo/llm-openai',
+    name: '@jozo-harness/llm-openai',
     config: { baseUrl, apiKeyEnv: 'OLLAMA_API_KEY' },
   })
 
   test('a known base url takes the route prefix of its provider', () => {
     expect(
-      modelEndpointOf([{ id: 'kernel', name: '@fudo/kernel' }, llmRow('https://ollama.com/v1')]),
+      modelEndpointOf([
+        { id: 'kernel', name: '@jozo-harness/kernel' },
+        llmRow('https://ollama.com/v1'),
+      ]),
     ).toEqual({
       provider: 'ollama-cloud',
       baseUrl: 'https://ollama.com/v1',
@@ -95,7 +98,7 @@ describe('modelEndpointOf', () => {
   })
 
   test('a profile without the openai row has no endpoint', () => {
-    expect(modelEndpointOf([{ id: 'kernel', name: '@fudo/kernel' }])).toBeUndefined()
+    expect(modelEndpointOf([{ id: 'kernel', name: '@jozo-harness/kernel' }])).toBeUndefined()
     expect(
       modelEndpointOf([{ ...llmRow('https://ollama.com/v1'), disabled: true }]),
     ).toBeUndefined()

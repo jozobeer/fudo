@@ -4,7 +4,7 @@ import {
   registerSessionEventSchemas,
   type SessionEventSchemaMap,
   type UserMessageSource,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Schema } from 'effect'
 
 /** Which boundary picks up a queued message. */
@@ -16,7 +16,7 @@ export interface UserMessage {
   readonly source: UserMessageSource
 }
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'agent/inbox/queued': { readonly target: InboxTarget; readonly message: UserMessage }
     'agent/inbox/claimed': { readonly target: InboxTarget; readonly message: UserMessage }

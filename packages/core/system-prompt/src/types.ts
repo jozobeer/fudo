@@ -1,4 +1,4 @@
-import type { ToolSchema } from '@fudo/llm'
+import type { ToolSchema } from '@jozo-harness/llm'
 import { Data, type Effect } from 'effect'
 
 export type PromptErrorCode =

@@ -1,4 +1,4 @@
-# fudo 設計: S4 Tier 1
+# jozo-harness 設計: S4 Tier 1
 
 範囲は設計文書の分割表に従う: compaction、spill、tool call timeout、todo_write、AGENTS.md の読み込み。
 

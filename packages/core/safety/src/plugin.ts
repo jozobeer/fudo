@@ -1,5 +1,5 @@
-import { PluginError, type Plugin } from '@fudo/kernel'
-import { SystemPrompt } from '@fudo/system-prompt'
+import { PluginError, type Plugin } from '@jozo-harness/kernel'
+import { SystemPrompt } from '@jozo-harness/system-prompt'
 import { Effect, Layer, Schema } from 'effect'
 import { Sandbox } from './sandbox.ts'
 import { noneSandboxLayer } from './sandbox.ts'
@@ -84,7 +84,7 @@ const policyLayerWithContexts = (config: SafetyConfig): Layer.Layer<Policy, neve
 
 /** Loader definition for the permission preset and the sandbox provider. */
 export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, SystemPrompt> = {
-  name: '@fudo/safety',
+  name: '@jozo-harness/safety',
   config: safetyConfigSchema,
   provides: [Policy, Sandbox],
   requires: [SystemPrompt],
@@ -94,7 +94,7 @@ export const safetyPlugin: Plugin<SafetyConfig, Policy | Sandbox, SystemPrompt> 
 
 /** Loader definition for the ask holder: questions wait for an answer. */
 export const askPlugin: Plugin<{}, Ask, never> = {
-  name: '@fudo/ask',
+  name: '@jozo-harness/ask',
   config: Schema.Struct({}),
   provides: [Ask],
   requires: [],

@@ -1,5 +1,5 @@
 import { Cause, Deferred, Effect, Ref, Stream } from 'effect'
-import { sendCommand, type UiEvent, type UiHost } from '@fudo/ui-protocol'
+import { sendCommand, type UiEvent, type UiHost } from '@jozo-harness/ui-protocol'
 import type { KeyEvent } from './keys.ts'
 import { render, screenText } from './render.ts'
 import { handleEvent, handleKey, initialTuiState, withNotice, type TuiState } from './state.ts'

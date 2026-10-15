@@ -1,12 +1,12 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   approvalServiceLayer,
   installApproval,
   policyLayer,
   type ApprovalRequested,
-} from '@fudo/safety'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@fudo/session'
-import { Tools, toolsLayer } from '@fudo/tools'
+} from '@jozo-harness/safety'
+import type { Session, SessionEvent, SessionHeader, SessionId } from '@jozo-harness/session'
+import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { webFetchTool } from '../src/index.ts'

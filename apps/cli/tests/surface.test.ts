@@ -14,9 +14,9 @@ describe('the notes the dump prints', () => {
   })
 
   test('renderSurface tells where the settings live and what else is read', () => {
-    const text = renderSurface('/tmp/fudo/config.yaml', undefined)
+    const text = renderSurface('/tmp/jzh/config.yaml', undefined)
 
-    expect(text).toContain('settings (/tmp/fudo/config.yaml):')
+    expect(text).toContain('settings (/tmp/jzh/config.yaml):')
     expect(text).toContain('  - model: not set')
     expect(text).toContain('  - plugins: not set')
     expect(text).toContain(FLAG_NAMES.join(' '))
@@ -26,11 +26,11 @@ describe('the notes the dump prints', () => {
   })
 
   test('renderSurface shows the value each settings key holds', () => {
-    const text = renderSurface('/tmp/fudo/config.yaml', {
+    const text = renderSurface('/tmp/jzh/config.yaml', {
       model: 'my-cloud/some-model',
       profile: 'repl',
       skills: ['/tmp/skills'],
-      plugins: [{ id: 'safety', name: '@fudo/safety' }],
+      plugins: [{ id: 'safety', name: '@jozo-harness/safety' }],
     })
 
     expect(text).toContain('  - model: my-cloud/some-model ')
@@ -40,17 +40,17 @@ describe('the notes the dump prints', () => {
   })
 
   test('renderSurface lists what each list key holds', () => {
-    const text = renderSurface('/tmp/fudo/config.yaml', {
+    const text = renderSurface('/tmp/jzh/config.yaml', {
       skills: ['/tmp/skills', '~/work/skills'],
       plugins: [
-        { id: 'safety', name: '@fudo/safety', config: { preset: 'full' } },
-        { id: 'ask', name: '@fudo/ask', disabled: true },
+        { id: 'safety', name: '@jozo-harness/safety', config: { preset: 'full' } },
+        { id: 'ask', name: '@jozo-harness/ask', disabled: true },
       ],
     })
 
     expect(text).toContain('      /tmp/skills\n')
     expect(text).toContain('      ~/work/skills\n')
-    expect(text).toContain('      safety → @fudo/safety (preset: full)\n')
-    expect(text).toContain('      ask → @fudo/ask (disabled)\n')
+    expect(text).toContain('      safety → @jozo-harness/safety (preset: full)\n')
+    expect(text).toContain('      ask → @jozo-harness/ask (disabled)\n')
   })
 })

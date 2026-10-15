@@ -1,16 +1,16 @@
 {
-  "name": "@fudo/tools-tier1",
+  "name": "@jozo-harness/tools-tier1",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/agent": "workspace:*",
-    "@fudo/agent-loop": "workspace:*",
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
-    "@fudo/safety": "workspace:*",
-    "@fudo/session": "workspace:*",
-    "@fudo/tools": "workspace:*",
+    "@jozo-harness/agent": "workspace:*",
+    "@jozo-harness/agent-loop": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/safety": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
+    "@jozo-harness/tools": "workspace:*",
     "effect": "4.0.3"
   }
 }

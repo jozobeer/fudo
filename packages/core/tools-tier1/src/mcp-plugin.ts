@@ -1,4 +1,4 @@
-import type { Plugin } from '@fudo/kernel'
+import type { Plugin } from '@jozo-harness/kernel'
 import { Context, Layer, Schema } from 'effect'
 
 export interface McpServerConfig {
@@ -8,11 +8,11 @@ export interface McpServerConfig {
 
 /** The MCP servers the profile asked for; the caller starts and registers them. */
 export class McpServers extends Context.Service<McpServers, ReadonlyArray<McpServerConfig>>()(
-  'fudo/McpServers',
+  'jozo-harness/McpServers',
 ) {}
 
 export const mcpPlugin: Plugin<McpServerConfig, McpServers, never> = {
-  name: '@fudo/mcp',
+  name: '@jozo-harness/mcp',
   config: Schema.Struct({
     command: Schema.Array(Schema.String),
     prefix: Schema.optionalKey(Schema.String),

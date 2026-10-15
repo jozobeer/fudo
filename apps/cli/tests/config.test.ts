@@ -8,21 +8,21 @@ describe('configPaths', () => {
   test('honours XDG_CONFIG_HOME', () => {
     const paths = configPaths({ XDG_CONFIG_HOME: '/tmp/xdg' })
 
-    expect(paths.directory).toBe('/tmp/xdg/fudo')
-    expect(paths.config).toBe('/tmp/xdg/fudo/config.yaml')
-    expect(paths.secrets).toBe('/tmp/xdg/fudo/secrets.env')
+    expect(paths.directory).toBe('/tmp/xdg/jzh')
+    expect(paths.config).toBe('/tmp/xdg/jzh/config.yaml')
+    expect(paths.secrets).toBe('/tmp/xdg/jzh/secrets.env')
   })
 
   test('falls back to the home directory', () => {
     const paths = configPaths({})
 
-    expect(paths.config.endsWith('/.config/fudo/config.yaml')).toBe(true)
+    expect(paths.config.endsWith('/.config/jzh/config.yaml')).toBe(true)
   })
 })
 
 describe('loadSecrets', () => {
   const setup = async (mode: number) => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-secrets-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-secrets-'))
     const path = join(directory, 'secrets.env')
     await Bun.write(path, 'API_KEY=from-file\nSHARED=from-file\n')
     await chmod(path, mode)
@@ -52,6 +52,6 @@ describe('loadSecrets', () => {
   })
 
   test('a missing file is not an error', () => {
-    expect(loadSecrets('/tmp/definitely-not-there-fudo.env', {})).toEqual([])
+    expect(loadSecrets('/tmp/definitely-not-there-jozo-harness.env', {})).toEqual([])
   })
 })

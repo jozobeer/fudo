@@ -1,7 +1,7 @@
 import { Duration, Effect, Queue } from 'effect'
-import type { HookRegistry } from '@fudo/kernel'
-import type { Agent } from '@fudo/agent'
-import type { SessionEvent } from '@fudo/session'
+import type { HookRegistry } from '@jozo-harness/kernel'
+import type { Agent } from '@jozo-harness/agent'
+import type { SessionEvent } from '@jozo-harness/session'
 import {
   currentSchedules,
   lastFiredAt,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { applyEvent, emptyConversation, type Conversation } from '@fudo/ui-view'
-import type { UiEvent } from '@fudo/ui-protocol'
+import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
 import {
   displayWidth,
   emptyEditor,
@@ -20,7 +20,7 @@ const fold = (events: ReadonlyArray<UiEvent>): Conversation =>
 
 const state = (partial: Partial<TuiState> = {}): TuiState => ({
   ...initialTuiState,
-  title: 'fudo · stub/model',
+  title: 'jozo-harness · stub/model',
   ...partial,
 })
 const screen = (value: TuiState, columns = 40, rows = 8) =>
@@ -33,7 +33,7 @@ describe('tui render', () => {
 
   test('the status line carries the title and the running hint', () => {
     const lines = screen(state({ conversation: fold([session('turn/start', { turn: 1 })]) })).lines
-    expect(lines[0]).toContain('fudo · stub/model')
+    expect(lines[0]).toContain('jozo-harness · stub/model')
     expect(lines[0]).toContain('working')
   })
 

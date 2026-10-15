@@ -1,4 +1,4 @@
-import type { ToolRegistry, ToolRestriction } from '@fudo/tools'
+import type { ToolRegistry, ToolRestriction } from '@jozo-harness/tools'
 import { Effect, type Scope } from 'effect'
 
 /** The tools plan mode leaves visible: reading, talking, and the way out. */

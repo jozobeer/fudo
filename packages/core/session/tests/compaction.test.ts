@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock } from '@jozo-harness/llm'
 import { describe, expect, test } from 'bun:test'
 import {
   SessionError,

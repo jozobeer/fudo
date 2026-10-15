@@ -38,7 +38,7 @@ const queryAt = (root: string) => makeSessionQuery({ root, sessions: jsonlSessio
 
 describe('readFirstLine', () => {
   test('returns the first line without carrying the rest', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     const path = join(root, 'log.jsonl')
     await writeFile(path, headerLine() + '\n' + userLine(2, 'behind it') + '\n')
 
@@ -47,7 +47,7 @@ describe('readFirstLine', () => {
   })
 
   test('refuses a first line longer than the budget', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     const path = join(root, 'log.jsonl')
     await writeFile(path, 'x'.repeat(HEADER_READ_BYTES + 1) + '\n')
 
@@ -60,7 +60,7 @@ describe('readFirstLine', () => {
 
 describe('listing a long log', () => {
   test('a log with a huge tail still lists in well under a second', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     const id = 'long-session'
     await writeSession(root, id, [headerLine()])
     // A big sparse tail: reading the whole file would carry it, reading its
@@ -77,7 +77,7 @@ describe('listing a long log', () => {
   })
 
   test('a ten-thousand-event log lists in under a second', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     const lines = [headerLine()]
     for (let seq = 2; seq <= 10_001; seq += 1) {
       lines.push(userLine(seq, 'event number ' + String(seq)))
@@ -96,7 +96,7 @@ describe('listing a long log', () => {
 
 describe('observing one session', () => {
   test('hands the same cut to every reader that retains it', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     await writeSession(root, 's1', [headerLine(), userLine(2, 'the first word')])
     const query = queryAt(root)
 
@@ -123,7 +123,7 @@ describe('observing one session', () => {
   })
 
   test('a file that changed since the cut is read again', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     await writeSession(root, 's1', [headerLine(), userLine(2, 'before')])
     const query = queryAt(root)
     const before = await Effect.runPromise(query.observe('s1'))
@@ -142,7 +142,7 @@ describe('observing one session', () => {
 
 describe('the full-text index', () => {
   test('answers a search from the index, marking the match', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     await writeSession(root, 's1', [
       headerLine(),
       userLine(2, 'how many files are there'),
@@ -162,7 +162,7 @@ describe('the full-text index', () => {
   })
 
   test('indexes tool calls and skips what did not change', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     await writeSession(root, 's1', [
       headerLine(),
       callLine(2, 'bash', '{"command":"rg needle-special"}'),
@@ -181,7 +181,7 @@ describe('the full-text index', () => {
   })
 
   test('a file that changed is indexed again, and a removed session drops out', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     await writeSession(root, 's1', [headerLine(), userLine(2, 'the old words')])
     await writeSession(root, 's2', [headerLine(), userLine(2, 'the doomed words')])
     const query = queryAt(root)
@@ -204,7 +204,7 @@ describe('the full-text index', () => {
   })
 
   test('an empty search asks nothing', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-query-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-query-'))
     const query = queryAt(root)
 
     expect(await Effect.runPromise(query.search('   '))).toEqual([])

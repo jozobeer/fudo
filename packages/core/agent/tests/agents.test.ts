@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Hooks, HooksLive } from '@fudo/kernel'
+import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import {
   SessionError,
   sessionsLayer,
@@ -10,7 +10,7 @@ import {
   type SessionPersistence,
   type SessionSink,
   type SessionSummary,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Effect, Queue, type Scope } from 'effect'
 import {
   AgentInitError,

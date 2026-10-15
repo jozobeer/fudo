@@ -1,6 +1,6 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, oneLine, type ToolDefinition } from '@fudo/tools'
-import { noneSandbox, type SandboxShape } from '@fudo/safety'
+import { ToolError, oneLine, type ToolDefinition } from '@jozo-harness/tools'
+import { noneSandbox, type SandboxShape } from '@jozo-harness/safety'
 import { resolveInside } from './workspace.ts'
 import { exitSummaryOf } from './present.ts'
 

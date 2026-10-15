@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { kernelPlugin, loadProfile, type Plugin } from '@fudo/kernel'
+import { kernelPlugin, loadProfile, type Plugin } from '@jozo-harness/kernel'
 import {
   SessionError,
   SessionPersistenceService,
@@ -12,7 +12,7 @@ import {
   type SessionPersistence,
   type SessionSink,
   type SessionSummary,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { AgentRunnerService, Agents, agentPlugin, type AgentRunner } from '../src/index.ts'
 
@@ -72,11 +72,11 @@ describe('agentPlugin', () => {
           plugins: [kernelPlugin, providerPlugin, sessionPlugin, runnerPlugin, agentPlugin],
           layers: [
             [
-              { id: 'kernel', name: '@fudo/kernel', config: {} },
+              { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
               { id: 'provider', name: 'provider', config: {} },
-              { id: 'sessions', name: '@fudo/session', config: {} },
+              { id: 'sessions', name: '@jozo-harness/session', config: {} },
               { id: 'runner', name: 'runner', config: {} },
-              { id: 'agent', name: '@fudo/agent', config: {} },
+              { id: 'agent', name: '@jozo-harness/agent', config: {} },
             ],
           ],
         })

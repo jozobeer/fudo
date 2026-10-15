@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-fudo adapts designs, and may include code or documentation derived from, the projects below. Each notice applies to the portions derived from its project.
+jozo-harness adapts designs, and may include code or documentation derived from, the projects below. Each notice applies to the portions derived from its project.
 
 ## DeepSeek Harness
 

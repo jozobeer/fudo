@@ -1,5 +1,5 @@
-import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
-import { mergeRows, parseProfile, type Plugin, type PluginRow } from '@fudo/kernel'
+import { loadBundledProfile, loadBundledProfileNamed } from '@jozo-harness/bundle-base'
+import { mergeRows, parseProfile, type Plugin, type PluginRow } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -16,13 +16,13 @@ export interface ConfigIo {
 }
 
 const USAGE =
-  'fudo config                       the settings file, its keys, and their values\n' +
-  'fudo config set K V               write one value (model, profile, plugins.<id>.<key>)\n' +
-  'fudo config add skills <dir>      add a directory the skill tool reads\n' +
-  'fudo config add plugins <name>    add a plugin row (--id names the row)\n' +
-  'fudo config remove skills <dir>   drop a directory\n' +
-  'fudo config remove plugins <id>   drop a plugin row\n' +
-  'fudo config init                  write a starting file with every key commented out\n'
+  'jzh config                       the settings file, its keys, and their values\n' +
+  'jzh config set K V               write one value (model, profile, plugins.<id>.<key>)\n' +
+  'jzh config add skills <dir>      add a directory the skill tool reads\n' +
+  'jzh config add plugins <name>    add a plugin row (--id names the row)\n' +
+  'jzh config remove skills <dir>   drop a directory\n' +
+  'jzh config remove plugins <id>   drop a plugin row\n' +
+  'jzh config init                  write a starting file with every key commented out\n'
 
 /** The keys a person writes as one value; the list keys have their own commands. */
 const SCALAR_KEYS: ReadonlyArray<string> = ['model', 'profile']
@@ -30,18 +30,18 @@ const LIST_KEYS: ReadonlyArray<string> = ['skills']
 const KNOWN_KEYS: ReadonlyArray<string> = SETTINGS_KEYS.map((note) => note.name)
 
 const GUIDE = [
-  'change a value   fudo config set model <provider/model>\n',
-  'add a directory  fudo config add skills <dir>\n',
-  'add a plugin     fudo config add plugins <name>\n',
-  'list models      fudo models\n',
-  'secrets          fudo auth add ollama\n',
-  'every key        fudo --dump-config\n',
+  'change a value   jzh config set model <provider/model>\n',
+  'add a directory  jzh config add skills <dir>\n',
+  'add a plugin     jzh config add plugins <name>\n',
+  'list models      jzh models\n',
+  'secrets          jzh auth add ollama\n',
+  'every key        jzh --dump-config\n',
 ]
 
 const template = (): string =>
   [
-    '# fudo settings. Every key is commented out; remove the # to use one.',
-    '# fudo config shows what is in effect, fudo --dump-config shows every key.',
+    '# jozo-harness settings. Every key is commented out; remove the # to use one.',
+    '# jzh config shows what is in effect, jzh --dump-config shows every key.',
     '',
     ...SETTINGS_KEYS.flatMap((note) => [
       '# ' + note.name + ': ' + note.summary,
@@ -56,7 +56,7 @@ const said = (io: ConfigIo, text: string): number => {
 }
 
 const refused = (io: ConfigIo, message: string): number => {
-  io.stderr('fudo: ' + message + '\n')
+  io.stderr('jzh: ' + message + '\n')
   return 2
 }
 
@@ -80,7 +80,7 @@ const refusal = async (key: string, value: string): Promise<string | undefined> 
   if (key === 'model') {
     const parts = value.split('/')
     const shaped = parts.length === 2 && parts.every((part) => part !== '' && !/\s/.test(part))
-    return shaped ? undefined : 'model takes provider/model (fudo models lists them)'
+    return shaped ? undefined : 'model takes provider/model (jzh models lists them)'
   }
   return await loadBundledProfileNamed(value).then(
     () => undefined,
@@ -93,7 +93,7 @@ const editProblem = (error: EditError, paths: ConfigPaths): string => {
     case 'inline-value':
       return error.about + ' is written on one line in ' + paths.config + '; edit it there'
     case 'no-such-item':
-      return 'no such directory ' + error.about + ' in ' + paths.config + ' (fudo config shows it)'
+      return 'no such directory ' + error.about + ' in ' + paths.config + ' (jzh config shows it)'
     case 'no-such-row':
       return 'no row ' + error.about + ' in ' + paths.config
     case 'duplicate-row':
@@ -101,7 +101,7 @@ const editProblem = (error: EditError, paths: ConfigPaths): string => {
         paths.config +
         ' already has the row ' +
         error.about +
-        '; fudo config set plugins.' +
+        '; jzh config set plugins.' +
         error.about +
         '.<key> <value> writes a key'
       )
@@ -116,7 +116,7 @@ const saved = (io: ConfigIo, paths: ConfigPaths, text: string): number | undefin
     writeFileSync(paths.config, text)
     return undefined
   } catch (cause) {
-    io.stderr('fudo: cannot write ' + paths.config + ': ' + String(cause) + '\n')
+    io.stderr('jzh: cannot write ' + paths.config + ': ' + String(cause) + '\n')
     return 1
   }
 }
@@ -138,22 +138,22 @@ const applyAndReport = async (report: Report): Promise<number> => {
     Effect.result(applyEdit(settingsText(report.paths.config), report.edit)),
   )
   if (done._tag === 'Failure') return refused(report.io, editProblem(done.failure, report.paths))
-  if (!done.success.changed) return said(report.io, 'fudo: ' + report.unchanged)
+  if (!done.success.changed) return said(report.io, 'jzh: ' + report.unchanged)
   const failure = saved(report.io, report.paths, done.success.text)
   if (failure !== undefined) return failure
   const block = indented(blockText(done.success.text, report.key))
-  return said(report.io, 'fudo: ' + report.changed(block))
+  return said(report.io, 'jzh: ' + report.changed(block))
 }
 
 const show = async (io: ConfigIo, paths: ConfigPaths): Promise<number> => {
   const loaded = await settingsOf(paths)
   if (loaded._tag === 'Failure') {
-    io.stderr('fudo: ' + loaded.failure.message + '\n')
+    io.stderr('jzh: ' + loaded.failure.message + '\n')
     return 1
   }
   io.stdout(renderSettings(paths.config, loaded.success))
   if (!existsSync(paths.config)) {
-    io.stdout('(no file yet; fudo config init writes a starting one)\n')
+    io.stdout('(no file yet; jzh config init writes a starting one)\n')
   }
   io.stdout('\n' + GUIDE.join(''))
   return 0
@@ -268,7 +268,7 @@ const rowInEffect = async (paths: ConfigPaths, id: string): Promise<Found> => {
           id +
           ' in the base profile or ' +
           paths.config +
-          '; fudo config add plugins <name> adds one',
+          '; jzh config add plugins <name> adds one',
       }
     : { ok: true, row }
 }
@@ -328,7 +328,7 @@ const setValue = async (
   if (key === '' || value === '') return usage(io)
   if (key.startsWith('plugins.')) return await setRowValue(key, value, io, paths)
   if (LIST_KEYS.includes(key)) {
-    return refused(io, key + ' holds a list; fudo config add ' + key + ' <dir>')
+    return refused(io, key + ' holds a list; jzh config add ' + key + ' <dir>')
   }
   if (!SCALAR_KEYS.includes(key)) {
     return refused(io, 'the settings file takes ' + KNOWN_KEYS.join(', '))
@@ -392,7 +392,7 @@ const removeSkill = async (
   })
 }
 
-/** The row id for a plugin name the profile does not already name: @fudo/mcp -> mcp. */
+/** The row id for a plugin name the profile does not already name: @jozo-harness/mcp -> mcp. */
 const derivedId = (name: string): string =>
   name.includes('/') ? name.slice(name.indexOf('/') + 1) : name
 
@@ -425,7 +425,7 @@ const addRow = async (
         name +
         ' as row ' +
         provided.id +
-        '; fudo config set plugins.' +
+        '; jzh config set plugins.' +
         provided.id +
         '.<key> <value> overrides a key',
     )
@@ -460,7 +460,7 @@ const removeRow = async (
             id +
             ' in ' +
             paths.config +
-            ' (the profile provides it; fudo config set plugins.' +
+            ' (the profile provides it; jzh config set plugins.' +
             id +
             '.<key> <value> overrides a key)',
     )
@@ -477,21 +477,21 @@ const removeRow = async (
 
 const init = async (io: ConfigIo, paths: ConfigPaths): Promise<number> => {
   if (existsSync(paths.config)) {
-    io.stderr('fudo: ' + paths.config + ' already exists; fudo config shows what it holds\n')
+    io.stderr('jzh: ' + paths.config + ' already exists; jzh config shows what it holds\n')
     return 1
   }
   try {
     mkdirSync(dirname(paths.config), { recursive: true })
     writeFileSync(paths.config, template())
   } catch (cause) {
-    io.stderr('fudo: cannot write ' + paths.config + ': ' + String(cause) + '\n')
+    io.stderr('jzh: cannot write ' + paths.config + ': ' + String(cause) + '\n')
     return 1
   }
-  io.stdout('fudo: wrote a starting file at ' + paths.config + '\n')
+  io.stdout('jzh: wrote a starting file at ' + paths.config + '\n')
   return 0
 }
 
-/** The `fudo config` subcommand: show the settings, write one, or start a file. */
+/** The `jzh config` subcommand: show the settings, write one, or start a file. */
 export async function runConfig(
   argv: ReadonlyArray<string>,
   io: ConfigIo,

@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
-import type { HookRegistry } from '@fudo/kernel'
-import type { Agent } from '@fudo/agent'
-import type { SessionEvent } from '@fudo/session'
-import type { ToolExecution, ToolExecutionResult } from '@fudo/tools'
+import type { HookRegistry } from '@jozo-harness/kernel'
+import type { Agent } from '@jozo-harness/agent'
+import type { SessionEvent } from '@jozo-harness/session'
+import type { ToolExecution, ToolExecutionResult } from '@jozo-harness/tools'
 
 /** The consecutive-repeat counts that earn a reminder, gentle first. */
 export const REPEAT_THRESHOLDS: ReadonlyArray<number> = [3, 5, 8]

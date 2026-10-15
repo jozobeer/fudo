@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { processTuiIo, type TuiIo } from '@fudo/tui'
+import { processTuiIo, type TuiIo } from '@jozo-harness/tui'
 import { Deferred, Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'
 import { main, type MainIo } from './bin.ts'
@@ -38,7 +38,7 @@ const ioFields = (io: ProcessIo, interactive: boolean, text: string): Partial<Ma
 })
 
 /** Wires the entry point to a process: a terminal becomes the UI, pipes become lines. */
-export function runFudo(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effect<number> {
+export function runJozoHarness(argv: ReadonlyArray<string>, io: ProcessIo): Effect.Effect<number> {
   return Effect.gen(function* () {
     // A forced TUI owns stdin; the bytes are keys, not batch lines.
     const forcedTui = io.tui !== undefined && parseArgs(argv).tui
@@ -69,7 +69,7 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
     return
   }
 
-  void runFudo(argv, {
+  void runJozoHarness(argv, {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
     cwd: process.cwd(),

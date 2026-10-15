@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { loadBundledProfile } from '@fudo/bundle-base'
-import { parseProfile } from '@fudo/kernel'
+import { loadBundledProfile } from '@jozo-harness/bundle-base'
+import { parseProfile } from '@jozo-harness/kernel'
 import { Effect } from 'effect'
 import { bundledPlugins } from '../src/plugins.ts'
 
@@ -15,6 +15,6 @@ describe('the plugins the command can assemble', () => {
   })
 
   test('has the mcp plugin, so a settings row can name it', () => {
-    expect(names()).toContain('@fudo/mcp')
+    expect(names()).toContain('@jozo-harness/mcp')
   })
 })

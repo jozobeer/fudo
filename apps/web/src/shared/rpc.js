@@ -1,4 +1,4 @@
-import { UiCommandSchema, UiEventSchema } from '@fudo/ui-protocol'
+import { UiCommandSchema, UiEventSchema } from '@jozo-harness/ui-protocol'
 import { Rpc, RpcGroup } from 'effect/rpc'
 import { Schema } from 'effect'
 /** One UI command. Returns false when the core could not take it. */

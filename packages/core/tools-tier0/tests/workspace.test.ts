@@ -15,7 +15,7 @@ const failure = (result: { _tag: string; failure?: unknown }): string =>
 const withWorkspace = async (
   run: (paths: { readonly root: string; readonly outside: string }) => Promise<void>,
 ): Promise<void> => {
-  const base = await mkdtemp(join(tmpdir(), 'fudo-fs-'))
+  const base = await mkdtemp(join(tmpdir(), 'jozo-harness-fs-'))
   const root = join(base, 'work')
   const outside = join(base, 'outside')
   await mkdir(root)

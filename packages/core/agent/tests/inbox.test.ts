@@ -7,7 +7,7 @@ import {
   type Session,
   type SessionEvent,
   type SessionSink,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Effect } from 'effect'
 import { inboxEventSchemas, makeInbox, projectInbox, type UserMessage } from '../src/index.ts'
 

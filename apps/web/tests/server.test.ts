@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { UiCommand, UiEvent, UiHost } from '@fudo/ui-protocol'
+import type { UiCommand, UiEvent, UiHost } from '@jozo-harness/ui-protocol'
 import { Deferred, Effect, Fiber, Queue, Stream, type Scope } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
@@ -90,9 +90,9 @@ const start = (staticRoot: string, host: UiHost): Effect.Effect<Started, never, 
 
 describe('the web transport', () => {
   test('a browser client speaks commands and events over one socket', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-web-root-'))
-    const outside = await mkdtemp(join(tmpdir(), 'fudo-web-outside-'))
-    await Bun.write(join(root, 'index.html'), '<h1>fudo</h1>')
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-root-'))
+    const outside = await mkdtemp(join(tmpdir(), 'jozo-harness-web-outside-'))
+    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     await Bun.write(join(outside, 'secret.txt'), 'secret')
     const fake = makeHost()
 
@@ -143,7 +143,7 @@ describe('the web transport', () => {
     expect(observed.commands).toEqual([{ kind: 'submit', text: 'hello' }])
     expect(observed.received?.kind).toBe('session')
     expect(observed.homeStatus).toBe(200)
-    expect(observed.home).toContain('<h1>fudo</h1>')
+    expect(observed.home).toContain('<h1>jozo-harness</h1>')
     expect(observed.missingStatus).toBe(404)
     expect(observed.traversalStatus).toBe(404)
     await rm(root, { recursive: true, force: true })
@@ -151,8 +151,8 @@ describe('the web transport', () => {
   })
 
   test('two tabs subscribe to the same conversation', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-web-tabs-'))
-    await Bun.write(join(root, 'index.html'), '<h1>fudo</h1>')
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-tabs-'))
+    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const fake = makeHost()
 
     const counts = await Effect.runPromise(

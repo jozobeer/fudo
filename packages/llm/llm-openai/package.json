@@ -1,11 +1,11 @@
 {
-  "name": "@fudo/llm-openai",
+  "name": "@jozo-harness/llm-openai",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
     "effect": "4.0.3"
   }
 }

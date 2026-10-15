@@ -8,7 +8,7 @@
 
 | 条件 | 状態 | 証拠 |
 |---|---|---|
-| 1. TTY の fudo が TUI を開き、1 セッションで入力→応答→次の入力 | 実端末以外で確認 | apps/cli/tests/tui-e2e.test.ts（stub LLM で入力→応答→ログ）、apps/cli/tests/tui-process.test.ts（実プロセス + --tui + Ctrl-D） |
+| 1. TTY の jozo-harness が TUI を開き、1 セッションで入力→応答→次の入力 | 実端末以外で確認 | apps/cli/tests/tui-e2e.test.ts（stub LLM で入力→応答→ログ）、apps/cli/tests/tui-process.test.ts（実プロセス + --tui + Ctrl-D） |
 | 2. 承認が画面に出て y/n がログに残る | 済 | tui-e2e.test.ts の承認ケース（画面に [y/n]、safety/approval/answered が approved=true、tool/result が isError=false） |
 | 3. ask_user の質問と回答 | 済 | packages/ui/host/tests/host.test.ts（待ちと回答）、apps/tui/tests/state.test.ts（Enter が submit ではなく answer になる） |
 | 4. Ctrl-C の cancel、Ctrl-D の終了と端末復元 | 済 | apps/tui/tests/state.test.ts、tui-e2e.test.ts（setRaw の on/off）、tui-process.test.ts（代替画面の入退場と終了コード 0） |
@@ -20,7 +20,7 @@
 
 | 条件 | 状態 | 証拠 |
 |---|---|---|
-| 1. fudo web が 127.0.0.1 に立ち、ブラウザで読める | 済 | apps/cli/tests/web-e2e.test.ts（RPC クライアント + 静的配信）、web-acceptance.ts（実 Chrome） |
+| 1. jzh web が 127.0.0.1 に立ち、ブラウザで読める | 済 | apps/cli/tests/web-e2e.test.ts（RPC クライアント + 静的配信）、web-acceptance.ts（実 Chrome） |
 | 2. ブラウザの入力が 1 turn になり、応答が stream で伸びる | 済 | web-acceptance.ts（Chrome が "run the command" を入力し、応答が DOM に出る） |
 | 3. 承認要求にブラウザから y/n で答えられ、ログに残る | 済 | web-acceptance.ts（Allow を押して tool が走り、次の応答まで届く）、apps/web/tests/view.test.ts（Allow / Deny）、web-e2e.test.ts（command → 実 turn） |
 | 4. 複数タブが同じ会話を購読する | 済 | apps/web/tests/server.test.ts の two tabs ケース（2 接続が同じ 1 イベントを受け取る） |
@@ -35,7 +35,7 @@
 
 ## 環境の制約（未確認）
 
-- この環境の sandbox は PTY の確保を拒否する（`script` も `expect` も openpty に失敗する）。そのため実端末での TUI の目視は行っていない。実端末では `fudo` を実行すれば同じ runTui 経路が開く。
+- この環境の sandbox は PTY の確保を拒否する（`script` も `expect` も openpty に失敗する）。そのため実端末での TUI の目視は行っていない。実端末では `jzh` を実行すれば同じ runTui 経路が開く。
 - Ollama Cloud の実 API は使っていない。UI の受け入れは設計どおり stub LLM で完結する。
 - compaction が実際に発火する長い履歴での観測は S4 から持ち越し。
 

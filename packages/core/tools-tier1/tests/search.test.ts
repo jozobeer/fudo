@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { makeWebSearchTool } from '../src/index.ts'
@@ -29,7 +29,7 @@ const call = (
   )
 
 const hits = [
-  { title: 'fudo', url: 'https://example.com/fudo', snippet: 'a harness' },
+  { title: 'jozo-harness', url: 'https://example.com/jozo-harness', snippet: 'a harness' },
   { title: 'effect', url: 'https://example.com/effect', snippet: 'a library' },
 ]
 
@@ -45,14 +45,14 @@ describe('web_search tool', () => {
               return hits
             }),
         }),
-        { query: 'fudo harness', limit: 2 },
+        { query: 'jozo-harness harness', limit: 2 },
       ),
     )
 
-    expect(seen).toEqual([{ query: 'fudo harness', limit: 2 }])
+    expect(seen).toEqual([{ query: 'jozo-harness harness', limit: 2 }])
     expect(result?.value).toEqual(hits)
     const text = result?.content[0]
-    expect(text?.type === 'text' ? text.text : '').toContain('https://example.com/fudo')
+    expect(text?.type === 'text' ? text.text : '').toContain('https://example.com/jozo-harness')
   })
 
   test('an empty query is refused before calling the provider', async () => {

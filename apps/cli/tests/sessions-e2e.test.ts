@@ -1,14 +1,14 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -47,34 +47,34 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '      sandbox: none',
     '  - id: ask',
-    "    name: '@fudo/ask'",
+    "    name: '@jozo-harness/ask'",
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: tier1',
-    "    name: '@fudo/tools-tier1'",
+    "    name: '@jozo-harness/tools-tier1'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 /** A settings file whose rows point the sessions at the same place the run wrote them. */
@@ -82,7 +82,7 @@ const settingsFile = (root: string): string =>
   [
     'plugins:',
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
   ].join('\n') + '\n'
@@ -103,9 +103,9 @@ const run = async (
 }
 
 describe('reading the sessions back through the command', () => {
-  test('fudo sessions lists what was written, and fudo sessions <id> reads it', async () => {
-    const logs = await mkdtemp(join(tmpdir(), 'fudo-sessions-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-sessions-home-'))
+  test('jzh sessions lists what was written, and jzh sessions <id> reads it', async () => {
+    const logs = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-home-'))
     const settings = join(home, 'config.yaml')
     await writeFile(settings, settingsFile(logs))
 
@@ -154,9 +154,9 @@ describe('reading the sessions back through the command', () => {
     await rm(home, { recursive: true, force: true })
   })
 
-  test('fudo sessions --search finds a session by what it said', async () => {
-    const logs = await mkdtemp(join(tmpdir(), 'fudo-sessions-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-sessions-home-'))
+  test('jzh sessions --search finds a session by what it said', async () => {
+    const logs = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-home-'))
     const settings = join(home, 'config.yaml')
     await writeFile(settings, settingsFile(logs))
 
@@ -199,8 +199,8 @@ describe('reading the sessions back through the command', () => {
   })
 
   test('an id that is not there says so', async () => {
-    const logs = await mkdtemp(join(tmpdir(), 'fudo-sessions-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-sessions-home-'))
+    const logs = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-sessions-home-'))
     const settings = join(home, 'config.yaml')
     await writeFile(settings, settingsFile(logs))
 

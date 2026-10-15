@@ -30,8 +30,8 @@ const serveProvider = (ids: ReadonlyArray<string>) => {
  * `tearDown` undoes both.
  */
 const setUp = async (baseUrl: string, settings?: string) => {
-  const directory = await mkdtemp(join(tmpdir(), 'fudo-models-'))
-  const keyEnv = 'FUDO_TEST_KEY_' + crypto.randomUUID().replaceAll('-', '_')
+  const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-models-'))
+  const keyEnv = 'JZH_TEST_KEY_' + crypto.randomUUID().replaceAll('-', '_')
   process.env[keyEnv] = 'test-key'
   const patch = join(directory, 'local.yml')
   await Bun.write(
@@ -40,12 +40,12 @@ const setUp = async (baseUrl: string, settings?: string) => {
       'name: local',
       'plugins:',
       '  - id: llm',
-      "    name: '@fudo/llm-openai'",
+      "    name: '@jozo-harness/llm-openai'",
       '    config:',
       '      baseUrl: ' + baseUrl,
       '      apiKeyEnv: ' + keyEnv,
       '  - id: session-jsonl',
-      "    name: '@fudo/session-jsonl'",
+      "    name: '@jozo-harness/session-jsonl'",
       '    config:',
       '      root: ' + join(directory, 'sessions'),
     ].join('\n'),
@@ -87,7 +87,7 @@ describe('parseArgs models', () => {
   })
 })
 
-describe('fudo models', () => {
+describe('jzh models', () => {
   test('prints one route per line from the profile endpoint', async () => {
     const ids = randomIds(4)
     const { server, baseUrl } = serveProvider(ids)
@@ -108,7 +108,7 @@ describe('fudo models', () => {
   })
 })
 
-describe('fudo models failures', () => {
+describe('jzh models failures', () => {
   test('an unreachable provider is reported as one line and exits 1', async () => {
     const { server, baseUrl } = serveProvider([])
     server.stop(true)
@@ -121,7 +121,7 @@ describe('fudo models failures', () => {
     expect(code).toBe(1)
     expect(out).toEqual([])
     expect(err).toHaveLength(1)
-    expect(err[0]).toStartWith('fudo: cannot list models from ' + baseUrl + '/models: ')
+    expect(err[0]).toStartWith('jzh: cannot list models from ' + baseUrl + '/models: ')
     expect(err[0]).toEndWith('\n')
     expect(err[0]?.split('\n')).toHaveLength(2)
   })
@@ -164,7 +164,7 @@ describe('the model a run uses', () => {
     await tearDown()
     expect(code).toBe(1)
     expect(err).toEqual([
-      'fudo: no model is set: run fudo config set model <provider/model>, or pass --model for one run (fudo models lists them)\n',
+      'jzh: no model is set: run jzh config set model <provider/model>, or pass --model for one run (jzh models lists them)\n',
     ])
     expect(requested).toEqual([])
   })

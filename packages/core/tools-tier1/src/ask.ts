@@ -1,6 +1,6 @@
 import { Schema, Effect } from 'effect'
-import type { AskShape } from '@fudo/safety'
-import type { ToolDefinition } from '@fudo/tools'
+import type { AskShape } from '@jozo-harness/safety'
+import type { ToolDefinition } from '@jozo-harness/tools'
 
 const Parameters = Schema.Struct({
   question: Schema.String.annotate({

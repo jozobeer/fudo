@@ -1,13 +1,13 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -65,41 +65,41 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '    config:',
     '      maxSpillBytes: 100',
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     // This test watches the spill threshold, not the sandbox.
     '      sandbox: none',
     '  - id: ask',
-    "    name: '@fudo/ask'",
+    "    name: '@jozo-harness/ask'",
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 describe('spill threshold from the profile', () => {
   test('a 100 byte limit spills a 400 byte result', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-spill-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jzh-spill-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const err: Array<string> = []
 
     const code = await Effect.runPromise(

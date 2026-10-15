@@ -4,7 +4,7 @@ import {
   registerSessionEventSchemas,
   type SessionEvent,
   type SessionEventSchemaMap,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import type { ScheduleRule } from './schedule-time.ts'
 
 /** One standing instruction: when it comes around, the model is told to do this. */
@@ -20,7 +20,7 @@ export interface Schedule {
 /** The source of the message the driver sends when a schedule comes due. */
 export const SCHEDULE_SOURCE = 'schedule'
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'schedule/created': { readonly schedule: Schedule }
     'schedule/updated': { readonly schedule: Schedule }

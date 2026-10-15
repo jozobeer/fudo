@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
 const Parameters = Schema.Struct({
   path: Schema.String.annotate({

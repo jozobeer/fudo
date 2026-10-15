@@ -1,4 +1,4 @@
-import { SessionError } from '@fudo/session'
+import { SessionError } from '@jozo-harness/session'
 
 /** A failure of the log store, as the file system reported it. */
 export const persistenceError = (message: string, cause?: unknown): SessionError =>

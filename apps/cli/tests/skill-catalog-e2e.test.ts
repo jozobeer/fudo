@@ -1,14 +1,14 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -82,33 +82,33 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '  - id: ask',
-    "    name: '@fudo/ask'",
+    "    name: '@jozo-harness/ask'",
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: tier1',
-    "    name: '@fudo/tools-tier1'",
+    "    name: '@jozo-harness/tools-tier1'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, any>> => [
@@ -128,11 +128,11 @@ const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, an
 
 describe('skills through the command', () => {
   test('the catalog names every root and the model reads the skill it matches', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-home-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
     await Bun.write(
-      join(workspace, '.fudo', 'skills', 'demo', 'SKILL.md'),
+      join(workspace, '.jzh', 'skills', 'demo', 'SKILL.md'),
       skillText('demo', 'Explains how to greet', BODY_MARKER),
     )
     await Bun.write(
@@ -148,7 +148,7 @@ describe('skills through the command', () => {
         cwd: workspace,
         route: 'stub/model',
         task: 'use the demo skill',
-        fudoHome: home,
+        jzhHome: home,
         stdout: () => undefined,
         stderr: () => undefined,
       }),
@@ -185,9 +185,9 @@ describe('skills through the command', () => {
   })
 
   test('a skill added while the session runs reaches the next turn', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-home-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -195,7 +195,7 @@ describe('skills through the command', () => {
         profiles: [profile(root)],
         plugins: plugins(
           stubLlm([textTurn('first'), textTurn('second')], seen, () => {
-            const late = join(workspace, '.fudo', 'skills', 'late')
+            const late = join(workspace, '.jzh', 'skills', 'late')
             mkdirSync(late, { recursive: true })
             writeFileSync(join(late, 'SKILL.md'), skillText('late', 'Appears later', 'late body'))
           }),
@@ -203,7 +203,7 @@ describe('skills through the command', () => {
         cwd: workspace,
         route: 'stub/model',
         lines: Stream.make('first', 'second'),
-        fudoHome: home,
+        jzhHome: home,
         stdout: () => undefined,
         stderr: () => undefined,
       }),
@@ -235,9 +235,9 @@ describe('skills through the command', () => {
   })
 
   test('a session without skills publishes no catalog', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-home-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -247,7 +247,7 @@ describe('skills through the command', () => {
         cwd: workspace,
         route: 'stub/model',
         task: 'say done',
-        fudoHome: home,
+        jzhHome: home,
         stdout: () => undefined,
         stderr: () => undefined,
       }),

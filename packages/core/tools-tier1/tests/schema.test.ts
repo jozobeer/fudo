@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import type { AgentsShape } from '@fudo/agent'
-import { makeAsk, makePlanMode } from '@fudo/safety'
-import { toolDeclaration, toolSchemaIssues, type ToolDefinition } from '@fudo/tools'
+import type { AgentsShape } from '@jozo-harness/agent'
+import { makeAsk, makePlanMode } from '@jozo-harness/safety'
+import { toolDeclaration, toolSchemaIssues, type ToolDefinition } from '@jozo-harness/tools'
 import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -35,7 +35,7 @@ describe('tier 1 tool schemas', () => {
   test('every tool says what it is for and what each parameter means', async () => {
     const ask = await Effect.runPromise(makeAsk())
     const jobs = await Effect.runPromise(makeJobs())
-    const root = await mkdtemp(join(tmpdir(), 'fudo-schema-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-schema-'))
     // Every tool a profile can hand the model, with the hosts a declaration never calls.
     const tools: ReadonlyArray<ToolDefinition<any, any>> = [
       ...tier1Tools(ask, [root]),

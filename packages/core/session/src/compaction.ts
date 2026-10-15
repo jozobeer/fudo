@@ -1,4 +1,4 @@
-import type { ContentBlock, RequestMessage } from '@fudo/llm'
+import type { ContentBlock, RequestMessage } from '@jozo-harness/llm'
 import { deriveMessagesWithSeqs, prunedSeqs, type DerivedMessage } from './derive.ts'
 import type {
   CompactReplacement,

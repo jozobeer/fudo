@@ -1,4 +1,4 @@
-import type { ToolSchema } from '@fudo/llm'
+import type { ToolSchema } from '@jozo-harness/llm'
 import { Effect } from 'effect'
 import type {
   AssembleContext,
@@ -22,12 +22,12 @@ export const TIME_BUCKET_MS = 10 * 60 * 1000
 export const timeLine = (now: number): string =>
   'time: ' + new Date(Math.floor(now / TIME_BUCKET_MS) * TIME_BUCKET_MS).toISOString()
 
-export const IDENTITY_SECTION = 'fudo:identity'
-export const TOOL_GUIDANCE_SECTION = 'fudo:tool-guidance'
+export const IDENTITY_SECTION = 'jzh:identity'
+export const TOOL_GUIDANCE_SECTION = 'jzh:tool-guidance'
 
 /** The harness introduces itself in one opener, as dsh does. */
 export const IDENTITY_TEXT = [
-  'You are an AI coding agent powered by fudo.',
+  'You are an AI coding agent powered by jozo-harness.',
   'Answer in the language the user writes, keep changes small and reviewable,',
   'and state plainly what you verified and what you did not.',
 ].join('\n')
@@ -112,7 +112,7 @@ export function toolGuidance(context: AssembleContext): string {
     .join('\n')
 }
 
-/** The runtime facts every fudo snapshot starts from: where the work is, and when. */
+/** The runtime facts every jozo-harness snapshot starts from: where the work is, and when. */
 export function builtinContexts(options: BuiltinOptions = {}): ReadonlyArray<RuntimeContextEntry> {
   if (!(options.includeRuntimeContext ?? true)) return []
   return [
@@ -129,7 +129,7 @@ export function builtinContexts(options: BuiltinOptions = {}): ReadonlyArray<Run
   ]
 }
 
-/** The sections every fudo prompt starts from. */
+/** The sections every jozo-harness prompt starts from. */
 export function builtinSections(options: BuiltinOptions = {}): ReadonlyArray<PromptSection> {
   const sections: Array<PromptSection> = []
   if (options.includeHarnessIdentity ?? true) {

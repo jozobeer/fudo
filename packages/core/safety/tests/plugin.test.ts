@@ -1,5 +1,5 @@
-import { kernelPlugin, loadProfile } from '@fudo/kernel'
-import { systemPromptPlugin } from '@fudo/system-prompt'
+import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { Policy, Sandbox, safetyPlugin, sandboxLayerFor } from '../src/index.ts'
@@ -11,9 +11,9 @@ const build = (config: unknown) =>
         plugins: [kernelPlugin, systemPromptPlugin, safetyPlugin],
         layers: [
           [
-            { id: 'kernel', name: '@fudo/kernel', config: {} },
-            { id: 'system-prompt', name: '@fudo/system-prompt', config: {} },
-            { id: 'safety', name: '@fudo/safety', config },
+            { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
+            { id: 'system-prompt', name: '@jozo-harness/system-prompt', config: {} },
+            { id: 'safety', name: '@jozo-harness/safety', config },
           ],
         ],
       })

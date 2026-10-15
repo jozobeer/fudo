@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import type { ToolDefinition } from '@fudo/tools'
+import type { ToolDefinition } from '@jozo-harness/tools'
 
 const Todo = Schema.Struct({
   content: Schema.String.annotate({ description: 'What the step is, in one line.' }),

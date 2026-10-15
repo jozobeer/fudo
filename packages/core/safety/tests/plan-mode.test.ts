@@ -1,5 +1,5 @@
-import { HooksLive } from '@fudo/kernel'
-import { Tools, toolsLayer, type ToolDefinition } from '@fudo/tools'
+import { HooksLive } from '@jozo-harness/kernel'
+import { Tools, toolsLayer, type ToolDefinition } from '@jozo-harness/tools'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { makePlanMode, PLAN_MODE_TOOLS, planModeRestriction } from '../src/index.ts'

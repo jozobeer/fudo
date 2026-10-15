@@ -7,7 +7,7 @@ import { makeSpillWriter, pruneSpills } from '../src/index.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 
-const root = async (): Promise<string> => await mkdtemp(join(tmpdir(), 'fudo-store-'))
+const root = async (): Promise<string> => await mkdtemp(join(tmpdir(), 'jozo-harness-store-'))
 
 describe('makeSpillWriter', () => {
   test('writes one file per call under the session directory and returns its path', async () => {
@@ -77,7 +77,7 @@ describe('pruneSpills', () => {
   })
 
   test('a missing root has nothing to remove', async () => {
-    const store = join(tmpdir(), 'fudo-store-missing-' + crypto.randomUUID())
+    const store = join(tmpdir(), 'jozo-harness-store-missing-' + crypto.randomUUID())
 
     await Effect.runPromise(pruneSpills(store, 7 * DAY, () => Date.now()))
   })

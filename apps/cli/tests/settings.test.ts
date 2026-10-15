@@ -5,7 +5,7 @@ const resolve = (overrides: Partial<Parameters<typeof resolveSettings>[0]> = {})
   resolveSettings({
     flags: {},
     settings: {},
-    settingsPath: '/home/me/.config/fudo/config.yaml',
+    settingsPath: '/home/me/.config/jzh/config.yaml',
     fallbackProfile: 'headless',
     fallbackRoute: 'ollama-cloud/default',
     ...overrides,
@@ -33,7 +33,7 @@ describe('what is in effect, and why', () => {
     expect(resolved.profile).toEqual({
       value: 'repl',
       source: 'settings',
-      from: '/home/me/.config/fudo/config.yaml',
+      from: '/home/me/.config/jzh/config.yaml',
     })
     expect(resolved.route.value).toBe('ollama-cloud/big')
     expect(resolved.route.source).toBe('settings')
@@ -55,7 +55,10 @@ describe('what is in effect, and why', () => {
 
   test('a settings file may hold lists, and then it is their source', () => {
     const resolved = resolve({
-      settings: { skills: ['/home/me/skills'], plugins: [{ id: 'mcp', name: '@fudo/mcp' }] },
+      settings: {
+        skills: ['/home/me/skills'],
+        plugins: [{ id: 'mcp', name: '@jozo-harness/mcp' }],
+      },
     })
 
     expect(resolved.skills.value).toEqual(['/home/me/skills'])

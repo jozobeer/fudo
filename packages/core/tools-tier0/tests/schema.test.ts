@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { noneSandbox } from '@fudo/safety'
-import { toolDeclaration, toolSchemaIssues } from '@fudo/tools'
+import { noneSandbox } from '@jozo-harness/safety'
+import { toolDeclaration, toolSchemaIssues } from '@jozo-harness/tools'
 import { tier0Tools } from '../src/index.ts'
 
 describe('tier 0 tool schemas', () => {

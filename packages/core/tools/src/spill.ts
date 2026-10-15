@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock } from '@jozo-harness/llm'
 import { Effect } from 'effect'
 import type { ToolExecutionResult } from './types.ts'
 

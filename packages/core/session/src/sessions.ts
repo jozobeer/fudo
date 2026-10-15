@@ -1,4 +1,4 @@
-import { Hooks } from '@fudo/kernel'
+import { Hooks } from '@jozo-harness/kernel'
 import { Context, Effect, Layer } from 'effect'
 import { SessionError } from './errors.ts'
 import {
@@ -24,7 +24,7 @@ export interface SessionsShape {
 }
 
 /** Registry of sessions. The persistence provider decides where logs live. */
-export class Sessions extends Context.Service<Sessions, SessionsShape>()('fudo/Sessions') {}
+export class Sessions extends Context.Service<Sessions, SessionsShape>()('jozo-harness/Sessions') {}
 
 export interface SessionsLayerOptions {
   readonly now?: () => number

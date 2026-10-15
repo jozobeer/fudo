@@ -1,7 +1,7 @@
-import type { PluginRow } from '@fudo/kernel'
+import type { PluginRow } from '@jozo-harness/kernel'
 import { FLAG_NAMES } from './args.ts'
 import { CONFIG_HOME_ENV, configPaths } from './config.ts'
-import type { FudoConfig } from './config-file.ts'
+import type { JozoHarnessConfig } from './config-file.ts'
 import type { CredentialSource, Resolved, SettingsSurface } from './settings.ts'
 import { SEARCH_KEY_ENV } from './search-env.ts'
 
@@ -29,7 +29,7 @@ export const ROW_KEYS: ReadonlyArray<RowKeyNote> = [
   },
   {
     name: PLAN_MODE_KEY,
-    where: 'the @fudo/safety row',
+    where: 'the @jozo-harness/safety row',
     summary: 'true hides the tools that change the workspace',
   },
 ]
@@ -39,11 +39,11 @@ interface SettingsNote {
   /** What the key takes, for a reader deciding whether to write it. */
   readonly summary: string
   /** What the settings file holds now, so the dump shows the state. */
-  readonly value: (settings: FudoConfig | undefined) => string
-  /** Lines `fudo config init` comments out as the starting point for this key. */
+  readonly value: (settings: JozoHarnessConfig | undefined) => string
+  /** Lines `jzh config init` comments out as the starting point for this key. */
   readonly example: ReadonlyArray<string>
   /** What the key holds item by item; a count alone does not say which ones. */
-  readonly items?: (settings: FudoConfig | undefined) => ReadonlyArray<string>
+  readonly items?: (settings: JozoHarnessConfig | undefined) => ReadonlyArray<string>
 }
 
 const countText = (count: number, noun: string, plural: string): string =>
@@ -105,7 +105,7 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
     example: [
       'plugins:',
       '  - id: safety',
-      "    name: '@fudo/safety'",
+      "    name: '@jozo-harness/safety'",
       '    config:',
       '      preset: workspace-write',
     ],
@@ -127,7 +127,7 @@ export const renderRowKeys = (): string =>
   ].join('\n') + '\n'
 
 /** The settings file named, with each key, what it holds now, and what is in it. */
-export const renderSettings = (path: string, settings: FudoConfig | undefined): string =>
+export const renderSettings = (path: string, settings: JozoHarnessConfig | undefined): string =>
   [
     'settings (' + path + '):',
     ...SETTINGS_KEYS.flatMap((key) => [
@@ -137,7 +137,7 @@ export const renderSettings = (path: string, settings: FudoConfig | undefined): 
   ].join('\n') + '\n'
 
 const renderFlags = (): string =>
-  ['flags (fudo --help shows how they are used):', '  - ' + FLAG_NAMES.join(' ')].join('\n') + '\n'
+  ['flags (jzh --help shows how they are used):', '  - ' + FLAG_NAMES.join(' ')].join('\n') + '\n'
 
 const renderEnvironment = (): string =>
   [
@@ -199,7 +199,7 @@ export const renderEffective = (
 /** What `--dump-config` prints after the rows: where the rest is set and what it holds. */
 export const renderSurface = (
   settingsPath: string | undefined,
-  settings: FudoConfig | undefined,
+  settings: JozoHarnessConfig | undefined,
 ): string =>
   renderRowKeys() +
   renderSettings(settingsPath ?? configPaths().config, settings) +

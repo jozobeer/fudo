@@ -1,11 +1,11 @@
 {
-  "name": "@fudo/tui",
+  "name": "@jozo-harness/tui",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/ui-protocol": "workspace:*",
-    "@fudo/ui-view": "workspace:*",
+    "@jozo-harness/ui-protocol": "workspace:*",
+    "@jozo-harness/ui-view": "workspace:*",
     "effect": "4.0.3"
   }
 }

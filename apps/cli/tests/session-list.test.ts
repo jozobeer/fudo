@@ -1,5 +1,5 @@
-import type { PluginRow } from '@fudo/kernel'
-import type { SessionEvent } from '@fudo/session'
+import type { PluginRow } from '@jozo-harness/kernel'
+import type { SessionEvent } from '@jozo-harness/session'
 import { describe, expect, test } from 'bun:test'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -24,23 +24,23 @@ const event = (seq: number, type: string, data: unknown): SessionEvent =>
 describe('where the sessions live', () => {
   test('is the row the profile gave, with ~ expanded', () => {
     expect(
-      sessionRootOf([row('session-jsonl', '@fudo/session-jsonl', { root: '~/work/logs' })]),
+      sessionRootOf([row('session-jsonl', '@jozo-harness/session-jsonl', { root: '~/work/logs' })]),
     ).toBe(join(homedir(), 'work/logs'))
     expect(
-      sessionRootOf([row('session-jsonl', '@fudo/session-jsonl', { root: '/srv/logs' })]),
+      sessionRootOf([row('session-jsonl', '@jozo-harness/session-jsonl', { root: '/srv/logs' })]),
     ).toBe('/srv/logs')
   })
 
-  test('falls back to the place fudo keeps them, and skips a disabled row', () => {
-    expect(sessionRootOf([])).toBe(join(homedir(), '.fudo/sessions'))
+  test('falls back to the place jozo-harness keeps them, and skips a disabled row', () => {
+    expect(sessionRootOf([])).toBe(join(homedir(), '.jzh/sessions'))
     expect(
       sessionRootOf([
-        row('session-jsonl', '@fudo/session-jsonl', { root: '/gone' }, true),
-        row('kernel', '@fudo/kernel'),
+        row('session-jsonl', '@jozo-harness/session-jsonl', { root: '/gone' }, true),
+        row('kernel', '@jozo-harness/kernel'),
       ]),
-    ).toBe(join(homedir(), '.fudo/sessions'))
-    expect(sessionRootOf([row('session-jsonl', '@fudo/session-jsonl', { root: '' })])).toBe(
-      join(homedir(), '.fudo/sessions'),
+    ).toBe(join(homedir(), '.jzh/sessions'))
+    expect(sessionRootOf([row('session-jsonl', '@jozo-harness/session-jsonl', { root: '' })])).toBe(
+      join(homedir(), '.jzh/sessions'),
     )
   })
 })

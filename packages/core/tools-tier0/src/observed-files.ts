@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises'
 import { Effect } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 
 /** What one look at a path saw: enough to notice that it changed afterwards. */
 export interface FileObservation {

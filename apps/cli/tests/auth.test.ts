@@ -20,18 +20,18 @@ const collector = (value: string): { io: AuthIo; out: Array<string>; err: Array<
 }
 
 const withXdg = async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-'))
+  const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-auth-'))
   return { directory, env: { XDG_CONFIG_HOME: directory } }
 }
 
-describe('fudo auth', () => {
+describe('jzh auth', () => {
   test('set stores the value and never prints it', async () => {
     const { directory, env } = await withXdg()
     const { io, out } = collector('secret-value')
 
     const code = await runAuth(['set', 'OLLAMA_API_KEY'], io, env)
 
-    const path = join(directory, 'fudo', 'secrets.env')
+    const path = join(directory, 'jzh', 'secrets.env')
     expect(code).toBe(0)
     expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=secret-value\n')
     expect(statSync(path).mode & 0o777).toBe(0o600)
@@ -74,7 +74,7 @@ describe('fudo auth', () => {
     const { io, err } = collector('x')
 
     expect(await runAuth(['set', 'bad name'], io, env)).toBe(2)
-    expect(err.join('')).toContain('fudo auth set NAME')
+    expect(err.join('')).toContain('jzh auth set NAME')
     await rm(directory, { recursive: true, force: true })
   })
 })

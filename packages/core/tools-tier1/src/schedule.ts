@@ -1,6 +1,6 @@
 import { Schema, Effect } from 'effect'
-import type { SessionEvent } from '@fudo/session'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import type { SessionEvent } from '@jozo-harness/session'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { currentSchedules, RuleSchema, scheduleLine, type Schedule } from './schedule-state.ts'
 import { nextDue, type ScheduleRule } from './schedule-time.ts'
 

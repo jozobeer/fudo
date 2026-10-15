@@ -1,6 +1,6 @@
 export * from './args.ts'
 export * from './bin.ts'
-import { Agents, type Agent, type AgentOptions, type AgentsShape } from '@fudo/agent'
+import { Agents, type Agent, type AgentOptions, type AgentsShape } from '@jozo-harness/agent'
 import {
   Hooks,
   loadProfile,
@@ -12,9 +12,9 @@ import {
   type Plugin,
   type PluginError,
   type PluginRow,
-} from '@fudo/kernel'
-import { cwdOf, lastSkillCatalog, type SessionId } from '@fudo/session'
-import { expandHome } from '@fudo/session-jsonl'
+} from '@jozo-harness/kernel'
+import { cwdOf, lastSkillCatalog, type SessionId } from '@jozo-harness/session'
+import { expandHome } from '@jozo-harness/session-jsonl'
 import {
   SystemPrompt,
   additionalInstructionsText,
@@ -22,9 +22,9 @@ import {
   nestedAgentsFiles,
   registerAgentsMd,
   type AgentsMdOptions,
-} from '@fudo/system-prompt'
-import { ToolError, type ToolExecution } from '@fudo/tools'
-import { Tools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
+} from '@jozo-harness/system-prompt'
+import { ToolError, type ToolExecution } from '@jozo-harness/tools'
+import { Tools, type ToolDefinition, type ToolRegistry } from '@jozo-harness/tools'
 import {
   currentPreset,
   makeCommands,
@@ -32,8 +32,8 @@ import {
   type CommandsShape,
   type Preset,
   type SessionError,
-} from '@fudo/session'
-import { Tier0Tools } from '@fudo/tools-tier0'
+} from '@jozo-harness/session'
+import { Tier0Tools } from '@jozo-harness/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
 import { modelEndpointOf } from './models.ts'
 import { credentialSource, type SettingsSurface } from './settings.ts'
@@ -67,7 +67,7 @@ import {
   renderSkillCatalog,
   skillRoots,
   tier1Tools,
-} from '@fudo/tools-tier1'
+} from '@jozo-harness/tools-tier1'
 import {
   Approval,
   Ask,
@@ -83,11 +83,11 @@ import {
   type AskShape,
   type PlanModeShape,
   type PolicyShape,
-} from '@fudo/safety'
+} from '@jozo-harness/safety'
 import { dirname, join, relative } from 'node:path'
-import { runTui, type TuiIo } from '@fudo/tui'
-import { makeUiHost, type UiHost } from '@fudo/ui-host'
-import { defaultStaticRoot, serveWeb } from '@fudo/web'
+import { runTui, type TuiIo } from '@jozo-harness/tui'
+import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
+import { defaultStaticRoot, serveWeb } from '@jozo-harness/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 import {
   MODEL_KEY,
@@ -97,7 +97,7 @@ import {
   renderModelInEffect,
   renderSurface,
 } from './surface.ts'
-import type { FudoConfig } from './config-file.ts'
+import type { JozoHarnessConfig } from './config-file.ts'
 
 export interface CommandOptions {
   /** Profile documents, first layer first (`bundle/base` then the selected profile). */
@@ -109,7 +109,7 @@ export interface CommandOptions {
   /** The settings file the command read; without one the dump names the default. */
   readonly settingsPath?: string
   /** What that file held, so the dump can show the state. */
-  readonly settings?: FudoConfig
+  readonly settings?: JozoHarnessConfig
   /** One-shot task. */
   readonly task?: string
   /** Lines of a batch session, used when stdin is not a terminal. */
@@ -124,10 +124,10 @@ export interface CommandOptions {
   readonly approve?: (request: ApprovalRequested) => Effect.Effect<boolean>
   /** Answers ask_user questions; without it the question waits for an Ask answer. */
   readonly answer?: (request: AskRequested) => Effect.Effect<string>
-  /** Extra skill roots from the settings file; the workspace and the fudo home always rank around them. */
+  /** Extra skill roots from the settings file; the workspace and the jzh home always rank around them. */
   readonly skills?: ReadonlyArray<string>
-  /** The fudo home: user-global AGENTS.md and skills live here. */
-  readonly fudoHome?: string
+  /** The jzh home: user-global AGENTS.md and skills live here. */
+  readonly jzhHome?: string
   /** What is in effect for this run and which file filled each credential. */
   readonly surface?: SettingsSurface
   /** Continue even when this run's composition differs from the one the session recorded. */
@@ -189,7 +189,7 @@ const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
 }
 
 const NO_MODEL =
-  'no model is set: run fudo config set model <provider/model>, or pass --model for one run (fudo models lists them)'
+  'no model is set: run jzh config set model <provider/model>, or pass --model for one run (jzh models lists them)'
 
 const exitCodeOf = (_cause: Cause.Cause<unknown>): number => 1
 
@@ -410,8 +410,8 @@ const createAgent = (
     const agentOptions: AgentOptions = {
       route,
       ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
-      // Spilled text belongs in the fudo home, under the session that owns it.
-      ...(options.fudoHome === undefined ? {} : { spillDir: join(options.fudoHome, 'spill') }),
+      // Spilled text belongs in the jzh home, under the session that owns it.
+      ...(options.jzhHome === undefined ? {} : { spillDir: join(options.jzhHome, 'spill') }),
     }
     return options.resume === undefined
       ? yield* agents.create({ cwd: options.cwd, options: agentOptions })
@@ -441,7 +441,7 @@ const serveLines = (
     )
     const failure = turnFailure(agent)
     if (failure !== undefined) {
-      options.stderr('fudo: a turn failed: ' + failure + '\n')
+      options.stderr('jzh: a turn failed: ' + failure + '\n')
       return 1
     }
     return 0
@@ -464,7 +464,7 @@ const serveTask = (agent: Agent, options: CommandOptions, task: string) =>
     yield* agent.whenIdle
     const failure = turnFailure(agent)
     if (failure !== undefined) {
-      options.stderr('fudo: the turn failed: ' + failure + '\n')
+      options.stderr('jzh: the turn failed: ' + failure + '\n')
       return 1
     }
     return cancelled ? 130 : 0
@@ -498,14 +498,14 @@ const profileNamesOf = (documents: ReadonlyArray<string>): ReadonlyArray<string>
 
 /** Instruction discovery options of this run. */
 const agentsOptionsOf = (options: CommandOptions): AgentsMdOptions =>
-  options.fudoHome === undefined ? {} : { home: options.fudoHome }
+  options.jzhHome === undefined ? {} : { home: options.jzhHome }
 
-/** The skill roots of this run: the workspace, the settings, then the fudo home. */
+/** The skill roots of this run: the workspace, the settings, then the jzh home. */
 const skillsOf = (options: CommandOptions): ReadonlyArray<string> =>
   skillRoots({
     cwd: options.cwd,
     custom: (options.skills ?? []).map(expandHome),
-    ...(options.fudoHome === undefined ? {} : { home: options.fudoHome }),
+    ...(options.jzhHome === undefined ? {} : { home: options.jzhHome }),
   })
 
 /**
@@ -593,14 +593,14 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
     // Plan mode hides every tool that could change the workspace, until the model
     // offers a plan and the user lets it go.
     const planMode = wiring.rows.some(
-      (row) => row.name === '@fudo/safety' && planModeOf(row.config),
+      (row) => row.name === '@jozo-harness/safety' && planModeOf(row.config),
     )
       ? makePlanMode()
       : undefined
-    if (hasRow(wiring.rows, '@fudo/tools-tier0')) {
+    if (hasRow(wiring.rows, '@jozo-harness/tools-tier0')) {
       yield* installTier0(tools, Context.get(wiring.context, Tier0Tools))
     }
-    if (hasRow(wiring.rows, '@fudo/tools-tier1')) {
+    if (hasRow(wiring.rows, '@jozo-harness/tools-tier1')) {
       yield* installTier1(
         tools,
         Context.get(wiring.context, Ask),
@@ -621,7 +621,7 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
     if (planMode !== undefined) {
       yield* planMode.install(tools)
     }
-    if (hasRow(wiring.rows, '@fudo/safety')) {
+    if (hasRow(wiring.rows, '@jozo-harness/safety')) {
       yield* installSafety(
         wiring.agent,
         wiring.approve,
@@ -632,7 +632,7 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
     }
     // An active goal keeps going by itself: at the end of a turn of this agent, the
     // next round is queued before the turn closes, so the run cannot go idle in between.
-    if (hasRow(wiring.rows, '@fudo/tools-tier1')) {
+    if (hasRow(wiring.rows, '@jozo-harness/tools-tier1')) {
       yield* wiring.hooks.on('agent/turn-stopping', (ending: Agent) =>
         ending === wiring.agent ? startGoalRound(ending) : Effect.void,
       )
@@ -664,7 +664,7 @@ const applyPreset = (
     const problem = presetProblem(recorded, composition)
     if (problem === undefined) return true
     if (options.allowPresetChange !== true) {
-      options.stderr('fudo: ' + problem + '\n')
+      options.stderr('jzh: ' + problem + '\n')
       return false
     }
     // The human said so: the new composition becomes the session's own.
@@ -690,7 +690,7 @@ const serveWebUi = (options: CommandOptions, ui: UiHost, port: number): Effect.E
   Effect.gen(function* () {
     const index = Bun.file(join(defaultStaticRoot, 'index.html'))
     if (!(yield* Effect.promise(() => index.exists()))) {
-      options.stderr('fudo web: the browser app is not built: run bun run build:web\n')
+      options.stderr('jzh web: the browser app is not built: run bun run build:web\n')
       return 1
     }
     return yield* serveWeb({
@@ -698,7 +698,7 @@ const serveWebUi = (options: CommandOptions, ui: UiHost, port: number): Effect.E
       port,
       staticRoot: defaultStaticRoot,
       onReady: (url) => {
-        options.stderr('fudo web: ' + url + '\n')
+        options.stderr('jzh web: ' + url + '\n')
       },
       ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
     })
@@ -715,7 +715,7 @@ const serveUi = (
   if (ui === undefined) return undefined
   if (work.kind === 'tui') {
     return runTui(ui, work.io, {
-      title: 'fudo · ' + route + ' · ' + agent.id.slice(0, 8),
+      title: 'jozo-harness · ' + route + ' · ' + agent.id.slice(0, 8),
       ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
     })
   }
@@ -754,7 +754,7 @@ const runSession = (
       agentsOptionsOf(options),
     )
 
-    if (hasRow(rows, '@fudo/mcp')) {
+    if (hasRow(rows, '@jozo-harness/mcp')) {
       yield* installMcpServers(Context.get(context, Tools), Context.get(context, McpServers))
     }
 
@@ -808,7 +808,7 @@ const runSession = (
   })
 
 /**
- * Runs one `fudo` command over a profile: build the layer, start the agent,
+ * Runs one `jzh` command over a profile: build the layer, start the agent,
  * wait for the turn, and return the process exit code (0 completed, 1 error).
  */
 export function runCommand(options: CommandOptions): Effect.Effect<number> {
@@ -848,7 +848,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     }
 
     if (route === '') {
-      options.stderr(`fudo: ${NO_MODEL}\n`)
+      options.stderr(`jzh: ${NO_MODEL}\n`)
       return 1
     }
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
@@ -857,7 +857,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {
-        options.stderr(`fudo: ${Cause.pretty(cause)}\n`)
+        options.stderr(`jzh: ${Cause.pretty(cause)}\n`)
         return exitCodeOf(cause)
       }),
     ),

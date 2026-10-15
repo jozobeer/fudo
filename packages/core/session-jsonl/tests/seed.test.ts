@@ -1,5 +1,5 @@
-import { HooksLive } from '@fudo/kernel'
-import { Sessions, sessionsLayer, type SessionEvent } from '@fudo/session'
+import { HooksLive } from '@jozo-harness/kernel'
+import { Sessions, sessionsLayer, type SessionEvent } from '@jozo-harness/session'
 import { Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -16,7 +16,7 @@ const seed: SessionEvent = {
 
 describe('a seeded session', () => {
   test('starts from the events it was given', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-seed-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-seed-'))
     const layer = Layer.provideMerge(sessionsLayer(jsonlSessions({ root })), HooksLive)
 
     const types = await Effect.runPromise(
@@ -34,7 +34,7 @@ describe('a seeded session', () => {
   })
 
   test('a header in the seed is not repeated', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-seed-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-seed-'))
     const layer = Layer.provideMerge(sessionsLayer(jsonlSessions({ root })), HooksLive)
 
     const types = await Effect.runPromise(

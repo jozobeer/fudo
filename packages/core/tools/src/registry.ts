@@ -1,5 +1,5 @@
-import { Hooks, type HookRegistry } from '@fudo/kernel'
-import type { ToolSchema } from '@fudo/llm'
+import { Hooks, type HookRegistry } from '@jozo-harness/kernel'
+import type { ToolSchema } from '@jozo-harness/llm'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import type { Scope } from 'effect'
 import { errorResult, executeTool, tryDecodeArguments } from './pipeline.ts'
@@ -121,7 +121,7 @@ export function makeTools(hooks: HookRegistry): ToolRegistry {
 }
 
 /** Registry of tools and their execution pipeline. */
-export class Tools extends Context.Service<Tools, ToolRegistry>()('fudo/Tools') {}
+export class Tools extends Context.Service<Tools, ToolRegistry>()('jozo-harness/Tools') {}
 
 export const toolsLayer: Layer.Layer<Tools, never, Hooks> = Layer.effect(
   Tools,

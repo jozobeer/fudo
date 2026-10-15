@@ -1,4 +1,4 @@
-import type { Plugin } from '@fudo/kernel'
+import type { Plugin } from '@jozo-harness/kernel'
 import { Schema } from 'effect'
 import { SystemPrompt, systemPromptLayerWith } from './system-prompt.ts'
 
@@ -13,7 +13,7 @@ export type SystemPromptConfig = Schema.Schema.Type<typeof systemPromptConfigSch
 
 /** Loader definition for the prompt section registry. */
 export const systemPromptPlugin: Plugin<SystemPromptConfig, SystemPrompt, never> = {
-  name: '@fudo/system-prompt',
+  name: '@jozo-harness/system-prompt',
   config: systemPromptConfigSchema,
   provides: [SystemPrompt],
   requires: [],

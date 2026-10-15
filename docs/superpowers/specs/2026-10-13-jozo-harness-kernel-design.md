@@ -1,10 +1,10 @@
-# fudo 設計: 全体構成と S1 Kernel
+# jozo-harness 設計: 全体構成と S1 Kernel
 
-fudo は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis の代わりに Effect を基盤にして、一人で全体を把握できる規模に保つ。
+jozo-harness は、自分が日常的に使う汎用コーディングエージェントのハーネスである。設計は [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（以下 dsh）の思想を移植し、Cordis の代わりに Effect を基盤にして、一人で全体を把握できる規模に保つ。
 
 ## 目的と前提
 
-fudo を dsh のプラグインとして作らず独自に作る理由は三つある。中身を隅々まで把握して自分の判断で育てられること、Cordis と dsh の規模に縛られない技術スタックを選べること、モデルとプロバイダを自由に選べること、である。
+jozo-harness を dsh のプラグインとして作らず独自に作る理由は三つある。中身を隅々まで把握して自分の判断で育てられること、Cordis と dsh の規模に縛られない技術スタックを選べること、モデルとプロバイダを自由に選べること、である。
 
 - 言語とランタイム: TypeScript と Bun。プロバイダ SDK や MCP SDK の層が厚く、dsh の実装と読み比べながら作れる。Rust は単一バイナリ配布で勝るが、プラグインの動的ロードに WASM か子プロセスが要る
 - 実行基盤: Effect 4（`effect@4.0.3` を exact で固定する）。キャンセルの伝播、リソースの寿命、型付きの失敗、retry と timeout、schema を Effect に任せる
@@ -28,7 +28,7 @@ v1 は、dsh の base bundle と同等のツールセットを日常のコーデ
 | S7 TUI | S1 のイベントを描画する端末 UI。行単位の REPL は S7 までの足場で、S7 で置き換える |
 | S8 Web UI | S1 をローカルサーバー越しに操作するブラウザ UI |
 
-依存は S2 以降から S1 への一方向である。S1 は、S2 から S6 の機能を agent loop の変更なしに載せられる拡張点を揃える。S7 と S8 は v1 の後に作る（2026-10-14 追記: どちらも実装済み。受け入れの記録は [S7/S8 受け入れ記録](../../notes/2026-10-14-s7-s8-acceptance.md)、その後の差の記録は [dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md) にある。新しい提示は web を先に作り、TUI は同じ view を読んで追随する — [S7 の追記](2026-10-13-fudo-tui-design.md) を参照）。
+依存は S2 以降から S1 への一方向である。S1 は、S2 から S6 の機能を agent loop の変更なしに載せられる拡張点を揃える。S7 と S8 は v1 の後に作る（2026-10-14 追記: どちらも実装済み。受け入れの記録は [S7/S8 受け入れ記録](../../notes/2026-10-14-s7-s8-acceptance.md)、その後の差の記録は [dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md) にある。新しい提示は web を先に作り、TUI は同じ view を読んで追随する — [S7 の追記](2026-10-13-jozo-harness-tui-design.md) を参照）。
 
 UI と核の間は、プロセス境界を越えられる形に保つ。核の公開面は直列化できるイベントストリームとコマンドに限り、UI に関数やクロージャを渡さない。こうすると S7 は同一プロセスで、S8 は WebSocket 越しに、同じプロトコルで核を使える。
 
@@ -40,48 +40,48 @@ UI と核の間は、プロセス境界を越えられる形に保つ。核の�
 | HMR と実行中の load / unload | 依存先が実行中に現れたり消えたりしないので、Layer は起動時に一度組み立てて終了時に一度閉じればよい。登録はすべて Scope に結びつくので、後から HMR を足すときは plugin ごとの Scope を作り直せばよい |
 | Desktop、Python SDK、ACP | v1 の UI は CLI だけである。S7 と S8 の後で再検討する |
 | 二言語ドキュメント | 個人の基盤には不要 |
-| OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる。**2026-10-14 追記（D5）**: 方針は変えない——credential サービスも OTLP も匿名 id も持たない（記録はセッションログが担い、キーは 1 行で足りる）。代わりに**優先順位を 1 か所に固定して見えるようにした**: 設定値はフラグ > `config.yaml` > 既定、資格情報はシェル > 近い `.env` > `secrets.env` で、解決は `apps/cli/src/settings.ts` が行い、`fudo --dump-config` が値と出どころを並べる。走行時の値と表示が同じ関数から出るので食い違わない |
-| plugin-manager、typert | **2026-10-14 改訂**: 「Layer は起動時に一度組み立てる」方針はそのまま（HMR の行と同じ理由。実行中の mount / unmount はしない）。ただし dsh の plugin-manager に当たる「モデルが承認下で自分のプラグインを入れ替える」は、**宣言を編集する `plugin` ツール**として採る。モデルは settings の `plugins` 行を list / add / remove / disable でき、変更は 1 回ごとの承認を要し、**次の起動から**効く。すでに走っているプロセスの Layer は変えない（C6 の「セッションは始めた構成を覚える」とも整合する）。dsh の bundle install（npm から取ってきて build script を走らせる）は持たない: fudo の plugin は同梱のパッケージで、行が指せるのはこの build が持っている名前だけである。typert は持たない |
+| OpenTelemetry、credentials と authorization の各サービス | API キーは環境変数で足りる。**2026-10-14 追記（D5）**: 方針は変えない——credential サービスも OTLP も匿名 id も持たない（記録はセッションログが担い、キーは 1 行で足りる）。代わりに**優先順位を 1 か所に固定して見えるようにした**: 設定値はフラグ > `config.yaml` > 既定、資格情報はシェル > 近い `.env` > `secrets.env` で、解決は `apps/cli/src/settings.ts` が行い、`jzh --dump-config` が値と出どころを並べる。走行時の値と表示が同じ関数から出るので食い違わない |
+| plugin-manager、typert | **2026-10-14 改訂**: 「Layer は起動時に一度組み立てる」方針はそのまま（HMR の行と同じ理由。実行中の mount / unmount はしない）。ただし dsh の plugin-manager に当たる「モデルが承認下で自分のプラグインを入れ替える」は、**宣言を編集する `plugin` ツール**として採る。モデルは settings の `plugins` 行を list / add / remove / disable でき、変更は 1 回ごとの承認を要し、**次の起動から**効く。すでに走っているプロセスの Layer は変えない（C6 の「セッションは始めた構成を覚える」とも整合する）。dsh の bundle install（npm から取ってきて build script を走らせる）は持たない: jozo-harness の plugin は同梱のパッケージで、行が指せるのはこの build が持っている名前だけである。typert は持たない |
 | session format の世代 migration | **2026-10-14 改訂**: [dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の D4 が「古いログを捨てずに読める」ことを求めるので、**読み手が寛容になり、世代の表を持つ**。header の `formatVersion` が現在以下なら表を通して現在の形に上げ、**現在より新しい**ものだけを拒否する（意味を知らないものは読めない）。表の最初の段は v0 = 「header が世代を言わない」で、`formatVersion: 1` を足し、`createdAt` はファイルの mtime（ディスクにある事実）で埋め、`cwd` は `'(not recorded)'` にする（書かれた場所を後から知る手立ては無く、ありそうな道をでっち上げると runtime context が嘘を繰り返す）。くわえて**切れた末尾の修復**を入れる: 最終行が途中で切れていたら、そこまでを読み、末尾を切り落として `session/repaired` を残す（圧縮・lease・export・全文検索は、この項目の受け入れ線の外にある別の能力なので持たない） |
 | SurfaceOp / SurfaceIntent / `sourceEventSeqs`、`prepareCall` の capability フェーズ、`request/context` | dsh ではプロンプトキャッシュを保ったまま surface を差分更新するための仕組みである。Ollama Cloud の OpenAI 互換 API には明示的なキャッシュ制御が無い。Anthropic adapter を足すときに必要性を再判断する。`request/header` に組み立て済みの tool schema と series を記録するのはこれに含めない（キャッシュ差分ではなく、送った内容をログから再構成するため。2026-10-14 追記） |
 | `ToolDefinition.projectContent` | S1 から S3 のツールは `output.render` で足りる。`read_image`（S5）で必要になったときに足す |
 | パッケージのファイルごとに 100% のカバレッジ gate | Bun の coverage がファイル単位の閾値を持つかは未確認である。主な証拠は replay snapshot と contract テストが担う。coverage report は出力する |
 
-**2026-10-14 追記（ギャップ表の「除外した基盤」）**: 除外は変えない。telemetry（OTLP）・identity（匿名 id）・credentials サービスは D5 の理由（記録はセッションログ、キーは環境変数 1 行）のままである。settings UI は持たない——設定は `fudo config`（ファイル編集）と `fudo --dump-config`（実効値と出どころ）で見え、モデルは `plugin` ツール（承認つき）で行を変えられる。画面で設定を編集する UI は「どの設定をどの順で見せるか」の判断を増やし、v1 の範囲を超える。見直すのは、設定項目が増えて「今どの値が効いているか」を CLI の 1 画面で追えなくなったときである。
+**2026-10-14 追記（ギャップ表の「除外した基盤」）**: 除外は変えない。telemetry（OTLP）・identity（匿名 id）・credentials サービスは D5 の理由（記録はセッションログ、キーは環境変数 1 行）のままである。settings UI は持たない——設定は `jzh config`（ファイル編集）と `jzh --dump-config`（実効値と出どころ）で見え、モデルは `plugin` ツール（承認つき）で行を変えられる。画面で設定を編集する UI は「どの設定をどの順で見せるか」の判断を増やし、v1 の範囲を超える。見直すのは、設定項目が増えて「今どの値が効いているか」を CLI の 1 画面で追えなくなったときである。
 
-## dsh にあって fudo が持たないツール（2026-10-14 追記）
+## dsh にあって jozo-harness が持たないツール（2026-10-14 追記）
 
-[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の B6 にあるツールを、S1〜S8 の範囲表と突き合わせた結果である。「採用」は fudo の設計に載るので実装する、「除外」は fudo の設計が意図的に持たない、「他所」は別の項目が引き受ける。
+[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の B6 にあるツールを、S1〜S8 の範囲表と突き合わせた結果である。「採用」は jozo-harness の設計に載るので実装する、「除外」は jozo-harness の設計が意図的に持たない、「他所」は別の項目が引き受ける。
 
 | dsh のツール | 判定 |
 |---|---|
-| `pwsh` | 除外。fudo の sandbox は macOS Seatbelt（S2）で、対象は POSIX シェルだけである |
+| `pwsh` | 除外。jozo-harness の sandbox は macOS Seatbelt（S2）で、対象は POSIX シェルだけである |
 | `job_list` | 採用。S6 の jobs。`JobsShape.list` が既にあり、走っている背景仕事をモデルが見る手段が要る |
 | subagent 制御（`send_message` / `interrupt_agent` / `list_agents` / `wait_agent`） | 採用。S6 の subagent。子に話しかけ、止め、終わるのを待つ |
 | `subagent_fork` | 対応済み。S6 の範囲表の「fork を含む」は、`subagent` が `forkSeed` で親のログから子を起こすことで満たしている（証拠は `apps/cli/tests/subagent-fork-e2e.test.ts`）。**2026-10-14 改訂**: fork しない子も選べるようにした（`context: 'fresh'` で種を空にする）。あわせて `model` で子の route を呼び出しごとに指名でき、`task` を省くと子を起こして待たせる（idle のまま残し、`send_message` で続ける）。 |
-| `list_subagent_models` | 除外。fudo はモデルを起動時の `route` で選び、model registry を持たない。**2026-10-14 追記**: 子の route は呼び出しごとに `model` で指名できるが、列挙できる registry は無いのでこの道具は依然として持たない |
+| `list_subagent_models` | 除外。jozo-harness はモデルを起動時の `route` で選び、model registry を持たない。**2026-10-14 追記**: 子の route は呼び出しごとに `model` で指名できるが、列挙できる registry は無いのでこの道具は依然として持たない |
 | `exit_plan_mode` | 採用。S5 の plan-mode。制限を解く出口をモデルに与える |
 | `present` | 除外。カードを描く client を持たない v1 では、成果物はファイルのパスで示す。UI への提示は S7 / S8 と `presentCall` / `presentResult` の領分である。**2026-10-14 追記**: `presentCall` / `presentResult` は pipeline に実配線し、要約をログに記録するようにした（S1 の追記を参照）。`present` tool そのもの（client へカードを渡す経路）は持たないままである |
 | `lsp` | 除外。言語サーバの管理はどの S の範囲にも無い |
-| `workflow` | 採用（2026-10-14 改訂）。S6 の決定 4 を改訂し、データで書く扇状実行のツールとして持つ。dsh のスクリプト engine は持たない（[S6 の決定 4](2026-10-13-fudo-tier3-design.md)） |
+| `workflow` | 採用（2026-10-14 改訂）。S6 の決定 4 を改訂し、データで書く扇状実行のツールとして持つ。dsh のスクリプト engine は持たない（[S6 の決定 4](2026-10-13-jozo-harness-tier3-design.md)） |
 | MCP resources | 除外。S5 の MCP は「ツール一覧の取り込みと実行だけ」と決めている |
-| session query 5 種 | 採用済み（2026-10-14）。`fudo sessions` の一覧・閲覧と `--search` が担い、索引は JSONL の隣に置く（D4） |
+| session query 5 種 | 採用済み（2026-10-14）。`jzh sessions` の一覧・閲覧と `--search` が担い、索引は JSONL の隣に置く（D4） |
 | schedule 4 種 | 採用済み。`schedule` ツール 1 つが create / list / update / delete を担う（C2） |
-| `terminal` 6 種（PTY） | 除外。fudo に端末セッションの概念は無く、`bash` と `job_*` がその役目を負う |
+| `terminal` 6 種（PTY） | 除外。jozo-harness に端末セッションの概念は無く、`bash` と `job_*` がその役目を負う |
 | `computer` / browser use | 除外。画面を操作する client を持たない |
 | `plugin_manager` | 除外。上の表の「plugin-manager、typert」と同じ理由である |
-| `str_replace_editor` | 対応済み。fudo の `edit` が同じ操作で、名前だけが違う |
-| `ralph` | 除外。dsh 固有の継続ループである。fudo の続きは `goal`（C1）と CLI の再実行が担う |
+| `str_replace_editor` | 対応済み。jozo-harness の `edit` が同じ操作で、名前だけが違う |
+| `ralph` | 除外。dsh 固有の継続ループである。jozo-harness の続きは `goal`（C1）と CLI の再実行が担う |
 | `create_worktree` | 除外。git worktree の管理はどの S の範囲にも無い |
-| `team_*` | **2026-10-14 改訂**: 採用。[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C8 が roster・task board・inbox を求めるので、名前つきの子（roster）と共有の task board を 1 つの `team` ツールで持つ。メッセージ（inbox）は既存の `send_message` / `list_agents` / `wait_agent` / `interrupt_agent` が担う。dsh の Lead / teammate の権限制御（team:policy）と compare-and-set の remote 面は持たない（fudo は 1 親とその子だけで、board の revision はログから導出する） |
+| `team_*` | **2026-10-14 改訂**: 採用。[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C8 が roster・task board・inbox を求めるので、名前つきの子（roster）と共有の task board を 1 つの `team` ツールで持つ。メッセージ（inbox）は既存の `send_message` / `list_agents` / `wait_agent` / `interrupt_agent` が担う。dsh の Lead / teammate の権限制御（team:policy）と compare-and-set の remote 面は持たない（jozo-harness は 1 親とその子だけで、board の revision はログから導出する） |
 
-**2026-10-14 追記（ギャップ表の「除外したツールの方針変更」）**: 除外は変えない。再検討したのは 2 つで、どちらも v1 では持たない: `present` は提示層の判断（[S8 の追記](2026-10-13-fudo-web-design.md)）と同じで、カードを描く client 契約を v1 は持たない。`terminal`（PTY）は `bash` と `job_*` が日常の用を足しており、端末セッションを持つと画面状態・再描画・入力の所有が増える。`lsp`・`computer` / browser・`create_worktree`・`pwsh`・MCP resources・`plugin_manager`・`ralph` は当初の理由のままである（`plugin_manager` の代わりは承認つきの `plugin` ツール、`ralph` の代わりは `goal`）。
+**2026-10-14 追記（ギャップ表の「除外したツールの方針変更」）**: 除外は変えない。再検討したのは 2 つで、どちらも v1 では持たない: `present` は提示層の判断（[S8 の追記](2026-10-13-jozo-harness-web-design.md)）と同じで、カードを描く client 契約を v1 は持たない。`terminal`（PTY）は `bash` と `job_*` が日常の用を足しており、端末セッションを持つと画面状態・再描画・入力の所有が増える。`lsp`・`computer` / browser・`create_worktree`・`pwsh`・MCP resources・`plugin_manager`・`ralph` は当初の理由のままである（`plugin_manager` の代わりは承認つきの `plugin` ツール、`ralph` の代わりは `goal`）。
 
 ## S1 の設計
 
 ### リポジトリ構成
 
-Bun workspaces の monorepo とし、UI を `apps/<app>/` に、それ以外のパッケージを `packages/<group>/<pkg>/` に置く。`packages/` は `apps/` に依存しない。パッケージ名は `@fudo/<pkg>`、CLI 名は `fudo` である。
+Bun workspaces の monorepo とし、UI を `apps/<app>/` に、それ以外のパッケージを `packages/<group>/<pkg>/` に置く。`packages/` は `apps/` に依存しない。パッケージ名は `@jozo-harness/<pkg>`、CLI 名は `jzh` である。
 
 ```
 apps/
@@ -106,7 +106,7 @@ packages/
 カーネルは Effect の上に、plugin 定義、hook registry、loader だけを足す。service は `Context.Service` で定義し、実装を `Layer` として提供する。実行中の load と unload は持たない。
 
 ```ts
-class Tools extends Context.Service<Tools, ToolRuntime>()("fudo/Tools") {}
+class Tools extends Context.Service<Tools, ToolRuntime>()("jozo-harness/Tools") {}
 const ToolsLive = Layer.effect(Tools, Effect.gen(function* () {
   const sessions = yield* Sessions   // 依存は Layer の要求型に現れる
   // ...
@@ -123,7 +123,7 @@ interface Plugin<C, P, R> {
 
 plugin は提供する service と要求する service を、`layer` の型と、`provides` / `requires` の実行時メタデータの両方で宣言する。YAML による組み立ては実行時に行われ、型情報が残らないので、loader は実行時メタデータで依存を解決する。`layer` の型引数と `provides` / `requires` の要素型が一致しない plugin はコンパイルできない。
 
-**セッションは始めた構成を覚える（2026-10-14 追記）**: 起動時に「どの profile 文書から来たか（name）」と「登録された tool の一覧」を `preset/selected`（log-only）としてセッションに書く。これは制限（plan mode など）をかける**前**に取る。すでに記録があるセッションを再開するとき、いまの構成が記録と違えば **turn を始める前に拒否**し、違う点（profile と、消えた/増えた tool）を stderr に出す。人間が意図して変えるときは `--allow-preset-change` を渡し、そのときは新しい構成を記録し直す。dsh のように agent ごとに構成を mount し直す registry は持たない（fudo の構成はプロセスの profile と patch が決めるので、記録と固定だけを行う）。
+**セッションは始めた構成を覚える（2026-10-14 追記）**: 起動時に「どの profile 文書から来たか（name）」と「登録された tool の一覧」を `preset/selected`（log-only）としてセッションに書く。これは制限（plan mode など）をかける**前**に取る。すでに記録があるセッションを再開するとき、いまの構成が記録と違えば **turn を始める前に拒否**し、違う点（profile と、消えた/増えた tool）を stderr に出す。人間が意図して変えるときは `--allow-preset-change` を渡し、そのときは新しい構成を記録し直す。dsh のように agent ごとに構成を mount し直す registry は持たない（jozo-harness の構成はプロセスの profile と patch が決めるので、記録と固定だけを行う）。
 
 loader は dsh と同じ行形式 `{ id, name, config, disabled }` の YAML を、bundle、profile patch、home patch、`--patch` の順に id 単位で重ねる。次に `provides` と `requires` から依存をトポロジカルソートし、`Layer.provide` でつないだ一つの Layer を作る。循環や存在しない service があれば起動を失敗させる。Layer の構築が途中で失敗すると、構築済みの部分は Layer の Scope が逆順に解放する。`--dump-config` は最終的なツリーを表示する。
 
@@ -141,13 +141,13 @@ hooks.on(name, listener, { prepend })  // Effect<void, never, Scope>。Scope が
 hooks.emit / serial / parallel / bail / waterfall(name, ...args)
 ```
 
-dispatch mode は emit、serial、parallel、bail、waterfall の五つで、意味は dsh の Cordis primer と同じである。waterfall の listener は `(...args, next)` を受け、`next()` を呼べば次へ委譲し、呼ばずに返せば short-circuit する。単一の決定を返す hook では short-circuit が正規の使い方である。dsh は mode を JSDoc の `@mode` で宣言し、gate で dispatch 箇所と照合する。fudo は mode を `Waterfall<F>` などの型に埋め込み、mode と異なる dispatch 関数ではその hook を呼べないようにする。listener も Effect なので、呼び出し元の Fiber が interrupt されると listener の処理も interrupt される。
+dispatch mode は emit、serial、parallel、bail、waterfall の五つで、意味は dsh の Cordis primer と同じである。waterfall の listener は `(...args, next)` を受け、`next()` を呼べば次へ委譲し、呼ばずに返せば short-circuit する。単一の決定を返す hook では short-circuit が正規の使い方である。dsh は mode を JSDoc の `@mode` で宣言し、gate で dispatch 箇所と照合する。jozo-harness は mode を `Waterfall<F>` などの型に埋め込み、mode と異なる dispatch 関数ではその hook を呼べないようにする。listener も Effect なので、呼び出し元の Fiber が interrupt されると listener の処理も interrupt される。
 
 登録の寿命は `Scope` で管理する。plugin の登録はアプリケーションの Scope に、Agent に限定した登録はその Agent の子 Scope に結びつく。Agent の Scope を閉じると、その Agent の hook、tool、prompt section が外れる。
 
 config、tool の引数と出力、session event のデコードは Effect Schema で書く。tool の JSON Schema は `Schema.toJsonSchemaDocument()`（draft 2020-12）で同じ定義から生成する。プロセス内の失敗は `Data.TaggedError` で表し、ログに残す失敗（`LlmFailure` など）は Schema で定義して encode してから書き込む。
 
-Effect のモジュールは安定度が分かれている。`effect@4.0.3` の型定義の `@stability` では、`Effect`、`Layer`、`Scope`、`Context`、`Schedule`、`Fiber`、`PubSub`、`JsonSchema` が stable、`Stream` と `Schema` は大半が stable、`effect/ai`、`effect/process`、`effect/rpc`、`effect/cli` が unstable である。unstable なモジュールは fudo の seam の内側でだけ使い（`effect/process` は subprocess provider の中、`effect/rpc` は S8 の transport の中）、minor の更新で壊れたときに直す場所を 1 パッケージに限る。`effect/ai` は使わない。その `LanguageModel` は unstable であるうえ、生の chunk と adapter 所有の replay 状態をログに残す [LLM seam](#llm-seam) の契約より高い抽象で、ログから request と response を再構成できることを fudo が保証できなくなるからである。
+Effect のモジュールは安定度が分かれている。`effect@4.0.3` の型定義の `@stability` では、`Effect`、`Layer`、`Scope`、`Context`、`Schedule`、`Fiber`、`PubSub`、`JsonSchema` が stable、`Stream` と `Schema` は大半が stable、`effect/ai`、`effect/process`、`effect/rpc`、`effect/cli` が unstable である。unstable なモジュールは jozo-harness の seam の内側でだけ使い（`effect/process` は subprocess provider の中、`effect/rpc` は S8 の transport の中）、minor の更新で壊れたときに直す場所を 1 パッケージに限る。`effect/ai` は使わない。その `LanguageModel` は unstable であるうえ、生の chunk と adapter 所有の replay 状態をログに残す [LLM seam](#llm-seam) の契約より高い抽象で、ログから request と response を再構成できることを jozo-harness が保証できなくなるからである。
 
 デプロイによって変わる値は、plugin の config として YAML から変更できる形にする。`DEFAULT_*` 定数を plugin に埋め込まない。プロトコル定数とセキュリティ上の不変条件は固定する。
 
@@ -181,7 +181,7 @@ type SessionEvent = { [K in keyof SessionEventMap]: {
 
 `deriveMessages(events, projections)` はイベント列を畳み込んで model history を作る純粋関数である。プラグインは message projection を登録できる。S4 の compaction は「`compaction/summary` より前の範囲を要約に置き換える」projection を登録する。live の Agent とファイルから読んだセッションは同じ projection 定義を使う。
 
-永続化の seam は `SessionPersistence`（`create` / `open` / `stat` / `list`）で、S1 の provider は JSONL（`~/.fudo/sessions/<id>/session.v1.jsonl`、1 行 1 イベント）である。`append` は data が JSON に直列化できるかを検査し、できないイベントはログに入れない。flush は step と turn の終わりで行う。未知のイベント型は、`ignorable: true` が付いていない限り読み込みエラーにする。
+永続化の seam は `SessionPersistence`（`create` / `open` / `stat` / `list`）で、S1 の provider は JSONL（`~/.jzh/sessions/<id>/session.v1.jsonl`、1 行 1 イベント）である。`append` は data が JSON に直列化できるかを検査し、できないイベントはログに入れない。flush は step と turn の終わりで行う。未知のイベント型は、`ignorable: true` が付いていない限り読み込みエラーにする。
 
 ### LLM seam
 
@@ -336,7 +336,7 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 
 ログの append に失敗した Agent を止めるのは、記録されない状態で作業を続けると、model に見えたものとログが食い違うからである。observer の例外を隔離するのは、observer がログの下流にあり、その失敗がログの正しさに影響しないからである。
 
-**ログは読み手が寛容になる（2026-10-14 追記）**: `formatVersion` を完全一致で要求すると、形が 1 つ進んだだけで過去のログが開けなくなる。世代の表（`upgradeHeader`）を通して現在の形に上げ、現在より新しい世代だけを「この fudo より新しい」として拒否する。壊れた（途中で切れた）末尾は、そこまでを読んで切り落とし、`session/repaired` としてログに残す——黙って捨てるのではなく、捨てた事実をログ自身に書く。
+**ログは読み手が寛容になる（2026-10-14 追記）**: `formatVersion` を完全一致で要求すると、形が 1 つ進んだだけで過去のログが開けなくなる。世代の表（`upgradeHeader`）を通して現在の形に上げ、現在より新しい世代だけを「この jozo-harness より新しい」として拒否する。壊れた（途中で切れた）末尾は、そこまでを読んで切り落とし、`session/repaired` としてログに残す——黙って捨てるのではなく、捨てた事実をログ自身に書く。
 
 **sandbox は既定で効く（2026-10-14 追記）**: S2 の sandbox provider は当初 `sandbox ?? 'none'` で、同梱 profile もキーを書かなかったため既定は無制限だった。いまは `sandbox ?? 'seatbelt'` とし、`bundle/base` も `sandbox: seatbelt` を明示する。書き込めるのは**コマンドが走るディレクトリと一時ディレクトリ**、それに `writableRoots` の追加分で、読めるのは system のパス（`/usr`、`/bin`、`/System`、`/private/etc`、`/dev`、`/opt` など）と書き込み可能な根である——ここを空にすると bash が自分の interpreter を読めず、sandbox を既定にしても何も動かない。ネットワークは開けたままにする: 呼び出しが外へ出てよいかを決めるのは `preset` と承認であり、sandbox の仕事はファイルシステムの封じ込めである。`seatbelt` が使えない platform では、無制限に落とさず loader を失敗させる（`PluginError{ code: 'unavailable' }`）。無制限は `sandbox: none` の明示的な選択になる。
 
@@ -347,19 +347,19 @@ approval policy、sandbox mode、cwd、日付のように変わる事実は、sy
 ### Headless CLI
 
 ```
-fudo "task"                      一発実行（headless profile）
-fudo                             REPL（repl profile、TTY が必要）
-fudo --profile <name> --patch <file.yml>... --dump-config
-fudo --resume <sessionId>        ログから復元して続ける
-fudo sessions                    ログの一覧（新しい順）
-fudo sessions <sessionId>        1 つのログを会話として読む
-fudo sessions --search <text>    全文索引でセッションを探す
-fudo --json "task"               session/event を JSONL で stdout に出す
+jzh "task"                      一発実行（headless profile）
+jozo-harness                             REPL（repl profile、TTY が必要）
+jzh --profile <name> --patch <file.yml>... --dump-config
+jzh --resume <sessionId>        ログから復元して続ける
+jzh sessions                    ログの一覧（新しい順）
+jzh sessions <sessionId>        1 つのログを会話として読む
+jzh sessions --search <text>    全文索引でセッションを探す
+jzh --json "task"               session/event を JSONL で stdout に出す
 ```
 
-アプリケーションの起動経路は `fudo` の profile だけとし、テストと demo も同じ経路で起動する。
+アプリケーションの起動経路は `jzh` の profile だけとし、テストと demo も同じ経路で起動する。
 
-**1 行の要約は pipeline が描いてログに残す（2026-10-14 追記、E1）**: 当初 `presentCall` / `presentResult` は registry にあるだけで、走行経路は生の `arguments` と結果本文をログに書き、TUI と Web が 200 字で切って表示していた。いまは tool を呼んだその場所（runner）が要約をレンダリングし、`tool/call` / `tool/result` の `summary` として**イベントに記録する**。UI はログから同じ 1 行を読むだけなので、TUI・Web・replay が同じ見た目になり、古いログ（summary が無い）は view 側の既定（引数の 1 行・結果の 1 行を 200 字で切る）に落ちる。presenter を持たない tool も `@fudo/tools` の既定（`callSummary` / `resultSummary`）で同じ形の 1 行を持つ。行の中身は tool が決める: bash は `bash <command>` / `exit 3`、read は `read <path>:10-40`、edit は `edit <path> lines: 2 → 3`、write は `write <path>`、glob / grep はパターン、web_fetch は URL。dsh の presenters・ノードレジストリ・locale 所有の文言は持たない（カードや差分の描画はクライアントの領分で、fudo は 1 行に畳む）。
+**1 行の要約は pipeline が描いてログに残す（2026-10-14 追記、E1）**: 当初 `presentCall` / `presentResult` は registry にあるだけで、走行経路は生の `arguments` と結果本文をログに書き、TUI と Web が 200 字で切って表示していた。いまは tool を呼んだその場所（runner）が要約をレンダリングし、`tool/call` / `tool/result` の `summary` として**イベントに記録する**。UI はログから同じ 1 行を読むだけなので、TUI・Web・replay が同じ見た目になり、古いログ（summary が無い）は view 側の既定（引数の 1 行・結果の 1 行を 200 字で切る）に落ちる。presenter を持たない tool も `@jozo-harness/tools` の既定（`callSummary` / `resultSummary`）で同じ形の 1 行を持つ。行の中身は tool が決める: bash は `bash <command>` / `exit 3`、read は `read <path>:10-40`、edit は `edit <path> lines: 2 → 3`、write は `write <path>`、glob / grep はパターン、web_fetch は URL。dsh の presenters・ノードレジストリ・locale 所有の文言は持たない（カードや差分の描画はクライアントの領分で、jozo-harness は 1 行に畳む）。
 
 S1 が出荷する profile は `headless` と `repl` の二つで、どちらも `bundle/base` を第一層にする。CLI は `agent/assistant-stream` の chunk を stdout に流し、tool call を `presentCall` の 1 行要約で示す。S2 で approval が入ると、`repl` profile は TTY の y/n answerer を登録し、`headless` profile は answerer を登録しないので承認を要する操作が拒否される。全面的な許可は S2 の permission preset を `--permission danger-full-access` で明示して選ぶ。終了コードは completed が 0、error が 1、SIGINT が 130 である。SIGINT を受けたら `cancel({ kind: 'user' })` を呼び、`turn/end` を記録してから終了する。
 
@@ -387,7 +387,7 @@ mock は LLM の境界だけに置き、その下流は実物を使う。
 
 ## S1 の完了条件
 
-1. `fudo --profile headless "…"` が Ollama Cloud に対して、テスト専用ツール（`test-support` の `echo` と `fail`）の呼び出しを含む複数 step の turn を完了する
+1. `jzh --profile headless "…"` が Ollama Cloud に対して、テスト専用ツール（`test-support` の `echo` と `fail`）の呼び出しを含む複数 step の turn を完了する
 2. そのセッションを `--resume` で再開した 2 turn 目が、ログから再構成した history の上で動く
 3. tool の例外、LLM の retry、SIGINT による cancel のそれぞれで、`tool/call` と `tool/result` が対になり、`turn/end.reason` が正しく記録される
 4. 1 から 3 が replay snapshot として API キーなしで再生できる

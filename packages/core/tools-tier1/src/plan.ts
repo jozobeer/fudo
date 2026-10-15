@@ -1,6 +1,6 @@
 import { Schema, Effect } from 'effect'
-import { PLAN_APPROVAL, type AskShape, type PlanModeShape } from '@fudo/safety'
-import type { ToolDefinition } from '@fudo/tools'
+import { PLAN_APPROVAL, type AskShape, type PlanModeShape } from '@jozo-harness/safety'
+import type { ToolDefinition } from '@jozo-harness/tools'
 
 const Parameters = Schema.Struct({
   plan: Schema.String.annotate({

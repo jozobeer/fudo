@@ -7,7 +7,7 @@ const entry = join(import.meta.dir, '../src/run.ts')
 
 describe('the tui through a real process', () => {
   test('--tui paints the screen and ctrl-d restores the terminal', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-tui-process-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-process-'))
     const patch = join(dir, 'sessions.yml')
     await Bun.write(
       patch,
@@ -15,7 +15,7 @@ describe('the tui through a real process', () => {
         'name: sessions',
         'plugins:',
         '  - id: session-jsonl',
-        "    name: '@fudo/session-jsonl'",
+        "    name: '@jozo-harness/session-jsonl'",
         '    config:',
         '      root: ' + join(dir, 'sessions'),
       ].join('\n'),
@@ -41,7 +41,7 @@ describe('the tui through a real process', () => {
     expect(code).toBe(0)
     expect(err).toBe('')
     expect(out).toContain('\u001b[?1049h')
-    expect(out).toContain('fudo · stub/model')
+    expect(out).toContain('jozo-harness · stub/model')
     expect(out).toContain('\u001b[?1049l')
     await rm(dir, { recursive: true, force: true })
   })

@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -42,7 +42,7 @@ const makeSession = (cwd: string) => {
 
 describe('write tool', () => {
   test('creates parent directories and reports the size', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     const call = makeSession(dir)
 
     const result = await Effect.runPromise(call('write', { path: 'a/b.txt', content: 'hi\nthere' }))
@@ -54,7 +54,7 @@ describe('write tool', () => {
   })
 
   test('refuses a path outside the workspace', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     const call = makeSession(dir)
 
     const result = await Effect.runPromise(call('write', { path: '../escape.txt', content: 'x' }))
@@ -65,7 +65,7 @@ describe('write tool', () => {
   })
 
   test('refuses to overwrite a file this session never read', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     await Bun.write(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
@@ -80,7 +80,7 @@ describe('write tool', () => {
   })
 
   test('overwrites a file that was read and has not changed', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     await Bun.write(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
@@ -95,7 +95,7 @@ describe('write tool', () => {
   })
 
   test('refuses a file that changed after it was read, and leaves it alone', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     await Bun.write(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
@@ -112,7 +112,7 @@ describe('write tool', () => {
   })
 
   test('writes CRLF as LF', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-write-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
     const call = makeSession(dir)
 
     await Effect.runPromise(call('write', { path: 'crlf.txt', content: 'one\r\ntwo\r\n' }))

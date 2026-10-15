@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect'
-import type { ContentBlock } from '@fudo/llm'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import type { ContentBlock } from '@jozo-harness/llm'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { TOOLS_CALL, TOOLS_LIST } from './mcp-codec.ts'
 import type { McpClientShape } from './mcp.ts'
 

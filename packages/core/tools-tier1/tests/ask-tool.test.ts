@@ -1,6 +1,6 @@
-import { HooksLive } from '@fudo/kernel'
-import { makeAsk } from '@fudo/safety'
-import { Tools, toolsLayer, type ToolExecutionResult } from '@fudo/tools'
+import { HooksLive } from '@jozo-harness/kernel'
+import { makeAsk } from '@jozo-harness/safety'
+import { Tools, toolsLayer, type ToolExecutionResult } from '@jozo-harness/tools'
 import { Deferred, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { askUserToolFor } from '../src/index.ts'
@@ -59,13 +59,13 @@ describe('ask_user tool', () => {
             }),
           )
           yield* Effect.sleep('10 millis')
-          yield* ask.answer('c2', 'fudo')
+          yield* ask.answer('c2', 'jozo-harness')
           const result = yield* Deferred.await(done)
           return result?.content
         }).pipe(Effect.provide(Layer.provideMerge(toolsLayer, HooksLive))),
       ),
     )
 
-    expect(content).toEqual([{ type: 'text', text: 'fudo' }])
+    expect(content).toEqual([{ type: 'text', text: 'jozo-harness' }])
   })
 })

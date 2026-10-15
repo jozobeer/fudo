@@ -1,4 +1,4 @@
-import { type FinishKind, type LlmUsage, type StreamChunk } from '@fudo/llm'
+import { type FinishKind, type LlmUsage, type StreamChunk } from '@jozo-harness/llm'
 
 interface OpenAiToolCallDelta {
   readonly index?: number
@@ -87,7 +87,7 @@ const hasText = (value: string | null | undefined): value is string =>
   typeof value === 'string' && value !== ''
 
 /**
- * Decodes the OpenAI-compatible SSE stream into the fudo chunk vocabulary.
+ * Decodes the OpenAI-compatible SSE stream into the jozo-harness chunk vocabulary.
  *
  * OpenRouter-style providers put `usage` in a chunk with `choices: []` that
  * arrives *after* `finish_reason`, so this decoder holds the finish chunk back

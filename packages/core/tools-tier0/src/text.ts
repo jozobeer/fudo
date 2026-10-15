@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 
 /** Reads a file as UTF-8 text; anything that is not UTF-8 is refused, not replaced. */
 export const readUtf8 = (path: string): Effect.Effect<string, ToolError> =>

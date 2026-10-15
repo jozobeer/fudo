@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import type { Agent } from '@fudo/agent'
-import { makeHooks } from '@fudo/kernel'
-import { makeCommands, type Session, type SessionEvent, type SessionEventMap } from '@fudo/session'
+import type { Agent } from '@jozo-harness/agent'
+import { makeHooks } from '@jozo-harness/kernel'
+import {
+  makeCommands,
+  type Session,
+  type SessionEvent,
+  type SessionEventMap,
+} from '@jozo-harness/session'
 import { Effect, Fiber, Stream, type Scope } from 'effect'
 import { makeUiHost } from '../src/index.ts'
-import type { UiHost } from '@fudo/ui-protocol'
+import type { UiHost } from '@jozo-harness/ui-protocol'
 
 interface FakeInput {
   readonly session: Session

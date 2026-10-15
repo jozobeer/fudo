@@ -1,5 +1,5 @@
-import type { PluginRow } from '@fudo/kernel'
-import type { FudoConfig } from './config-file.ts'
+import type { PluginRow } from '@jozo-harness/kernel'
+import type { JozoHarnessConfig } from './config-file.ts'
 
 /** Where an effective value came from, nearest first. */
 export type SettingSource = 'flag' | 'settings' | 'environment' | 'default'
@@ -18,7 +18,7 @@ export interface SettingsInputs {
     readonly profile?: string | undefined
     readonly model?: string | undefined
   }
-  readonly settings: FudoConfig
+  readonly settings: JozoHarnessConfig
   readonly settingsPath: string
   /** The profile name when neither a flag nor the settings file chooses one. */
   readonly fallbackProfile: string
@@ -37,7 +37,7 @@ const named = (value: string | undefined): value is string => value !== undefine
 
 /**
  * The first candidate that has a value decides, and it says so. One place answers
- * "what is in effect, and why" for the run path and for `fudo config`, so the two
+ * "what is in effect, and why" for the run path and for `jzh config`, so the two
  * cannot drift apart.
  */
 const first = <T>(

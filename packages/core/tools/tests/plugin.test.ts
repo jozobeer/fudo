@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { Hooks, loadProfile, makeHooks, type Plugin } from '@fudo/kernel'
+import { Hooks, loadProfile, makeHooks, type Plugin } from '@jozo-harness/kernel'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Tools, toolsPlugin } from '../src/index.ts'
 
 const kernelPlugin: Plugin<{}, Hooks, never> = {
-  name: '@fudo/kernel',
+  name: '@jozo-harness/kernel',
   config: Schema.Struct({}),
   provides: [Hooks],
   requires: [],
@@ -12,8 +12,8 @@ const kernelPlugin: Plugin<{}, Hooks, never> = {
 }
 
 const rows = [
-  { id: 'kernel', name: '@fudo/kernel', config: {} },
-  { id: 'tools', name: '@fudo/tools', config: {} },
+  { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
+  { id: 'tools', name: '@jozo-harness/tools', config: {} },
 ]
 
 describe('toolsPlugin', () => {

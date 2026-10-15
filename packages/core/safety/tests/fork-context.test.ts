@@ -1,4 +1,4 @@
-import { Hooks, HooksLive } from '@fudo/kernel'
+import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import { Deferred, Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
 

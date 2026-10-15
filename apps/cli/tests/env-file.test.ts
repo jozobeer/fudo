@@ -21,7 +21,7 @@ describe('parseEnvFile', () => {
 
 describe('loadEnvFrom', () => {
   test('fills what the environment lacks, nearest file winning', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-env-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-env-'))
     const nested = join(root, 'a', 'b')
     await mkdir(nested, { recursive: true })
     await Bun.write(join(root, '.env'), 'OUTER=outer\nSHARED=outer\n')
@@ -38,7 +38,7 @@ describe('loadEnvFrom', () => {
   })
 
   test('never overwrites a variable that is already set', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-env-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-env-'))
     await Bun.write(join(root, '.env'), 'SHARED=from-file\n')
 
     const env: Record<string, string | undefined> = { SHARED: 'from-shell' }

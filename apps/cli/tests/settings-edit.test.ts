@@ -11,9 +11,9 @@ const ROWS =
   [
     'plugins:',
     '  - id: sessions',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
-    '      root: ~/.fudo/sessions',
+    '      root: ~/.jzh/sessions',
   ].join('\n') + '\n'
 
 describe('settings edits', () => {
@@ -83,19 +83,23 @@ describe('settings edits', () => {
   })
 
   test('adds the first row as a block', async () => {
-    const edited = await applied('', { kind: 'add-row', id: 'mcp', name: '@fudo/mcp' })
+    const edited = await applied('', { kind: 'add-row', id: 'mcp', name: '@jozo-harness/mcp' })
 
-    expect(edited.text).toBe("plugins:\n  - id: mcp\n    name: '@fudo/mcp'\n")
+    expect(edited.text).toBe("plugins:\n  - id: mcp\n    name: '@jozo-harness/mcp'\n")
   })
 
   test('appends a row after the ones already there', async () => {
-    const edited = await applied(ROWS, { kind: 'add-row', id: 'mcp', name: '@fudo/mcp' })
+    const edited = await applied(ROWS, { kind: 'add-row', id: 'mcp', name: '@jozo-harness/mcp' })
 
-    expect(edited.text).toBe(ROWS + "  - id: mcp\n    name: '@fudo/mcp'\n")
+    expect(edited.text).toBe(ROWS + "  - id: mcp\n    name: '@jozo-harness/mcp'\n")
   })
 
   test('refuses a row whose id is already in the file', async () => {
-    const error = await refused(ROWS, { kind: 'add-row', id: 'sessions', name: '@fudo/session' })
+    const error = await refused(ROWS, {
+      kind: 'add-row',
+      id: 'sessions',
+      name: '@jozo-harness/session',
+    })
 
     expect(error.code).toBe('duplicate-row')
   })
@@ -104,27 +108,27 @@ describe('settings edits', () => {
     const edited = await applied(ROWS, {
       kind: 'set-row',
       id: 'sessions',
-      name: '@fudo/session-jsonl',
+      name: '@jozo-harness/session-jsonl',
       key: 'root',
-      value: '~/.fudo/other',
+      value: '~/.jzh/other',
     })
 
-    expect(edited.text).toBe(ROWS.replace('~/.fudo/sessions', '~/.fudo/other'))
+    expect(edited.text).toBe(ROWS.replace('~/.jzh/sessions', '~/.jzh/other'))
   })
 
   test('adds the config block when the row has none', async () => {
-    const text = "plugins:\n  - id: safety\n    name: '@fudo/safety'\n"
+    const text = "plugins:\n  - id: safety\n    name: '@jozo-harness/safety'\n"
 
     const edited = await applied(text, {
       kind: 'set-row',
       id: 'safety',
-      name: '@fudo/safety',
+      name: '@jozo-harness/safety',
       key: 'preset',
       value: 'full',
     })
 
     expect(edited.text).toBe(
-      "plugins:\n  - id: safety\n    name: '@fudo/safety'\n    config:\n      preset: full\n",
+      "plugins:\n  - id: safety\n    name: '@jozo-harness/safety'\n    config:\n      preset: full\n",
     )
   })
 
@@ -132,7 +136,7 @@ describe('settings edits', () => {
     const edited = await applied(ROWS, {
       kind: 'set-row',
       id: 'sessions',
-      name: '@fudo/session-jsonl',
+      name: '@jozo-harness/session-jsonl',
       key: 'keep',
       value: '3',
     })
@@ -141,35 +145,37 @@ describe('settings edits', () => {
   })
 
   test('writes disabled at the row level, not under config', async () => {
-    const text = "plugins:\n  - id: ask\n    name: '@fudo/ask'\n"
+    const text = "plugins:\n  - id: ask\n    name: '@jozo-harness/ask'\n"
 
     const edited = await applied(text, {
       kind: 'set-row',
       id: 'ask',
-      name: '@fudo/ask',
+      name: '@jozo-harness/ask',
       key: 'disabled',
       value: 'true',
     })
 
-    expect(edited.text).toBe("plugins:\n  - id: ask\n    name: '@fudo/ask'\n    disabled: true\n")
+    expect(edited.text).toBe(
+      "plugins:\n  - id: ask\n    name: '@jozo-harness/ask'\n    disabled: true\n",
+    )
   })
 
   test('creates the row a key is set on', async () => {
     const edited = await applied('model: a/b\n', {
       kind: 'set-row',
       id: 'safety',
-      name: '@fudo/safety',
+      name: '@jozo-harness/safety',
       key: 'preset',
       value: 'full',
     })
 
     expect(edited.text).toBe(
-      "model: a/b\nplugins:\n  - id: safety\n    name: '@fudo/safety'\n    config:\n      preset: full\n",
+      "model: a/b\nplugins:\n  - id: safety\n    name: '@jozo-harness/safety'\n    config:\n      preset: full\n",
     )
   })
 
   test('removes a row and keeps the one before it', async () => {
-    const text = ROWS + "  - id: ask\n    name: '@fudo/ask'\n"
+    const text = ROWS + "  - id: ask\n    name: '@jozo-harness/ask'\n"
 
     const edited = await applied(text, { kind: 'remove-row', id: 'ask' })
 

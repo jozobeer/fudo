@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { HooksLive } from '@fudo/kernel'
-import { Tools, toolsLayer } from '@fudo/tools'
+import { HooksLive } from '@jozo-harness/kernel'
+import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Schema } from 'effect'
 import {
   PromptError,
@@ -175,6 +175,6 @@ describe('SystemPrompt service', () => {
 
     // The layer's built-in sections sort after a section that shares order 0 by name.
     expect(text.startsWith('A')).toBe(true)
-    expect(text).toContain('You are an AI coding agent powered by fudo.')
+    expect(text).toContain('You are an AI coding agent powered by jozo-harness.')
   })
 })

@@ -5,7 +5,7 @@ import {
   type SessionEvent,
   type SessionEventSchemaMap,
   type UserMessageSource,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 
 /** Where a goal stands. */
 export type GoalPhase = 'active' | 'paused' | 'blocked' | 'complete'
@@ -27,7 +27,7 @@ export const MIN_BLOCKED_ROUNDS = 3
 /** The source of the message the driver sends to start a round. */
 export const GOAL_ROUND_SOURCE = 'goal-round'
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'goal/updated': GoalState
   }

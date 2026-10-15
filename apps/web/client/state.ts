@@ -1,5 +1,5 @@
-import type { UiEvent } from '@fudo/ui-protocol'
-import { applyEvent, emptyConversation, type Conversation } from '@fudo/ui-view'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
+import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 
 /** What the browser shows: the conversation, the socket state, and the draft. */
 export interface WebState {

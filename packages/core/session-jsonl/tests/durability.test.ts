@@ -1,4 +1,4 @@
-import { SESSION_FORMAT_VERSION, SessionError } from '@fudo/session'
+import { SESSION_FORMAT_VERSION, SessionError } from '@jozo-harness/session'
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -21,7 +21,7 @@ const withLog = async (
     readonly file: string
   }) => Promise<void>,
 ): Promise<void> => {
-  const root = await mkdtemp(join(tmpdir(), 'fudo-durable-'))
+  const root = await mkdtemp(join(tmpdir(), 'jozo-harness-durable-'))
   const id = 's-old'
   const directory = join(root, id)
   const file = join(directory, 'session.v1.jsonl')
@@ -76,7 +76,7 @@ describe('a log of an older generation', () => {
 
       expect(failed._tag).toBe('Failure')
       expect(failed._tag === 'Failure' && (failed.failure as SessionError).message).toContain(
-        'newer fudo',
+        'newer jozo-harness',
       )
     })
   })

@@ -1,18 +1,18 @@
-import type { PluginRow } from '@fudo/kernel'
-import { deriveMessages, type SessionEvent, type SessionSummary } from '@fudo/session'
-import { expandHome, type SearchHit } from '@fudo/session-jsonl'
+import type { PluginRow } from '@jozo-harness/kernel'
+import { deriveMessages, type SessionEvent, type SessionSummary } from '@jozo-harness/session'
+import { expandHome, type SearchHit } from '@jozo-harness/session-jsonl'
 
-/** Where the session logs live: the profile's row, or the place fudo keeps them. */
+/** Where the session logs live: the profile's row, or the place jozo-harness keeps them. */
 export const sessionRootOf = (rows: ReadonlyArray<PluginRow>): string => {
   const row = rows.find(
-    (candidate) => candidate.name === '@fudo/session-jsonl' && candidate.disabled !== true,
+    (candidate) => candidate.name === '@jozo-harness/session-jsonl' && candidate.disabled !== true,
   )
   const config = row?.config
   const root =
     typeof config === 'object' && config !== null
       ? (config as { readonly root?: unknown }).root
       : undefined
-  return expandHome(typeof root === 'string' && root !== '' ? root : '~/.fudo/sessions')
+  return expandHome(typeof root === 'string' && root !== '' ? root : '~/.jzh/sessions')
 }
 
 const when = (time: number): string => new Date(time).toISOString().replace('T', ' ').slice(0, 19)

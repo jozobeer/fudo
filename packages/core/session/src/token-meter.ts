@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock } from '@jozo-harness/llm'
 import type { SessionEvent } from './events.ts'
 
 /** What one token is estimated to carry when only bytes are known. */

@@ -1,7 +1,7 @@
 import { dirname } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { guardWrite, look, type ObservedFiles } from './observed-files.ts'
 import { resolveInside } from './workspace.ts'
 import { normalizeNewlines } from './text.ts'

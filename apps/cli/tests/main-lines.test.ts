@@ -13,7 +13,7 @@ const patchWithRoot = async (dir: string): Promise<string> => {
       'name: sessions',
       'plugins:',
       '  - id: session-jsonl',
-      "    name: '@fudo/session-jsonl'",
+      "    name: '@jozo-harness/session-jsonl'",
       '    config:',
       '      root: ' + join(dir, 'sessions'),
     ].join('\n'),
@@ -23,7 +23,7 @@ const patchWithRoot = async (dir: string): Promise<string> => {
 
 describe('main with a line stream', () => {
   test('an empty line stream ends the repl with 0', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-main-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-main-'))
     const err: Array<string> = []
     const code = await Effect.runPromise(
       main(['--model', 'test/model', '--patch', await patchWithRoot(dir)], {
@@ -40,7 +40,7 @@ describe('main with a line stream', () => {
   })
 
   test('without a task and without input there is nothing to do', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-main-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-main-'))
     const err: Array<string> = []
     const code = await Effect.runPromise(
       main(['--patch', await patchWithRoot(dir)], {

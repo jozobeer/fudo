@@ -1,12 +1,12 @@
-import { HooksLive } from '@fudo/kernel'
-import type { SandboxShape } from '@fudo/safety'
+import { HooksLive } from '@jozo-harness/kernel'
+import type { SandboxShape } from '@jozo-harness/safety'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { BASH_MAX_TIMEOUT_MS, clampTimeout, makeBashTool } from '../src/index.ts'

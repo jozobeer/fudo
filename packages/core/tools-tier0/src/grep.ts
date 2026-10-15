@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, writeSpill, type ToolDefinition } from '@fudo/tools'
+import { ToolError, writeSpill, type ToolDefinition } from '@jozo-harness/tools'
 import { takePage } from './page.ts'
 import { isBinary, walkFiles } from './walk.ts'
 

@@ -1,13 +1,13 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm, symlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -63,29 +63,29 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, any>> => [
@@ -111,7 +111,7 @@ const workspace = async (): Promise<string> => await mkdtemp(join(tmpdir(), 'fug
 
 describe('writing over a file through the command', () => {
   test('a file the model read may be rewritten in the same session', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-guard-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-'))
     const dir = await workspace()
     await Bun.write(join(dir, 'notes.txt'), 'the original\n')
 
@@ -143,9 +143,9 @@ describe('writing over a file through the command', () => {
   })
 
   test('a path that leaves the workspace through a link is not written', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-guard-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-'))
     const dir = await workspace()
-    const outside = await mkdtemp(join(tmpdir(), 'fudo-guard-out-'))
+    const outside = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-out-'))
     await symlink(outside, join(dir, 'out'))
 
     const code = await Effect.runPromise(
@@ -178,7 +178,7 @@ describe('writing over a file through the command', () => {
   })
 
   test('a file the model never read is not clobbered', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-guard-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-'))
     const dir = await workspace()
     await Bun.write(join(dir, 'notes.txt'), 'the original\n')
 

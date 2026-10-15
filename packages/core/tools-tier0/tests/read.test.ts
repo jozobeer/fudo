@@ -1,5 +1,5 @@
-import { HooksLive } from '@fudo/kernel'
-import { Tools, toolsLayer, type ToolError, type ToolExecutionResult } from '@fudo/tools'
+import { HooksLive } from '@jozo-harness/kernel'
+import { Tools, toolsLayer, type ToolError, type ToolExecutionResult } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -35,7 +35,7 @@ const textOf = (result: ToolExecutionResult | undefined): string =>
 
 describe('read tool', () => {
   test('returns numbered lines and says where the file ends', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'a.txt'), 'alpha\nbeta\ngamma\n')
 
     const result = await Effect.runPromise(call({ path: 'a.txt' }, dir))
@@ -47,7 +47,7 @@ describe('read tool', () => {
   })
 
   test('a window that stops short tells the model how to continue', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'b.txt'), 'one\ntwo\nthree\nfour\n')
 
     const result = await Effect.runPromise(call({ path: 'b.txt', offset: 2, limit: 2 }, dir))
@@ -60,7 +60,7 @@ describe('read tool', () => {
   })
 
   test('a line over the cap is cut and named', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     const long = 'x'.repeat(READ_MAX_LINE_CHARS + 100)
     await Bun.write(join(dir, 'long.txt'), long + '\nshort\n')
 
@@ -74,7 +74,7 @@ describe('read tool', () => {
   })
 
   test('an offset past the end is an error that names the size', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'c.txt'), 'a\nb\n')
 
     const result = await Effect.runPromise(call({ path: 'c.txt', offset: 5 }, dir))
@@ -86,7 +86,7 @@ describe('read tool', () => {
   })
 
   test('an empty file reads as empty rather than as an error', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'empty.txt'), '')
 
     const result = await Effect.runPromise(call({ path: 'empty.txt' }, dir))
@@ -97,7 +97,7 @@ describe('read tool', () => {
   })
 
   test('a file that is not UTF-8 is refused before it reaches the model', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'binary.bin'), new Uint8Array([0xff, 0xfe, 0x00, 0x41, 0x42]))
 
     const result = await Effect.runPromise(call({ path: 'binary.bin' }, dir))
@@ -108,7 +108,7 @@ describe('read tool', () => {
   })
 
   test('the byte cap stops the window and says the output was capped', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
     await Bun.write(join(dir, 'big.txt'), ('y'.repeat(1000) + '\n').repeat(200))
 
     const result = await Effect.runPromise(call({ path: 'big.txt' }, dir))
@@ -122,7 +122,7 @@ describe('read tool', () => {
   })
 
   test('a missing file is an error result', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-read-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-read-'))
 
     const result = await Effect.runPromise(call({ path: 'nope.txt' }, dir))
 

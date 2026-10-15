@@ -1,7 +1,7 @@
-import type { Waterfall, Serial, Emit } from '@fudo/kernel'
+import type { Waterfall, Serial, Emit } from '@jozo-harness/kernel'
 import type { Effect } from 'effect'
-import type { LlmFailure, TimedStreamChunk, RequestMessage, ToolSchema } from '@fudo/llm'
-import type { Agent, UserMessage } from '@fudo/agent'
+import type { LlmFailure, TimedStreamChunk, RequestMessage, ToolSchema } from '@jozo-harness/llm'
+import type { Agent, UserMessage } from '@jozo-harness/agent'
 
 export interface PreStepInput {
   readonly agent: Agent
@@ -27,7 +27,7 @@ export interface AgentRequest {
 
 export type RequestErrorDecision = { readonly kind: 'retry' } | { readonly kind: 'fail' }
 
-declare module '@fudo/kernel/hook' {
+declare module '@jozo-harness/kernel/hook' {
   interface HookMap {
     'agent/pre-step': Waterfall<(input: PreStepInput) => Effect.Effect<PreStepDecision>>
     'agent/request': Waterfall<(request: AgentRequest) => Effect.Effect<AgentRequest>>

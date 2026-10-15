@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { look, type ObservedFiles } from './observed-files.ts'
 import { linesOf, readUtf8 } from './text.ts'
 import { rangeOf } from './present.ts'

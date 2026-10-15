@@ -1,13 +1,13 @@
 /**
- * The A/B: the same three tasks, run through fudo and dsh, measured from each
+ * The A/B: the same three tasks, run through jozo-harness and dsh, measured from each
  * harness's own session log — tool calls, failed edits, re-reads, and turns.
  *
  * Run it from the repo root with both harnesses configured:
  *
  *   bun run scripts/ab/run.ts
  *
- * Both harnesses are pointed at the same Ollama Cloud model. fudo reads the key
- * from ~/.config/fudo/secrets.env on its own; dsh is given it here (from the
+ * Both harnesses are pointed at the same Ollama Cloud model. jozo-harness reads the key
+ * from ~/.config/jzh/secrets.env on its own; dsh is given it here (from the
  * environment, or from that same file) and runs from a workspace-local DSH_HOME
  * with scripts/ab/dsh-provider.patch.yml as its profile patch, because a harness
  * session may not write outside its workspace. A harness that cannot answer is
@@ -18,23 +18,23 @@ import { readFileSync } from 'node:fs'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { dshMetrics, fudoMetrics, type AbMetrics } from './metrics.ts'
+import { dshMetrics, jozoHarnessMetrics, type AbMetrics } from './metrics.ts'
 import { tableOf, type Cell } from './table.ts'
 import { TASKS, type AbTask } from './tasks.ts'
 
-const ROUTE = process.env.FUDO_AB_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
+const ROUTE = process.env.JZH_AB_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
 const MODEL = ROUTE.includes('/') ? ROUTE.slice(ROUTE.indexOf('/') + 1) : ROUTE
-const TIMEOUT_MS = Number(process.env.FUDO_AB_TIMEOUT_MS ?? '300000')
+const TIMEOUT_MS = Number(process.env.JZH_AB_TIMEOUT_MS ?? '300000')
 /** How many times each cell runs; one run cannot tell a harness difference from noise. */
-const REPEATS = Math.max(1, Number(process.env.FUDO_AB_REPEATS ?? '1'))
+const REPEATS = Math.max(1, Number(process.env.JZH_AB_REPEATS ?? '1'))
 /** The tasks to run, by name and comma-separated; every task when unset. */
-const ONLY = process.env.FUDO_AB_TASKS?.split(',').map((name) => name.trim())
+const ONLY = process.env.JZH_AB_TASKS?.split(',').map((name) => name.trim())
 const tasks = TASKS.filter((task) => ONLY === undefined || ONLY.includes(task.name))
 /**
- * fudo compacts at the smaller of window × 0.8 and window − headroom: 16,000
+ * jozo-harness compacts at the smaller of window × 0.8 and window − headroom: 16,000
  * tokens here, the same line dsh-provider.patch.yml gives dsh.
  */
-const FUDO_COMPACT = { contextWindow: 20_000, headroomTokens: 4_000 }
+const JZH_COMPACT = { contextWindow: 20_000, headroomTokens: 4_000 }
 const root = process.cwd()
 const abRoot = join(root, '.tmp', 'ab')
 const dshTemplate = join(abRoot, 'dsh-template')
@@ -46,13 +46,13 @@ const dshEnv = Object.fromEntries(
   ),
 ) as Record<string, string>
 
-/** The key the Ollama Cloud route needs: the environment first, then fudo's own file. */
+/** The key the Ollama Cloud route needs: the environment first, then jozo-harness's own file. */
 const ollamaKey = (): string | undefined => {
   if (process.env.OLLAMA_API_KEY !== undefined && process.env.OLLAMA_API_KEY !== '') {
     return process.env.OLLAMA_API_KEY
   }
   try {
-    const text = readFileSync(join(homedir(), '.config', 'fudo', 'secrets.env'), 'utf8')
+    const text = readFileSync(join(homedir(), '.config', 'jzh', 'secrets.env'), 'utf8')
     return /^OLLAMA_API_KEY=(.+)$/m.exec(text)?.[1]?.trim()
   } catch {
     return undefined
@@ -142,29 +142,29 @@ const spawn = (
   return { code: run.exitCode, output: run.stdout.toString() + run.stderr.toString() }
 }
 
-const fudoPatch = (sessions: string): string =>
+const jozoHarnessPatch = (sessions: string): string =>
   [
     'name: ab',
     'plugins:',
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + sessions,
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
     '    config:',
-    '      contextWindow: ' + String(FUDO_COMPACT.contextWindow),
-    '      headroomTokens: ' + String(FUDO_COMPACT.headroomTokens),
+    '      contextWindow: ' + String(JZH_COMPACT.contextWindow),
+    '      headroomTokens: ' + String(JZH_COMPACT.headroomTokens),
     '',
   ].join('\n')
 
-const runFudo = async (
+const runJozoHarness = async (
   task: AbTask,
   workspace: string,
   sessions: string,
 ): Promise<Omit<Cell, 'repeat'>> => {
   const patch = join(workspace, '.ab-patch.yml')
-  await writeFile(patch, fudoPatch(sessions))
+  await writeFile(patch, jozoHarnessPatch(sessions))
   const started = Date.now()
   const { code, output } = spawn(
     [
@@ -182,9 +182,9 @@ const runFudo = async (
   )
   const log = await newestFile(sessions, (name) => name === 'session.v1.jsonl', started)
   const events = log === undefined ? undefined : jsonl(await readFile(log, 'utf8'))
-  const counted = events === undefined ? undefined : countedOf(() => fudoMetrics(events))
+  const counted = events === undefined ? undefined : countedOf(() => jozoHarnessMetrics(events))
   return {
-    harness: 'fudo',
+    harness: 'jozo-harness',
     task: task.name,
     code,
     done: await task.done(workspace),
@@ -249,7 +249,11 @@ const prepare = async (): Promise<void> => {
   await prepareDshHome(dshTemplate)
 }
 
-const cellOf = async (harness: 'fudo' | 'dsh', task: AbTask, repeat: number): Promise<Cell> => {
+const cellOf = async (
+  harness: 'jozo-harness' | 'dsh',
+  task: AbTask,
+  repeat: number,
+): Promise<Cell> => {
   const runRoot = join(abRoot, 'runs', harness + '-' + task.name + '-' + String(repeat + 1))
   const workspace = join(runRoot, 'workspace')
   const sessions = join(runRoot, 'sessions')
@@ -261,13 +265,13 @@ const cellOf = async (harness: 'fudo' | 'dsh', task: AbTask, repeat: number): Pr
     await writeFile(join(workspace, path), text)
   }
   const result =
-    harness === 'fudo'
-      ? await runFudo(task, workspace, sessions)
+    harness === 'jozo-harness'
+      ? await runJozoHarness(task, workspace, sessions)
       : await runDsh(task, workspace, join(runRoot, 'dsh-home'))
   return { ...result, repeat }
 }
 
-const HARNESSES: ReadonlyArray<'fudo' | 'dsh'> = ['fudo', 'dsh']
+const HARNESSES: ReadonlyArray<'jozo-harness' | 'dsh'> = ['jozo-harness', 'dsh']
 
 await prepare()
 const cells: Array<Cell> = []

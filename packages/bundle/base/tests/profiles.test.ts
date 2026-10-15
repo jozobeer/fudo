@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseProfile } from '@fudo/kernel'
+import { parseProfile } from '@jozo-harness/kernel'
 import { Effect } from 'effect'
 import { loadBundledProfileNamed } from '../src/index.ts'
 

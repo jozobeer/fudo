@@ -1,35 +1,35 @@
 name: base
 plugins:
   - id: kernel
-    name: '@fudo/kernel'
+    name: '@jozo-harness/kernel'
   - id: sessions
-    name: '@fudo/session'
+    name: '@jozo-harness/session'
   - id: session-jsonl
-    name: '@fudo/session-jsonl'
+    name: '@jozo-harness/session-jsonl'
     config:
-      root: ~/.fudo/sessions
+      root: ~/.jzh/sessions
   - id: tools
-    name: '@fudo/tools'
+    name: '@jozo-harness/tools'
   - id: system-prompt
-    name: '@fudo/system-prompt'
+    name: '@jozo-harness/system-prompt'
   - id: safety
-    name: '@fudo/safety'
+    name: '@jozo-harness/safety'
     config:
       preset: workspace-write
       # Commands run contained by default; sandbox: none runs them as they are.
       sandbox: seatbelt
   - id: tier0
-    name: '@fudo/tools-tier0'
+    name: '@jozo-harness/tools-tier0'
   - id: ask
-    name: '@fudo/ask'
+    name: '@jozo-harness/ask'
   - id: tier1
-    name: '@fudo/tools-tier1'
+    name: '@jozo-harness/tools-tier1'
   - id: llm
-    name: '@fudo/llm-openai'
+    name: '@jozo-harness/llm-openai'
     config:
       baseUrl: https://ollama.com/v1
       apiKeyEnv: OLLAMA_API_KEY
   - id: agent
-    name: '@fudo/agent'
+    name: '@jozo-harness/agent'
   - id: agent-loop
-    name: '@fudo/agent-loop'
+    name: '@jozo-harness/agent-loop'

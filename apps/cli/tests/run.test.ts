@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { interruptOnSignal, linesOf, readChunks, runFudo } from '../src/run.ts'
+import { interruptOnSignal, linesOf, readChunks, runJozoHarness } from '../src/run.ts'
 
 const patchWithRoot = async (dir: string): Promise<string> => {
   const path = join(dir, 'sessions.yml')
@@ -13,7 +13,7 @@ const patchWithRoot = async (dir: string): Promise<string> => {
       'name: sessions',
       'plugins:',
       '  - id: session-jsonl',
-      "    name: '@fudo/session-jsonl'",
+      "    name: '@jozo-harness/session-jsonl'",
       '    config:',
       '      root: ' + join(dir, 'sessions'),
     ].join('\n'),
@@ -29,11 +29,11 @@ describe('linesOf', () => {
   })
 })
 
-describe('runFudo', () => {
+describe('runJozoHarness', () => {
   test('dump-config needs no input and prints the profile', async () => {
     const out: Array<string> = []
     const code = await Effect.runPromise(
-      runFudo(['--dump-config'], {
+      runJozoHarness(['--dump-config'], {
         stdout: (text) => out.push(text),
         stderr: () => undefined,
         cwd: '/work',
@@ -47,10 +47,10 @@ describe('runFudo', () => {
   })
 
   test('piped input feeds the repl', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-run-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-run-'))
     const err: Array<string> = []
     const code = await Effect.runPromise(
-      runFudo(['--model', 'test/model', '--patch', await patchWithRoot(dir)], {
+      runJozoHarness(['--model', 'test/model', '--patch', await patchWithRoot(dir)], {
         stdout: () => undefined,
         stderr: (text) => err.push(text),
         cwd: '/work',
@@ -66,7 +66,7 @@ describe('runFudo', () => {
 
   test('accepts an interrupt effect on the task path', async () => {
     const code = await Effect.runPromise(
-      runFudo(['--help'], {
+      runJozoHarness(['--help'], {
         stdout: () => undefined,
         stderr: () => undefined,
         cwd: '/work',

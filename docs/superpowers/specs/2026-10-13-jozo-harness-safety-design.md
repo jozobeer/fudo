@@ -1,4 +1,4 @@
-# fudo 設計: S2 Safety
+# jozo-harness 設計: S2 Safety
 
 範囲は設計文書の分割表に従う: approval、sandbox seam と macOS Seatbelt provider、sandbox policy、permission preset、escalation。
 
@@ -31,10 +31,10 @@
 ## 決定（2026-10-13）
 
 1. **承認はイベントにする。** 要求と回答を session に残るイベント（safety/approval/requested と safety/approval/answered）として書き、pre-execute hook は Deferred を作って要求を書き、回答を待つ。CLI は端末から、UI はイベント越しに同じ形で答える。待っている間も turn は開いたままにし（turn/end を出さない）、ツール呼び出しの直後に待ちが入る。これで S7・S8 が同じプロトコルで承認を扱える。
-2. **sandbox は「包む」だけの seam にする。** サービス Sandbox を @fudo/safety に置き、wrap(command) が実行すべき argv を返す（例: sandbox-exec -p <profile> -- <argv>）。実行そのものはツール側（bash）が担う。provider は none（素通し）と seatbelt（macOS）。
+2. **sandbox は「包む」だけの seam にする。** サービス Sandbox を @jozo-harness/safety に置き、wrap(command) が実行すべき argv を返す（例: sandbox-exec -p <profile> -- <argv>）。実行そのものはツール側（bash）が担う。provider は none（素通し）と seatbelt（macOS）。
 3. **sandbox の失敗はツールのエラーにする。** 未対応 OS やプロファイル不正は wrap の時点で SandboxError として返し、tool/result の isError で見せる。起動時に落とさない。素通しへ落とすかは policy が決める。
 4. **preset と escalation を分ける。** preset は policy の名前（read-only / workspace-write / full）。escalation は preset の外で実行したいという承認要求であり、理由付きでイベントに残す。1 回の呼び出しにつき 1 段だけ上げる（連鎖させない）。
-5. **policy は専用の行に置く。** profile に @fudo/safety の行を足し、config に preset を書く。ツールごとの細かい規則は、ツール定義が宣言する必要種別（read / write / exec / network）から導く。規則の列挙を YAML に持たない。
+5. **policy は専用の行に置く。** profile に @jozo-harness/safety の行を足し、config に preset を書く。ツールごとの細かい規則は、ツール定義が宣言する必要種別（read / write / exec / network）から導く。規則の列挙を YAML に持たない。
 
 ## S1 に足す拡張点
 
@@ -49,7 +49,7 @@
 | 2. sandbox は包む seam | sandbox.ts（Sandbox サービス、none provider）、seatbelt.ts（SBPL の生成と sandbox-exec の argv 組み立て） |
 | 3. 失敗はツールのエラー | SandboxError。bridge は承認要求を記録できない場合も拒否へ倒す |
 | 4. preset と escalation | policy.ts（decide: allow / ask / deny）、policy-service.ts（Policy サービス、preset を保持） |
-| 5. policy は専用行 | plugin.ts（@fudo/safety の行: preset / sandbox / writableRoots）、base.yml の safety 行（preset: workspace-write） |
+| 5. policy は専用行 | plugin.ts（@jozo-harness/safety の行: preset / sandbox / writableRoots）、base.yml の safety 行（preset: workspace-write） |
 
 CLI 側: runCommand は profile に安全行があるときだけ承認を有効にし、approve 未指定なら拒否（答えてくれる相手がいないまま待ち続けない）。prompt.ts が端末の y/n を扱う（既定は拒否）。
 
@@ -57,4 +57,4 @@ CLI 側: runCommand は profile に安全行があるときだけ承認を有効
 
 ## 学び（Effect 4）
 
-- Layer.mergeAll は requirements を満たさない。片方の層が要求する service をもう片方から供給するには Layer.provide か provideMerge を使う。テストで toolsLayer と HooksLive を mergeAll したために Service not found: fudo/Hooks が 2 ラウンド追いかける羽目になった。
+- Layer.mergeAll は requirements を満たさない。片方の層が要求する service をもう片方から供給するには Layer.provide か provideMerge を使う。テストで toolsLayer と HooksLive を mergeAll したために Service not found: jozo-harness/Hooks が 2 ラウンド追いかける羽目になった。

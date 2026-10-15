@@ -1,5 +1,5 @@
 {
-  "name": "@fudo/session",
+  "name": "@jozo-harness/session",
   "private": true,
   "type": "module",
   "exports": {
@@ -7,8 +7,8 @@
     "./events": "./src/events.ts"
   },
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
     "effect": "4.0.3"
   }
 }

@@ -1,6 +1,6 @@
 import { Schema, Effect } from 'effect'
-import { APPROVAL_ANSWER, type AskShape } from '@fudo/safety'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { APPROVAL_ANSWER, type AskShape } from '@jozo-harness/safety'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
 /** One row of the composition, as a human reads it. */
 export interface PluginRowSummary {
@@ -48,7 +48,7 @@ const Parameters = Schema.Struct({
   ),
   name: Schema.optionalKey(
     Schema.String.annotate({
-      description: 'The plugin package to add, e.g. @fudo/mcp. Required with add.',
+      description: 'The plugin package to add, e.g. @jozo-harness/mcp. Required with add.',
     }),
   ),
   disabled: Schema.optionalKey(
@@ -140,19 +140,19 @@ const changed = (action: string, rows: ReadonlyArray<PluginRowSummary>): PluginV
   changed: true,
   rows,
   note:
-    '(the settings changed; every row is wired when fudo starts again, and a session whose tools ' +
+    '(the settings changed; every row is wired when jozo-harness starts again, and a session whose tools ' +
     'then differ from the ones it recorded needs --allow-preset-change to resume)',
 })
 
 /**
  * Lists the composition and changes the settings the next start reads. Nothing a
- * running process holds changes: a row added here is wired when fudo starts again,
+ * running process holds changes: a row added here is wired when jozo-harness starts again,
  * and every change is one the human approved.
  */
 export const makePluginTool = (host: PluginHost): ToolDefinition<PluginArgs, PluginValue> => ({
   name: 'plugin',
   description:
-    'Lists the plugin rows this session runs with and changes them in the settings the next start reads: add a row for a plugin this build has, remove one, or switch one off. Every change is put to the user first, and it takes effect when fudo starts again, not in this session.',
+    'Lists the plugin rows this session runs with and changes them in the settings the next start reads: add a row for a plugin this build has, remove one, or switch one off. Every change is put to the user first, and it takes effect when jozo-harness starts again, not in this session.',
   parameters: Parameters,
   needs: ['write'],
   output: {

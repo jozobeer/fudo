@@ -1,19 +1,19 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { llmOpenAiPlugin } from '@fudo/llm-openai'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { mcpPlugin, tier1Plugin } from '@fudo/tools-tier1'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { llmOpenAiPlugin } from '@jozo-harness/llm-openai'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { mcpPlugin, tier1Plugin } from '@jozo-harness/tools-tier1'
 
 /**
  * Every plugin a profile row or a settings row may name.
  *
- * `fudo config` reads this table too, so a name it refuses is a name the loader
+ * `jzh config` reads this table too, so a name it refuses is a name the loader
  * would refuse at startup.
  */
 export const bundledPlugins: ReadonlyArray<Plugin<any, any, any>> = [

@@ -5,31 +5,31 @@
 ## モデルを変える
 
 ```sh
-fudo models                                  # 使えるモデルを見る
-fudo config set model ollama-cloud/glm-5.3   # 既定を書き換える
-fudo config                                  # 入ったことを確かめる
+jzh models                                  # 使えるモデルを見る
+jzh config set model ollama-cloud/glm-5.3   # 既定を書き換える
+jzh config                                  # 入ったことを確かめる
 ```
 
 1回だけ変えるなら `--model` を付ける。
 
 ```sh
-fudo --model ollama-cloud/gemma4:31b "Reply with the single word pong"
+jzh --model ollama-cloud/gemma4:31b "Reply with the single word pong"
 ```
 
 ## 設定ファイルを雛形から始める
 
 ```sh
-fudo config init    # 全キーをコメントで並べたファイルを作る
-fudo config         # 値が入ったかを確かめる
+jzh config init    # 全キーをコメントで並べたファイルを作る
+jzh config         # 値が入ったかを確かめる
 ```
 
-`fudo config` が出すパスのファイルを開き、使う行の `#` を外す。
+`jzh config` が出すパスのファイルを開き、使う行の `#` を外す。
 
 ## API キーを入れる
 
 ```sh
-fudo auth add ollama   # 端末に打つ。シェルの履歴に残らない
-fudo auth list         # 入っている名前を見る
+jzh auth add ollama   # 端末に打つ。シェルの履歴に残らない
+jzh auth list         # 入っている名前を見る
 ```
 
 `.env` に書く場合は `OLLAMA_API_KEY=` を作業ディレクトリかその祖先に置く。どれが勝つかは [configuration.md](configuration.md) の環境変数の節にある。
@@ -37,8 +37,8 @@ fudo auth list         # 入っている名前を見る
 ## スキルを読ませる
 
 ```
-.fudo/skills/<name>/SKILL.md   作業ディレクトリの中（ほかの作業ディレクトリへは効かない）
-~/.fudo/skills/<name>/SKILL.md 自分のマシン全体
+.jzh/skills/<name>/SKILL.md   作業ディレクトリの中（ほかの作業ディレクトリへは効かない）
+~/.jzh/skills/<name>/SKILL.md 自分のマシン全体
 ```
 
 `SKILL.md` の先頭に frontmatter を置く。
@@ -55,9 +55,9 @@ description: リリース手順を踏むときに読む
 `description` はセッション開始時にモデルへ配る一覧に載る。`name` と `description` の無いファイルは無視される。別のディレクトリを足す場合は設定ファイルに書く。
 
 ```sh
-fudo config add skills ~/skills     # <name>/SKILL.md を持つディレクトリ
-fudo config remove skills ~/skills  # 外す
-fudo config                         # 入ったことを確かめる
+jzh config add skills ~/skills     # <name>/SKILL.md を持つディレクトリ
+jzh config remove skills ~/skills  # 外す
+jzh config                         # 入ったことを確かめる
 ```
 
 同じディレクトリを二度足しても増えない。
@@ -67,8 +67,8 @@ fudo config                         # 入ったことを確かめる
 同梱 `base` profile の `safety` 行に、変えたいキーだけを重ねる。
 
 ```sh
-fudo config set plugins.safety.preset full
-fudo config                                             # 入ったことを確かめる
+jzh config set plugins.safety.preset full
+jzh config                                             # 入ったことを確かめる
 ```
 
 `plugins.safety.preset` は「id が `safety` の行の `preset`」の意味で、`sandbox` のような他のキーは同梱の値のまま残る。1回の実行だけ変えるなら `--patch` に渡すファイルで同じ行を書く。
@@ -77,14 +77,14 @@ fudo config                                             # 入ったことを確�
 name: full
 plugins:
   - id: safety
-    name: '@fudo/safety'
+    name: '@jozo-harness/safety'
     config:
       preset: full
 ```
 
 ```sh
-fudo --patch full.yml "…"
-fudo --dump-config --patch full.yml   # 効いた行を確かめる
+jzh --patch full.yml "…"
+jzh --dump-config --patch full.yml   # 効いた行を確かめる
 ```
 
 ## MCP サーバを繋ぐ
@@ -92,12 +92,12 @@ fudo --dump-config --patch full.yml   # 効いた行を確かめる
 行を足し、`command` に起動コマンドを配列で渡す。
 
 ```sh
-fudo config add plugins @fudo/mcp
-fudo config set plugins.mcp.command '["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
-fudo config set plugins.mcp.prefix 'fs__'   # 省略すると mcp__
+jzh config add plugins @jozo-harness/mcp
+jzh config set plugins.mcp.command '["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
+jzh config set plugins.mcp.prefix 'fs__'   # 省略すると mcp__
 ```
 
-サーバの tool は `prefix` を頭に付けて登録される。行を消すときは `fudo config remove plugins mcp`。
+サーバの tool は `prefix` を頭に付けて登録される。行を消すときは `jzh config remove plugins mcp`。
 
 ## セッションログの置き場を変える
 
@@ -105,22 +105,22 @@ fudo config set plugins.mcp.prefix 'fs__'   # 省略すると mcp__
 name: sessions
 plugins:
   - id: session-jsonl
-    name: '@fudo/session-jsonl'
+    name: '@jozo-harness/session-jsonl'
     config:
-      root: ~/work/fudo-sessions
+      root: ~/work/jozo-harness-sessions
 ```
 
 ```sh
-fudo --patch sessions.yml "…"
+jzh --patch sessions.yml "…"
 ```
 
 ## コマンドを sandbox の外で走らせる
 
-`@fudo/safety` の `sandbox` は既定で `seatbelt`（macOS の `sandbox-exec`）である。コマンドは自分が走るディレクトリと一時ディレクトリにだけ書ける。それ以外の場所に書こうとすると `Operation not permitted` になる。
+`@jozo-harness/safety` の `sandbox` は既定で `seatbelt`（macOS の `sandbox-exec`）である。コマンドは自分が走るディレクトリと一時ディレクトリにだけ書ける。それ以外の場所に書こうとすると `Operation not permitted` になる。
 
 ```yaml
   - id: safety
-    name: '@fudo/safety'
+    name: '@jozo-harness/safety'
     config:
       preset: workspace-write
       sandbox: none          # 明示的に外すときだけ
@@ -151,7 +151,7 @@ team update id=task-1 state=done revision=1
 
 ```
 plugin list                     この run が組まれた行
-plugin add id=mcp name=@fudo/mcp
+plugin add id=mcp name=@jozo-harness/mcp
 plugin set id=mcp disabled=true
 ```
 
@@ -162,8 +162,8 @@ plugin set id=mcp disabled=true
 セッションは、始めたときの profile 名と tool の一覧を覚えている。違う構成で再開すると、turn を始める前に拒否され、違う点が stderr に出る。
 
 ```sh
-fudo --resume <sessionId> "続き"                          # 同じ構成なら続く
-fudo --resume <sessionId> --allow-preset-change "続き"     # 意図して変える（新しい構成を記録する）
+jzh --resume <sessionId> "続き"                          # 同じ構成なら続く
+jzh --resume <sessionId> --allow-preset-change "続き"     # 意図して変える（新しい構成を記録する）
 ```
 
 ## セッションに話しかけずに尋ねる（コマンド）
@@ -180,17 +180,17 @@ REPL・TUI・Web では、行頭が `/` の行はコマンドとしてその場�
 ## 過去のセッションを探して読む
 
 ```sh
-fudo sessions              # 新しい順に、id・開始時刻・作業ディレクトリ
-fudo sessions <sessionId>  # そのセッションの会話を読む
+jzh sessions              # 新しい順に、id・開始時刻・作業ディレクトリ
+jzh sessions <sessionId>  # そのセッションの会話を読む
 ```
 
-続きから走らせるには `fudo --resume <sessionId>` を使う。一覧はセッションログの置き場（既定は `~/.fudo/sessions`）を見るので、置き場を変えているときは `--config` で同じ設定を指す。
+続きから走らせるには `jzh --resume <sessionId>` を使う。一覧はセッションログの置き場（既定は `~/.jzh/sessions`）を見るので、置き場を変えているときは `--config` で同じ設定を指す。
 
 ## 設定が効かないときに見る
 
 ```sh
-fudo config          # 設定ファイルのパス、4キーの今の値、リストの中身
-fudo --dump-config   # 行、plugin ごとのキー、フラグ、環境変数
+jzh config          # 設定ファイルのパス、4キーの今の値、リストの中身
+jzh --dump-config   # 行、plugin ごとのキー、フラグ、環境変数
 ```
 
-`fudo config` に値が出なければ、そのキーは読まれていない。綴りは [configuration.md](configuration.md) の表と突き合わせる。`profile:` が指せるのは同梱の `base` / `headless` / `repl` だけである。
+`jzh config` に値が出なければ、そのキーは読まれていない。綴りは [configuration.md](configuration.md) の表と突き合わせる。`profile:` が指せるのは同梱の `base` / `headless` / `repl` だけである。

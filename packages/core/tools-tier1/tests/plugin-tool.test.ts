@@ -1,12 +1,12 @@
-import { HooksLive } from '@fudo/kernel'
-import type { AskRequested, AskShape } from '@fudo/safety'
+import { HooksLive } from '@jozo-harness/kernel'
+import type { AskRequested, AskShape } from '@jozo-harness/safety'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import {
@@ -17,11 +17,11 @@ import {
 } from '../src/index.ts'
 
 const PROFILE_ROWS: ReadonlyArray<PluginRowSummary> = [
-  { id: 'kernel', name: '@fudo/kernel', disabled: false },
-  { id: 'tier1', name: '@fudo/tools-tier1', disabled: false },
+  { id: 'kernel', name: '@jozo-harness/kernel', disabled: false },
+  { id: 'tier1', name: '@jozo-harness/tools-tier1', disabled: false },
 ]
 
-const KNOWN = ['@fudo/kernel', '@fudo/tools-tier1', '@fudo/mcp']
+const KNOWN = ['@jozo-harness/kernel', '@jozo-harness/tools-tier1', '@jozo-harness/mcp']
 
 /** A settings file that only exists in this test's memory. */
 const fakeHost = (answer = 'approve') => {
@@ -87,8 +87,8 @@ describe('the plugin tool', () => {
     const result = await Effect.runPromise(call(makePluginTool(host), { action: 'list' }))
 
     expect(changes).toEqual([])
-    expect(textOf(result)).toContain('kernel @fudo/kernel')
-    expect(textOf(result)).toContain('tier1 @fudo/tools-tier1')
+    expect(textOf(result)).toContain('kernel @jozo-harness/kernel')
+    expect(textOf(result)).toContain('tier1 @jozo-harness/tools-tier1')
     expect(textOf(result)).toContain('next start')
   })
 
@@ -96,13 +96,13 @@ describe('the plugin tool', () => {
     const { host, asked, changes } = fakeHost()
 
     const result = await Effect.runPromise(
-      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@fudo/mcp' }),
+      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@jozo-harness/mcp' }),
     )
 
     expect(asked).toHaveLength(1)
     expect(asked[0]?.id).toBe('call-9')
     expect(asked[0]?.options).toEqual(['approve', 'keep the rows as they are'])
-    expect(changes).toEqual([{ kind: 'add', id: 'mcp', name: '@fudo/mcp' }])
+    expect(changes).toEqual([{ kind: 'add', id: 'mcp', name: '@jozo-harness/mcp' }])
     expect(result?.value).toMatchObject({ changed: true })
     expect(textOf(result)).toContain('starts again')
   })
@@ -116,7 +116,7 @@ describe('the plugin tool', () => {
 
     expect(result?.isError).toBe(true)
     expect(textOf(result)).toContain('this build does not have left-pad')
-    expect(textOf(result)).toContain('@fudo/mcp')
+    expect(textOf(result)).toContain('@jozo-harness/mcp')
     expect(asked).toEqual([])
     expect(changes).toEqual([])
   })
@@ -138,7 +138,7 @@ describe('the plugin tool', () => {
   test('disable and remove name the row they touch', async () => {
     const { host, changes } = fakeHost()
     await Effect.runPromise(
-      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@fudo/mcp' }),
+      call(makePluginTool(host), { action: 'add', id: 'mcp', name: '@jozo-harness/mcp' }),
     )
 
     await Effect.runPromise(
@@ -147,8 +147,8 @@ describe('the plugin tool', () => {
     await Effect.runPromise(call(makePluginTool(host), { action: 'remove', id: 'mcp' }))
 
     expect(changes).toEqual([
-      { kind: 'add', id: 'mcp', name: '@fudo/mcp' },
-      { kind: 'set-disabled', id: 'mcp', name: '@fudo/mcp', disabled: true },
+      { kind: 'add', id: 'mcp', name: '@jozo-harness/mcp' },
+      { kind: 'set-disabled', id: 'mcp', name: '@jozo-harness/mcp', disabled: true },
       { kind: 'remove', id: 'mcp' },
     ])
   })

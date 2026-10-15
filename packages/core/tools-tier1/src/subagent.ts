@@ -1,8 +1,8 @@
-import { forkSeed, type SessionEvent } from '@fudo/session'
+import { forkSeed, type SessionEvent } from '@jozo-harness/session'
 import { childAnswerOf } from './child-answer.ts'
 import { Schema, Effect } from 'effect'
-import type { AgentsShape } from '@fudo/agent'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import type { AgentsShape } from '@jozo-harness/agent'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
 const Parameters = Schema.Struct({
   task: Schema.optionalKey(

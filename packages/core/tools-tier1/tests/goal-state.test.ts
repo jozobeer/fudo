@@ -1,4 +1,4 @@
-import type { SessionEvent } from '@fudo/session'
+import type { SessionEvent } from '@jozo-harness/session'
 import { describe, expect, test } from 'bun:test'
 import { currentGoal, goalRounds, MIN_BLOCKED_ROUNDS } from '../src/index.ts'
 

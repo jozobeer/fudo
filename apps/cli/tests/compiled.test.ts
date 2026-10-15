@@ -23,8 +23,8 @@ const runBinary = async (argv: ReadonlyArray<string>) => {
 }
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'fudo-compiled-'))
-  binary = join(dir, 'fudo')
+  dir = await mkdtemp(join(tmpdir(), 'jzh-compiled-'))
+  binary = join(dir, 'jzh')
   const build = Bun.spawn([process.execPath, 'build', '--compile', entry, '--outfile', binary], {
     stdout: 'ignore',
     stderr: 'inherit',

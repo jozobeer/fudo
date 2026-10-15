@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { dshMetrics, fudoMetrics } from './metrics.ts'
+import { dshMetrics, jozoHarnessMetrics } from './metrics.ts'
 
 /** The two shapes, as the logs actually carry them. */
-const fudoEvents = [
+const jozoHarnessEvents = [
   { type: 'turn/start', data: { turn: 1 } },
   { type: 'tool/call', data: { callId: 'c1', name: 'read', arguments: '{"path":"src/a.ts"}' } },
   { type: 'tool/result', data: { callId: 'c1', isError: false } },
@@ -29,8 +29,8 @@ const dshEvents = [
 ]
 
 describe('the A/B counters', () => {
-  test('count the same story from the fudo log', () => {
-    const metrics = fudoMetrics(fudoEvents)
+  test('count the same story from the jozo-harness log', () => {
+    const metrics = jozoHarnessMetrics(jozoHarnessEvents)
 
     expect(metrics.toolCalls).toBe(3)
     expect(metrics.reReads).toBe(1)
@@ -50,7 +50,7 @@ describe('the A/B counters', () => {
   })
 
   test('a failed edit is not counted as a re-read, and other failures are not edits', () => {
-    const metrics = fudoMetrics([
+    const metrics = jozoHarnessMetrics([
       { type: 'tool/call', data: { callId: 'x', name: 'read', arguments: '{"path":"a"}' } },
       { type: 'tool/result', data: { callId: 'x', isError: true } },
       { type: 'tool/call', data: { callId: 'y', name: 'read', arguments: '{"path":"a"}' } },
@@ -62,7 +62,7 @@ describe('the A/B counters', () => {
   })
 
   test('count the summaries each harness wrote when the context ran out', () => {
-    const fudo = fudoMetrics([
+    const jozoHarness = jozoHarnessMetrics([
       { type: 'compaction/checkpoint', data: { summary: 'one' } },
       { type: 'compaction/prune', data: {} },
       { type: 'compaction/checkpoint', data: { summary: 'two' } },
@@ -74,9 +74,9 @@ describe('the A/B counters', () => {
       { type: 'compaction/checkpoint', data: { summary: 'not a dsh summary' } },
     ])
 
-    expect(fudo.compactions).toBe(2)
+    expect(jozoHarness.compactions).toBe(2)
     expect(dsh.compactions).toBe(1)
-    expect(fudoMetrics(fudoEvents).compactions).toBe(0)
+    expect(jozoHarnessMetrics(jozoHarnessEvents).compactions).toBe(0)
   })
 
   test('a read whose path cannot be found stops the count instead of reading as no re-read', () => {
@@ -85,7 +85,7 @@ describe('the A/B counters', () => {
       { type: 'tool/call', data: { callId: 'r2', name: 'read', arguments: args } },
     ]
 
-    expect(() => fudoMetrics(readOf('{"filename":"src/a.ts"}'))).toThrow(
+    expect(() => jozoHarnessMetrics(readOf('{"filename":"src/a.ts"}'))).toThrow(
       'read without a path: {"filename":"src/a.ts"}',
     )
     expect(() => dshMetrics(readOf('{"file_path":'))).toThrow('read without a path: {"file_path":')

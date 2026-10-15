@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { sessionPlugin, type AssistantMessageData } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { sessionPlugin, type AssistantMessageData } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Deferred, Effect, Layer, Schema, Stream } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
@@ -14,7 +14,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { runCommand } from '../src/index.ts'
-import { UiRpcs, withoutServices } from '@fudo/web'
+import { UiRpcs, withoutServices } from '@jozo-harness/web'
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'text-delta', index: 0, text },
@@ -36,7 +36,7 @@ const stubLlm: Plugin<{}, Llm, never> = {
         images: 'none',
         promptCacheControl: false,
       },
-      stream: () => Stream.fromIterable(textTurn('hello from fudo')),
+      stream: () => Stream.fromIterable(textTurn('hello from jozo-harness')),
     } satisfies LlmAdapter),
 }
 
@@ -45,23 +45,23 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 const plugins: ReadonlyArray<Plugin<any, any, any>> = [
@@ -90,8 +90,8 @@ describe('the browser UI through the command', () => {
   }, 60_000)
 
   test('a browser client drives a real turn and the static app is served', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-web-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-web-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-web-ws-'))
     const ready = await Effect.runSync(Deferred.make<string>())
     const stop = await Effect.runSync(Deferred.make<void>())
 
@@ -152,9 +152,9 @@ describe('the browser UI through the command', () => {
     const opened = await Effect.runPromise(jsonlSessions({ root }).open(sessions[0]?.id ?? ''))
 
     expect(observed.accepted).toBe(true)
-    expect(observed.answer).toContain('hello from fudo')
+    expect(observed.answer).toContain('hello from jozo-harness')
     expect(observed.status).toBe(200)
-    expect(observed.home).toContain('<title>fudo</title>')
+    expect(observed.home).toContain('<title>jozo-harness</title>')
     expect(
       opened.events.flatMap((event) =>
         event.type === 'user/message' && event.data.source === 'user' ? [event.data.text] : [],

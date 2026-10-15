@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { emptyConversation, type Conversation } from '@fudo/ui-view'
-import type { UiEvent } from '@fudo/ui-protocol'
+import { emptyConversation, type Conversation } from '@jozo-harness/ui-view'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
 import {
   emptyEditor,
   insert,

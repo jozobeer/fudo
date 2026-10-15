@@ -1,12 +1,12 @@
-import { HooksLive } from '@fudo/kernel'
-import type { SessionEvent } from '@fudo/session'
+import { HooksLive } from '@jozo-harness/kernel'
+import type { SessionEvent } from '@jozo-harness/session'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { makeGoalTool, type GoalLog, type GoalState } from '../src/index.ts'

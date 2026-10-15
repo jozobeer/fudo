@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { ToolError } from '@fudo/tools'
+import { ToolError } from '@jozo-harness/tools'
 import type { SearchHit, SearchHost } from './search.ts'
 
 export interface BraveSearchOptions {

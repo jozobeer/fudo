@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BlockAssembler } from '@fudo/llm'
+import { BlockAssembler } from '@jozo-harness/llm'
 import { decodeOpenAiStream } from '../src/index.ts'
 
 const fixture = async (): Promise<ReadonlyArray<string>> =>

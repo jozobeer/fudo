@@ -76,11 +76,11 @@ describe('main', () => {
     expect(text).toContain('profile: headless — default')
     expect(text).toContain('OLLAMA_API_KEY:')
     expect(text).toContain(
-      '@fudo/safety: preset (required, one of read-only|workspace-write|full), sandbox (optional, one of none|seatbelt), writableRoots (optional, string[])',
+      '@jozo-harness/safety: preset (required, one of read-only|workspace-write|full), sandbox (optional, one of none|seatbelt), writableRoots (optional, string[])',
     )
-    expect(text).toContain('@fudo/kernel: none')
+    expect(text).toContain('@jozo-harness/kernel: none')
     expect(text).toContain(
-      '- planMode (the @fudo/safety row): true hides the tools that change the workspace',
+      '- planMode (the @jozo-harness/safety row): true hides the tools that change the workspace',
     )
   })
 
@@ -94,7 +94,7 @@ describe('main', () => {
         'name: patch',
         'plugins:',
         '  - id: llm',
-        "    name: '@fudo/llm-openai'",
+        "    name: '@jozo-harness/llm-openai'",
         '    config:',
         '      baseUrl: http://127.0.0.1:11434/v1',
       ].join('\n'),

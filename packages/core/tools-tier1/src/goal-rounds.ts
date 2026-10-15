@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import type { Agent } from '@fudo/agent'
-import type { SessionEvent } from '@fudo/session'
+import type { Agent } from '@jozo-harness/agent'
+import type { SessionEvent } from '@jozo-harness/session'
 import {
   currentGoal,
   goalRounds,

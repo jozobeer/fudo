@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, utimes } from 'node:fs/promises'
@@ -43,7 +43,7 @@ const textOf = (result: ToolExecutionResult | undefined): string =>
   (result?.content ?? []).flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
 
 const workspace = async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
+  const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
   await Bun.write(join(dir, 'a.ts'), 'const one = 1\n// needle\n')
   await Bun.write(join(dir, 'sub', 'b.ts'), 'const two = 2\n')
   await Bun.write(join(dir, 'c.md'), 'needle in markdown\n')
@@ -155,7 +155,7 @@ describe('grep tool', () => {
   })
 
   test('an over-page search spills every match and says where they are', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
     await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
     const written = new Map<string, string>()
 
@@ -171,7 +171,7 @@ describe('grep tool', () => {
   })
 
   test('a capped search says how to see the rest', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-search-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
     await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
 
     const result = await Effect.runPromise(call(grepTool, { pattern: 'needle', limit: 1 }, dir))

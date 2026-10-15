@@ -1,12 +1,12 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, LlmFailure, type LlmAdapter } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, LlmFailure, type LlmAdapter } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -38,34 +38,34 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '  - id: ask',
-    "    name: '@fudo/ask'",
+    "    name: '@jozo-harness/ask'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 describe('a turn that fails', () => {
   test('is reported on stderr and exits 1', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-fail-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-fail-'))
     const err: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -93,13 +93,13 @@ describe('a turn that fails', () => {
 
     expect({ code, stderr: err.join('') }).toEqual({
       code: 1,
-      stderr: 'fudo: the turn failed: AUTH: no API key is configured\n',
+      stderr: 'jzh: the turn failed: AUTH: no API key is configured\n',
     })
     await rm(root, { recursive: true, force: true })
   })
 
   test('a completed turn still exits 0', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-ok-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-ok-'))
     const ok: Plugin<{}, Llm, never> = {
       ...failing,
       layer: () =>

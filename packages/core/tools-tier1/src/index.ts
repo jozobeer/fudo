@@ -1,8 +1,8 @@
 export * from './todo.ts'
 export * from './ask.ts'
 
-import type { AskShape } from '@fudo/safety'
-import type { ToolDefinition } from '@fudo/tools'
+import type { AskShape } from '@jozo-harness/safety'
+import type { ToolDefinition } from '@jozo-harness/tools'
 import { askUserToolFor } from './ask.ts'
 import { webFetchTool } from './fetch.ts'
 import { readImageTool } from './image.ts'

@@ -1,5 +1,5 @@
-import { Llm } from '@fudo/llm'
-import type { Plugin } from '@fudo/kernel'
+import { Llm } from '@jozo-harness/llm'
+import type { Plugin } from '@jozo-harness/kernel'
 import { Layer, Schema } from 'effect'
 import { openAiAdapter } from './adapter.ts'
 
@@ -19,7 +19,7 @@ export const llmOpenAiConfig = Schema.Struct({
  * one the recording confirmed: no `tool_choice`, no prompt cache control.
  */
 export const llmOpenAiPlugin: Plugin<typeof llmOpenAiConfig.Type, Llm, never> = {
-  name: '@fudo/llm-openai',
+  name: '@jozo-harness/llm-openai',
   config: llmOpenAiConfig,
   provides: [Llm],
   requires: [],

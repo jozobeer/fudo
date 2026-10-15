@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -36,7 +36,7 @@ const skillText = (name: string, body = 'steps'): string =>
 
 describe('skill tool', () => {
   test('reads the SKILL.md of a skill the roots hold', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     const path = join(root, 'demo', 'SKILL.md')
     await Bun.write(path, skillText('demo', '# demo\nsteps'))
 
@@ -57,7 +57,7 @@ describe('skill tool', () => {
   })
 
   test('an unknown skill names what is available', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     await Bun.write(join(root, 'demo', 'SKILL.md'), skillText('demo'))
 
     const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'nope' }))
@@ -69,7 +69,7 @@ describe('skill tool', () => {
   })
 
   test('a skill file that fails validation is not readable', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skill-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     await Bun.write(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
 
     const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'broken' }))

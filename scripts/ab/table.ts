@@ -3,7 +3,7 @@
 import type { AbMetrics } from './metrics.ts'
 
 export interface Cell {
-  readonly harness: 'fudo' | 'dsh'
+  readonly harness: 'jozo-harness' | 'dsh'
   readonly task: string
   readonly repeat: number
   readonly code: number | undefined

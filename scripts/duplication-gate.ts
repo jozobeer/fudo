@@ -41,7 +41,7 @@ const ansi = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g')
 const report = (run.stdout.toString() + run.stderr.toString()).replace(ansi, '')
 const found = /Found (\d+) clones?\./.exec(report)
 if (found === null) {
-  process.stderr.write('fudo: the duplication gate could not run jscpd; is the network up?\n')
+  process.stderr.write('jzh: the duplication gate could not run jscpd; is the network up?\n')
   process.stderr.write(report.slice(-2000))
   process.exit(1)
 }
@@ -49,7 +49,7 @@ if (found === null) {
 const clones = Number(found[1])
 if (clones > 0) {
   process.stderr.write(
-    'fudo: ' +
+    'jzh: ' +
       String(clones) +
       ' duplicated runs of ' +
       MIN_LINES +

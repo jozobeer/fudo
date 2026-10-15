@@ -2,7 +2,7 @@ import {
   registerLogOnlySessionEvents,
   registerSessionEventSchemas,
   type SessionEventSchemaMap,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Schema } from 'effect'
 
 /** Asks the user to let one call run outside the preset. */
@@ -18,7 +18,7 @@ export interface ApprovalAnswered {
   readonly approved: boolean
 }
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'safety/approval/requested': ApprovalRequested
     'safety/approval/answered': ApprovalAnswered

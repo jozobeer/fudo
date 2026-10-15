@@ -13,13 +13,13 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 const usage = (io: AuthIo): number => {
   io.stderr(
-    'fudo auth add PROVIDER  store the key for a service (' +
+    'jzh auth add PROVIDER  store the key for a service (' +
       PROVIDERS.map((p) => p.name).join(', ') +
       ')\n',
   )
-  io.stderr('fudo auth set NAME      store one secret under an exact name\n')
-  io.stderr('fudo auth list          show which services have a key\n')
-  io.stderr('fudo auth remove NAME   forget one secret\n')
+  io.stderr('jzh auth set NAME      store one secret under an exact name\n')
+  io.stderr('jzh auth list          show which services have a key\n')
+  io.stderr('jzh auth remove NAME   forget one secret\n')
   return 2
 }
 
@@ -35,11 +35,11 @@ const storeSecret = async (
 ): Promise<number> => {
   const value = (await io.readLine(prompt)).trim()
   if (value === '') {
-    io.stderr('fudo: nothing was read, so nothing was stored\n')
+    io.stderr('jzh: nothing was read, so nothing was stored\n')
     return 2
   }
   writeSecret(paths.secrets, name, value)
-  io.stdout('fudo: stored ' + label + ' in ' + paths.secrets + '\n')
+  io.stdout('jzh: stored ' + label + ' in ' + paths.secrets + '\n')
   return 0
 }
 
@@ -58,7 +58,7 @@ const setName: AuthCommand = async (argv, io, paths) => {
 const listNames: AuthCommand = async (_argv, io, paths) => {
   const names = listSecrets(paths.secrets)
   if (names.length === 0) {
-    io.stdout('fudo: no secrets stored\n')
+    io.stdout('jzh: no secrets stored\n')
     return 0
   }
   for (const name of names) {
@@ -72,7 +72,7 @@ const removeName: AuthCommand = async (argv, io, paths) => {
   const name = argv[0] ?? ''
   if (!NAME.test(name)) return usage(io)
   const removed = removeSecret(paths.secrets, name)
-  io.stdout(removed ? 'fudo: removed ' + name + '\n' : 'fudo: ' + name + ' was not stored\n')
+  io.stdout(removed ? 'jzh: removed ' + name + '\n' : 'jzh: ' + name + ' was not stored\n')
   return removed ? 0 : 1
 }
 

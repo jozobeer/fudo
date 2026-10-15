@@ -4,7 +4,7 @@ import {
   registerSessionEventSchemas,
   type SessionEvent,
   type SessionEventSchemaMap,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 
 /** One named child of this session. */
 export interface TeamMember {
@@ -27,7 +27,7 @@ export interface TeamTask {
   readonly revision: number
 }
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'team/spawned': TeamMember
     'team/task/created': { readonly task: TeamTask }

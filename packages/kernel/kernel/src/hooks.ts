@@ -93,6 +93,6 @@ export function makeHooks(): HookRegistry {
 }
 
 /** Kernel service that owns the application-scoped hook registry. */
-export class Hooks extends Context.Service<Hooks, HookRegistry>()('fudo/Hooks') {}
+export class Hooks extends Context.Service<Hooks, HookRegistry>()('jozo-harness/Hooks') {}
 
 export const HooksLive: Layer.Layer<Hooks> = Layer.succeed(Hooks, makeHooks())

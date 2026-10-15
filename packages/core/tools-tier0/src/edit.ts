@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
 import { readForEdit, restoreLineEndings } from './text.ts'
 import { changedLines } from './present.ts'

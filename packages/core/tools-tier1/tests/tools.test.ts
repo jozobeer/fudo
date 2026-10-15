@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { makeAsk } from '@fudo/safety'
+import { makeAsk } from '@jozo-harness/safety'
 import { tier1Tools } from '../src/index.ts'
 
 describe('tier1Tools', () => {

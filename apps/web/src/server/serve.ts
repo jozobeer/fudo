@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { Effect, Layer } from 'effect'
 import { RpcSerialization, RpcServer } from 'effect/rpc'
-import { sendCommand, type UiHost } from '@fudo/ui-protocol'
+import { sendCommand, type UiHost } from '@jozo-harness/ui-protocol'
 import { UiRpcs } from '../shared/rpc.ts'
 import { makeWebProtocol, type Connection } from './protocol.ts'
 import { staticResponse } from './static.ts'

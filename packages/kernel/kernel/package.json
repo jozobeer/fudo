@@ -1,5 +1,5 @@
 {
-  "name": "@fudo/kernel",
+  "name": "@jozo-harness/kernel",
   "private": true,
   "type": "module",
   "exports": {

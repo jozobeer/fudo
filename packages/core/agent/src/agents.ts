@@ -1,7 +1,7 @@
-import { Hooks } from '@fudo/kernel'
+import { Hooks } from '@jozo-harness/kernel'
 import { Context, Effect, Exit, Layer, Scope, type Fiber } from 'effect'
-import type { SessionId } from '@fudo/session'
-import { Sessions } from '@fudo/session'
+import type { SessionId } from '@jozo-harness/session'
+import { Sessions } from '@jozo-harness/session'
 import { makeAgent, type AgentHandle } from './agent.ts'
 import './hooks.ts'
 import {
@@ -12,7 +12,7 @@ import {
   type CreateAgentOptions,
 } from './types.ts'
 
-export class Agents extends Context.Service<Agents, AgentsShape>()('fudo/Agents') {}
+export class Agents extends Context.Service<Agents, AgentsShape>()('jozo-harness/Agents') {}
 
 interface Registered {
   readonly agent: Agent
@@ -110,5 +110,5 @@ export const agentsFromServiceLayer: Layer.Layer<
 )
 
 export class AgentRunnerService extends Context.Service<AgentRunnerService, AgentRunner>()(
-  'fudo/AgentRunner',
+  'jozo-harness/AgentRunner',
 ) {}

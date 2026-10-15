@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { PluginError, PluginRowSchema, type PluginRow } from '@fudo/kernel'
+import { PluginError, PluginRowSchema, type PluginRow } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 
 /** The settings file: defaults for the command line plus extra plugin rows. */
@@ -10,7 +10,7 @@ export const ConfigFileSchema = Schema.Struct({
   plugins: Schema.optionalKey(Schema.Array(PluginRowSchema)),
 })
 
-export interface FudoConfig {
+export interface JozoHarnessConfig {
   readonly model?: string | undefined
   readonly profile?: string | undefined
   readonly skills?: ReadonlyArray<string> | undefined
@@ -20,7 +20,7 @@ export interface FudoConfig {
 const configError = (message: string): PluginError => new PluginError({ code: 'config', message })
 
 /** Parses one YAML settings document. Unknown keys are ignored on purpose. */
-export function parseConfigText(text: string): Effect.Effect<FudoConfig, PluginError> {
+export function parseConfigText(text: string): Effect.Effect<JozoHarnessConfig, PluginError> {
   return Effect.gen(function* () {
     const raw = yield* Effect.try({
       try: () => Bun.YAML.parse(text) as unknown,
@@ -35,7 +35,7 @@ export function parseConfigText(text: string): Effect.Effect<FudoConfig, PluginE
 }
 
 /** A settings file that is not there is simply no settings. */
-export function loadConfigFile(path: string): Effect.Effect<FudoConfig, PluginError> {
+export function loadConfigFile(path: string): Effect.Effect<JozoHarnessConfig, PluginError> {
   return Effect.gen(function* () {
     if (!existsSync(path)) return {}
     const text = yield* Effect.tryPromise({

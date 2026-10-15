@@ -1,5 +1,5 @@
-import type { Conversation, ConversationBlock } from '@fudo/ui-view'
-import { plainText } from '@fudo/ui-view'
+import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
+import { plainText } from '@jozo-harness/ui-view'
 import type { WebState } from './state.ts'
 
 /** Everything a page puts into HTML goes through here. */
@@ -77,6 +77,6 @@ const hintOf = (state: WebState): string => {
 export const renderStatus = (state: WebState): string =>
   '<span class="dot ' +
   (state.connected ? 'on' : 'off') +
-  '"></span><span class="title">fudo</span><span class="hint">' +
+  '"></span><span class="title">jozo-harness</span><span class="hint">' +
   hintOf(state) +
   '</span>'

@@ -17,7 +17,7 @@ const { mkdtemp, readFile, readdir, rm } = await import('node:fs/promises')
 const { tmpdir } = await import('node:os')
 const { join } = await import('node:path')
 
-const directory = await mkdtemp(join(tmpdir(), 'fudo-coverage-'))
+const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-coverage-'))
 const run = Bun.spawnSync(
   ['bun', 'test', '--coverage', '--coverage-reporter=lcov', '--coverage-dir', directory],
   { stdio: ['inherit', 'inherit', 'inherit'], cwd: process.cwd() },
@@ -62,7 +62,7 @@ for (const [name, value] of summary) {
 }
 if (short.length > 0) {
   process.stderr.write(
-    'fudo: coverage fell below the floor: ' +
+    'jzh: coverage fell below the floor: ' +
       short.map(([name]) => name).join(', ') +
       '; add a test or lower the floor in scripts/coverage-gate.ts\n',
   )

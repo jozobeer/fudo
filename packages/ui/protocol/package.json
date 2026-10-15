@@ -1,12 +1,12 @@
 {
-  "name": "@fudo/ui-protocol",
+  "name": "@jozo-harness/ui-protocol",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/llm": "workspace:*",
-    "@fudo/safety": "workspace:*",
-    "@fudo/session": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/safety": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
     "effect": "4.0.3"
   }
 }

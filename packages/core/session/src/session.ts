@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import type { RequestMessage } from '@fudo/llm'
+import type { RequestMessage } from '@jozo-harness/llm'
 import { deriveMessages } from './derive.ts'
 import type { MessageProjection } from './projections.ts'
 import { SessionError } from './errors.ts'

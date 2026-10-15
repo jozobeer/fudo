@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Hooks, HooksLive } from '@fudo/kernel'
+import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import { Effect } from 'effect'
 import { Sessions, sessionsLayer, type SessionEvent } from '../src/index.ts'
 import { makeFakePersistence } from './support.ts'

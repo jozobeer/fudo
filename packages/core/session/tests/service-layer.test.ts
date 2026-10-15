@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Hooks, HooksLive, loadProfile, type Plugin } from '@fudo/kernel'
+import { Hooks, HooksLive, loadProfile, type Plugin } from '@jozo-harness/kernel'
 import { Context, Effect, Layer, Schema } from 'effect'
 import {
   Sessions,
@@ -57,7 +57,7 @@ describe('session plugin through the loader', () => {
           plugins: [hooksPlugin, providerPlugin, sessionPlugin],
           layers: [
             [
-              { id: 'session', name: '@fudo/session', config: {} },
+              { id: 'session', name: '@jozo-harness/session', config: {} },
               { id: 'hooks', name: 'hooks', config: {} },
               { id: 'provider', name: 'provider', config: {} },
             ],

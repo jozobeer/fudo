@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { kernelPlugin, loadProfile } from '@fudo/kernel'
-import { BlockAssembler, Llm } from '@fudo/llm'
+import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
+import { BlockAssembler, Llm } from '@jozo-harness/llm'
 import { Context, Effect, Layer, Stream } from 'effect'
 import { replayAdapter, replayPlugin } from '../src/index.ts'
 import { normalizeLog } from '../src/scenario.ts'
@@ -99,7 +99,7 @@ describe('replayAdapter', () => {
           plugins: [kernelPlugin, replayPlugin(sse)],
           layers: [
             [
-              { id: 'kernel', name: '@fudo/kernel', config: {} },
+              { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
               { id: 'llm', name: 'replay-llm', config: {} },
             ],
           ],

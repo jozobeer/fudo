@@ -1,13 +1,13 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -73,29 +73,29 @@ const profile = (root: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, any>> => [
@@ -113,8 +113,8 @@ const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, an
 
 describe('workspace instructions', () => {
   test('AGENTS.md reaches the model request', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
     const seen: Array<string> = []
 
@@ -137,8 +137,8 @@ describe('workspace instructions', () => {
   })
 
   test('a workspace with only CLAUDE.md still reaches the model', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     await Bun.write(join(workspace, 'CLAUDE.md'), CLAUDE_MARKER + '\n')
     const seen: Array<string> = []
 
@@ -162,8 +162,8 @@ describe('workspace instructions', () => {
   })
 
   test('a nested AGENTS.md reaches the model once a tool touches its directory', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const nested = join(workspace, 'packages', 'foo')
     await mkdir(nested, { recursive: true })
     await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
@@ -207,8 +207,8 @@ describe('workspace instructions', () => {
   })
 
   test('a huge AGENTS.md is cut inside the budget and the model is told', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     await Bun.write(join(workspace, 'AGENTS.md'), 'filler line\n'.repeat(6000) + TAIL_MARKER + '\n')
     const seen: Array<string> = []
 
@@ -241,9 +241,9 @@ describe('workspace instructions', () => {
   })
 
   test('the home AGENTS.md renders before the workspace one', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-md-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-ws-'))
-    const home = await mkdtemp(join(tmpdir(), 'fudo-home-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
     await Bun.write(join(home, 'AGENTS.md'), HOME_MARKER + '\n')
     await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
     const seen: Array<string> = []
@@ -255,7 +255,7 @@ describe('workspace instructions', () => {
         cwd: workspace,
         route: 'stub/model',
         task: 'say ok',
-        fudoHome: home,
+        jzhHome: home,
         stdout: () => undefined,
         stderr: () => undefined,
       }),

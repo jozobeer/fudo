@@ -1,7 +1,7 @@
 /** A named permission level a profile chooses. */
 export type PermissionPreset = 'read-only' | 'workspace-write' | 'full'
 
-/** What a tool declared it needs; see ToolNeeds in @fudo/tools. */
+/** What a tool declared it needs; see ToolNeeds in @jozo-harness/tools. */
 export type NeededCapability = 'read' | 'write' | 'exec' | 'network'
 
 export const KNOWN_CAPABILITIES: ReadonlyArray<NeededCapability> = [

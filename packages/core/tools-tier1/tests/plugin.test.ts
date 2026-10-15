@@ -1,5 +1,5 @@
-import { kernelPlugin, loadProfile } from '@fudo/kernel'
-import { askPlugin } from '@fudo/safety'
+import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
+import { askPlugin } from '@jozo-harness/safety'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { Tier1Tools, tier1Plugin } from '../src/index.ts'
@@ -13,9 +13,9 @@ describe('tier1Plugin', () => {
             plugins: [kernelPlugin, askPlugin, tier1Plugin],
             layers: [
               [
-                { id: 'kernel', name: '@fudo/kernel', config: {} },
-                { id: 'ask', name: '@fudo/ask', config: {} },
-                { id: 'tier1', name: '@fudo/tools-tier1', config: {} },
+                { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
+                { id: 'ask', name: '@jozo-harness/ask', config: {} },
+                { id: 'tier1', name: '@jozo-harness/tools-tier1', config: {} },
               ],
             ],
           })

@@ -8,7 +8,7 @@
 
 | 条件 | 状態 | 証拠 |
 |---|---|---|
-| 1. fudo --profile headless の 1 turn 完走 | 実 API キー待ち（経路は実装済み） | apps/cli/src/{bin,run,index}.ts、apps/cli/tests/headless.test.ts |
+| 1. jzh --profile headless の 1 turn 完走 | 実 API キー待ち（経路は実装済み） | apps/cli/src/{bin,run,index}.ts、apps/cli/tests/headless.test.ts |
 | 2. --resume が復元した history で 2 turn 目を走る | 済 | apps/cli/tests/resume.test.ts |
 | 3. tool 例外 / retry / cancel で対と turn/end.reason が正しい | 済 | packages/core/agent-loop/tests/loop.test.ts、apps/cli/tests/interrupt.test.ts |
 | 4. 録画 fixture を API キー無しで実スタックに通す | 済 | packages/test-support/replay/、apps/cli/tests/replay.test.ts |
@@ -65,4 +65,4 @@ packages/test-support/replay/tests/replay.test.ts
 
 ## 環境の確認（2026-10-13）
 
-- この環境には OLLAMA_API_KEY が設定されておらず、~/.fudo も無い。したがって条件 1 の実 API 実行はここでは行えない（キーを用意した環境で fudo --profile headless を実行し、この記録を更新する）。
+- この環境には OLLAMA_API_KEY が設定されておらず、~/.jzh も無い。したがって条件 1 の実 API 実行はここでは行えない（キーを用意した環境で jzh --profile headless を実行し、この記録を更新する）。

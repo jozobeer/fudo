@@ -1,15 +1,15 @@
 {
-  "name": "@fudo/agent-loop",
+  "name": "@jozo-harness/agent-loop",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/agent": "workspace:*",
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
-    "@fudo/session": "workspace:*",
-    "@fudo/system-prompt": "workspace:*",
-    "@fudo/tools": "workspace:*",
+    "@jozo-harness/agent": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
+    "@jozo-harness/system-prompt": "workspace:*",
+    "@jozo-harness/tools": "workspace:*",
     "effect": "4.0.3"
   }
 }

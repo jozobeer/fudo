@@ -1,4 +1,4 @@
-import { braveSearch, type SearchHost } from '@fudo/tools-tier1'
+import { braveSearch, type SearchHost } from '@jozo-harness/tools-tier1'
 
 /** The environment variable that turns web search on. */
 export const SEARCH_KEY_ENV = 'BRAVE_API_KEY'

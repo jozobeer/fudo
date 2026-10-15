@@ -1,7 +1,7 @@
 import { Effect, Queue, Schedule, Stream } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
-import type { UiCommand } from '@fudo/ui-protocol'
+import type { UiCommand } from '@jozo-harness/ui-protocol'
 import { UiRpcs, withoutServices } from '../src/shared/rpc.ts'
 import { applyUiEvent, initialState, withDraft, withConnection, type WebState } from './state.ts'
 import { renderConversation, renderStatus } from './view.ts'

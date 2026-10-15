@@ -1,11 +1,11 @@
 {
-  "name": "@fudo/session-jsonl",
+  "name": "@jozo-harness/session-jsonl",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/session": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
     "effect": "4.0.3"
   }
 }

@@ -32,7 +32,7 @@ describe('seatbeltProfile', () => {
   })
 
   test('a symlinked root is named where it points as well', () => {
-    const real = mkdtempSync(join(tmpdir(), 'fudo-root-'))
+    const real = mkdtempSync(join(tmpdir(), 'jozo-harness-root-'))
     const link = real + '-link'
     symlinkSync(real, link)
     try {

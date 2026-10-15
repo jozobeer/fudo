@@ -1,4 +1,4 @@
-import { applyEvent, emptyConversation } from '@fudo/ui-view'
+import { applyEvent, emptyConversation } from '@jozo-harness/ui-view'
 export const initialState = {
   conversation: emptyConversation,
   connected: false,

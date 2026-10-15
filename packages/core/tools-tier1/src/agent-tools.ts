@@ -1,6 +1,6 @@
 import { Duration, Schema, Effect } from 'effect'
-import type { Agent, AgentsShape } from '@fudo/agent'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import type { Agent, AgentsShape } from '@jozo-harness/agent'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
 /** How long wait_agent waits before it reports a child still working. */
 export const WAIT_AGENT_DEFAULT_MS = 300_000

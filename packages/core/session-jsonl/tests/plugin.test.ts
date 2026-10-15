@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { loadProfile } from '@fudo/kernel'
-import { SESSION_FORMAT_VERSION, SessionPersistenceService } from '@fudo/session'
+import { loadProfile } from '@jozo-harness/kernel'
+import { SESSION_FORMAT_VERSION, SessionPersistenceService } from '@jozo-harness/session'
 import { Context, Effect, Layer } from 'effect'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -20,7 +20,7 @@ describe('sessionJsonlPlugin', () => {
       Effect.gen(function* () {
         const layer = yield* loadProfile({
           plugins: [sessionJsonlPlugin],
-          layers: [[{ id: 'jsonl', name: '@fudo/session-jsonl', config: { root } }]],
+          layers: [[{ id: 'jsonl', name: '@jozo-harness/session-jsonl', config: { root } }]],
         })
         const context = yield* Layer.build(layer)
         const persistence = Context.get(context, SessionPersistenceService)

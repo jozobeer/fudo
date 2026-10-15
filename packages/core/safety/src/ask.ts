@@ -4,7 +4,7 @@ import {
   registerSessionEventSchemas,
   type Session,
   type SessionEventSchemaMap,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Schema } from 'effect'
 
 /** A question for the user, with the choices the model offered. */
@@ -20,7 +20,7 @@ export interface AskAnswered {
   readonly answer: string
 }
 
-declare module '@fudo/session/events' {
+declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'interaction/ask/requested': AskRequested
     'interaction/ask/answered': AskAnswered
@@ -79,7 +79,7 @@ export const makeAsk = (): Effect.Effect<AskShape> =>
     }
   })
 
-export class Ask extends Context.Service<Ask, AskShape>()('fudo/Ask') {}
+export class Ask extends Context.Service<Ask, AskShape>()('jozo-harness/Ask') {}
 
 export const askServiceLayer: Layer.Layer<Ask, never> = Layer.effect(Ask, makeAsk())
 

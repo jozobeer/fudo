@@ -1,15 +1,15 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { loadBundledProfile } from '@fudo/bundle-base'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { llmOpenAiPlugin } from '@fudo/llm-openai'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { loadBundledProfile } from '@jozo-harness/bundle-base'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { llmOpenAiPlugin } from '@jozo-harness/llm-openai'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -20,7 +20,7 @@ import { runCommand } from '../src/index.ts'
 /** The key the shipped profile names; without it this lane asks nobody. */
 const KEY = process.env.OLLAMA_API_KEY ?? ''
 /** The route to ask; the recorded run used this one. */
-const ROUTE = process.env.FUDO_REAL_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
+const ROUTE = process.env.JZH_REAL_ROUTE ?? 'ollama-cloud/deepseek-v4.1-flash'
 
 /**
  * The real-API lane: no stub stands in for the provider, so this is the only
@@ -32,14 +32,16 @@ describe('the real provider', () => {
   test.skipIf(KEY === '')(
     'a turn writes the file the task asked for',
     async () => {
-      const logs = await mkdtemp(join(tmpdir(), 'fudo-real-logs-'))
-      const home = await mkdtemp(join(tmpdir(), 'fudo-real-home-'))
-      const workspace = await mkdtemp(join(tmpdir(), 'fudo-real-work-'))
+      const logs = await mkdtemp(join(tmpdir(), 'jozo-harness-real-logs-'))
+      const home = await mkdtemp(join(tmpdir(), 'jozo-harness-real-home-'))
+      const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-real-work-'))
 
       const code = await Effect.runPromise(
         runCommand({
           profiles: [await loadBundledProfile()],
-          extraRows: [{ id: 'session-jsonl', name: '@fudo/session-jsonl', config: { root: logs } }],
+          extraRows: [
+            { id: 'session-jsonl', name: '@jozo-harness/session-jsonl', config: { root: logs } },
+          ],
           plugins: [
             kernelPlugin,
             sessionJsonlPlugin,
@@ -57,7 +59,7 @@ describe('the real provider', () => {
           cwd: workspace,
           route: ROUTE,
           task: 'Create a file named real.txt in the working directory whose whole content is the line real-api-ok. Then answer done.',
-          fudoHome: home,
+          jzhHome: home,
           stdout: () => undefined,
           stderr: () => undefined,
         }),

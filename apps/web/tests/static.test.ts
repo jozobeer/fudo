@@ -20,11 +20,11 @@ describe('static files', () => {
   })
 
   test('a present file answers with its type and a missing one does not answer', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-static-'))
-    await Bun.write(join(root, 'index.html'), '<h1>fudo</h1>')
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-static-'))
+    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const found = await staticResponse(root, '/')
     expect(found?.headers.get('content-type')).toBe('text/html; charset=utf-8')
-    expect(await found?.text()).toBe('<h1>fudo</h1>')
+    expect(await found?.text()).toBe('<h1>jozo-harness</h1>')
     expect(await staticResponse(root, '/missing.js')).toBeUndefined()
     await rm(root, { recursive: true, force: true })
   })

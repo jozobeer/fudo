@@ -1,5 +1,10 @@
-import { AgentRunnerService, type Agent, type AgentRunner, type UserMessage } from '@fudo/agent'
-import { Hooks, type Plugin } from '@fudo/kernel'
+import {
+  AgentRunnerService,
+  type Agent,
+  type AgentRunner,
+  type UserMessage,
+} from '@jozo-harness/agent'
+import { Hooks, type Plugin } from '@jozo-harness/kernel'
 import {
   BlockAssembler,
   Llm,
@@ -11,7 +16,7 @@ import {
   type StreamChunk,
   type TimedStreamChunk,
   type ToolSchema,
-} from '@fudo/llm'
+} from '@jozo-harness/llm'
 import {
   COMPACT_SUMMARY_INSTRUCTION,
   DEFAULT_COMPACT_KEEP_LAST,
@@ -32,17 +37,19 @@ import {
   type SessionEvent,
   type SessionEventMap,
   type TokenBudget,
-} from '@fudo/session'
-import { SystemPrompt } from '@fudo/system-prompt'
-import { applySpill, makeSpillWriter, type SpillOptions } from '@fudo/tools'
-import { Tools, resultSummary } from '@fudo/tools'
+} from '@jozo-harness/session'
+import { SystemPrompt } from '@jozo-harness/system-prompt'
+import { applySpill, makeSpillWriter, type SpillOptions } from '@jozo-harness/tools'
+import { Tools, resultSummary } from '@jozo-harness/tools'
 import { Context, Effect, Exit, Layer, Queue, Schema, Stream } from 'effect'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { groupCalls, type CallBatch } from './batch.ts'
 import type { AgentRequest } from './hooks.ts'
 
-export class AgentLoop extends Context.Service<AgentLoop, AgentRunner>()('fudo/AgentLoop') {}
+export class AgentLoop extends Context.Service<AgentLoop, AgentRunner>()(
+  'jozo-harness/AgentLoop',
+) {}
 
 type ToolCall = Extract<ContentBlock, { type: 'tool-call' }>
 
@@ -73,7 +80,7 @@ export const DEFAULT_COMPACT_HEADROOM_TOKENS = 65_536
 const SPILL_BYTES = 32_000
 
 /** Where spilled text goes without a profile saying otherwise: the managed default. */
-const SPILL_ROOT = join(tmpdir(), 'fudo-spill')
+const SPILL_ROOT = join(tmpdir(), 'jzh-spill')
 
 const spillOf = (agent: Agent): SpillOptions => ({
   maxSpillBytes: agent.options.maxSpillBytes ?? SPILL_BYTES,
@@ -572,7 +579,7 @@ export const agentLoopPlugin: Plugin<
   AgentRunnerService,
   Hooks | Tools | SystemPrompt | Llm
 > = {
-  name: '@fudo/agent-loop',
+  name: '@jozo-harness/agent-loop',
   config: agentLoopConfigSchema,
   provides: [AgentRunnerService],
   requires: [Hooks, Tools, SystemPrompt, Llm],

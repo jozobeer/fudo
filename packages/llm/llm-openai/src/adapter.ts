@@ -6,7 +6,7 @@ import {
   type LlmRequest,
   type RequestMessage,
   type StreamChunk,
-} from '@fudo/llm'
+} from '@jozo-harness/llm'
 import { Effect, Stream } from 'effect'
 import { OpenAiStreamDecoder } from './sse.ts'
 

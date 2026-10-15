@@ -1,4 +1,4 @@
-# fudo 設計: S3 Tier 0
+# jozo-harness 設計: S3 Tier 0
 
 範囲は設計文書の分割表に従う: read / write / edit / glob / grep / bash の 6 ツール。実装は packages/core/tools-tier0。
 
@@ -7,7 +7,7 @@
 - ツールは ToolDefinition（parameters / needs / output / execute）で宣言し、execute の Effect は R = never。
 - output.render は (args, value) を受け取る。パイプラインがその順で呼ぶ。
 - 実行は executeTool の 1 本の pipeline を通り、tools/pre-execute の ask 決定で承認要求になる（S2 の bridge）。preset が needs を覆っていれば問い合わせなしで実行される。
-- bash は Sandbox.wrap を通してから spawn する。provider は profile の @fudo/safety 行が決める。
+- bash は Sandbox.wrap を通してから spawn する。provider は profile の @jozo-harness/safety 行が決める。
 
 ## 決定
 

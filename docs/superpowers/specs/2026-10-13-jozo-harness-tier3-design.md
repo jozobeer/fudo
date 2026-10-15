@@ -1,4 +1,4 @@
-# fudo 設計: S6 Tier 3
+# jozo-harness 設計: S6 Tier 3
 
 範囲は設計文書の分割表に従う: subagent（fork を含む）、jobs、goal、workflow（PTC）、working-directory。schedule は分割表に無いが、[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C2 が求めるので、2026-10-14 にこの段へ足した。
 
@@ -18,14 +18,14 @@
    - 自動再開は `startGoalRound(agent)` が担い、CLI が `agent/turn-stopping` に登録する。turn が閉じる**前に**次のラウンドの指示を `goal-round` 来源の user/message として `followup` するので、run が途中で idle になって終わることがない。上限に達していれば、システムの判断として blocked（round-limit）にする。ラウンドの判断は自分（`wire` された agent）の turn だけを見る。`goal-round` は `USER_MESSAGE_SOURCES` に足す。
    - モデルは `goal` ツールの action（create / edit / pause / resume / complete / blocked）で目標を動かす。blocked は理由を要求し、直近の user/message が `goal-round`（＝自動ラウンドの中）なら 3 ラウンド未満では拒否する。
 4. **workflow はデータで書く扇状実行にする（2026-10-14 改訂）。** 当初は「同じ turn で複数のツールを並べるだけ」と決めていたが、[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md)の C3 が、子エージェントを扇状に走らせ・結果を検証し・失敗項目を null に落とす workflow を求めているので、ツールを 1 つ足す。
-   - 入力はデータ（task の配列）にする。dsh のように JavaScript のオーケストレーションスクリプトを解釈する engine は持たない（fudo には script を走らせる sandbox と interpreter が無く、その分のコストが v1 の規模を超える）。ループ・分岐・逐次依存は、モデルが workflow を何回か呼ぶことで表す。
+   - 入力はデータ（task の配列）にする。dsh のように JavaScript のオーケストレーションスクリプトを解釈する engine は持たない（jozo-harness には script を走らせる sandbox と interpreter が無く、その分のコストが v1 の規模を超える）。ループ・分岐・逐次依存は、モデルが workflow を何回か呼ぶことで表す。
    - 扇状実行そのものは S6 の並列ツール呼び出し（isConcurrencySafe）と同じ仕組みで行う。1 つの task が失敗してもその項目だけが null になり、他の task と run 全体は生き残る。
    - 結果の検証は「task が expect: json を宣言していれば JSON として読む」に留める。dsh は結果を schema で検証して分岐に使うが、その schema 言語は持たない。
-   - **2026-10-14 追記（ギャップ表の「workflow の編成」）**: 前段の出力を後段に渡すパイプライン（dsh の `pipeline` hook）は要らない、と決める。理由は 3 つ。(1) その hook は dsh の JavaScript オーケストレーション engine の一部で、engine を持たない決定と一体である。(2) 段を跨ぐ依存は、モデルが workflow をもう一度呼ぶことで表せる。このとき後段の子は親のログから fork するので、前段の結果（親の `tool/result`）は子の履歴に最初から入っている——`forkSeed`（`fudo:packages/core/session/src/fork.ts`）が落とすのは最後の `user/message` だけである。値をもう一度書かせる必要はない。(3) 段ごとの往復は増えるが、そのコストは「同一タスクの A/B」（ギャップ表の 6 章）で測る対象であり、測る前に engine を足さない。往復が支配的だと数値が示したら、この決定を見直す。
+   - **2026-10-14 追記（ギャップ表の「workflow の編成」）**: 前段の出力を後段に渡すパイプライン（dsh の `pipeline` hook）は要らない、と決める。理由は 3 つ。(1) その hook は dsh の JavaScript オーケストレーション engine の一部で、engine を持たない決定と一体である。(2) 段を跨ぐ依存は、モデルが workflow をもう一度呼ぶことで表せる。このとき後段の子は親のログから fork するので、前段の結果（親の `tool/result`）は子の履歴に最初から入っている——`forkSeed`（`jzh:packages/core/session/src/fork.ts`）が落とすのは最後の `user/message` だけである。値をもう一度書かせる必要はない。(3) 段ごとの往復は増えるが、そのコストは「同一タスクの A/B」（ギャップ表の 6 章）で測る対象であり、測る前に engine を足さない。往復が支配的だと数値が示したら、この決定を見直す。
 5. **subagent の fork は、親の履歴を子に渡す形で表す。** 子のセッションを親のイベントから派生させて作り、cwd と route を引き継ぐ。**2026-10-14 改訂（[dsh のギャップ表](../../notes/2026-10-14-dsh-gap-backlog.md) C9）**: 引き継ぐのは既定であって唯一の形ではない。呼び出しは (a) `model` で子の route を `provider/model` として指名できる（形はツールが検査し、通らなければ子を起こす前に拒否する）、(b) `context: 'fresh'` で種を空にできる（親の履歴を渡さない）、(c) `task` を省くと子を起こして何も走らせない（idle のまま残り、`send_message` で仕事を渡せる）。route は Agent ごとの `options.route` に載り、runner がそれを `request/header` の provider / model にするので、子は自分の route で走る。
 6. **schedule はログのイベントで表し、時計は 1 本の fiber が持つ（2026-10-14 追加）。** 予定は `schedule/created` / `schedule/updated` / `schedule/deleted` としてログに残し、`currentSchedules(events)` が最新の状態を畳む（goal と同じ方針）。期限到達は `schedule/fired` として記録し、発火の判定は「ルールから計算した次の時刻」と「最後に発火した時刻」の比較だけで行う。時計は起動時に一度だけ立てる scoped fiber が持ち、次の期限まで `Effect.sleep` して `followup` する。したがって予定はプロセスをまたいで生き、再開したセッションでも期限が来ていれば発火する。
    - 種別は every（秒）・daily（ローカル時刻）・weekly（曜日 + ローカル時刻）・cron（5 フィールド）。
-   - 時間帯はプロセスのローカル 1 つだけを使う。dsh は予定ごとに IANA の zone を持つが、fudo の v1 は持たない（差分として記録する）。
+   - 時間帯はプロセスのローカル 1 つだけを使う。dsh は予定ごとに IANA の zone を持つが、jozo-harness の v1 は持たない（差分として記録する）。
 
 ## 進め方
 

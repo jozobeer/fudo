@@ -1,5 +1,5 @@
-import { HooksLive } from '@fudo/kernel'
-import { Tools, toolsLayer } from '@fudo/tools'
+import { HooksLive } from '@jozo-harness/kernel'
+import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { jobTools, makeJobs } from '../src/index.ts'

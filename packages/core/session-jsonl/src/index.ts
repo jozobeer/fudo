@@ -9,7 +9,7 @@ import {
   type SessionPersistence,
   type SessionSink,
   type SessionSummary,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Effect } from 'effect'
 import type { Dirent } from 'node:fs'
 import { appendFile, mkdir, readdir, readFile, stat as statFile, writeFile } from 'node:fs/promises'

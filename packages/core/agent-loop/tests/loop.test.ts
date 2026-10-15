@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { Agents, agentsLayer, type Agent, type AgentError, type AgentsShape } from '@fudo/agent'
-import { Hooks, makeHooks, type HookRegistry } from '@fudo/kernel'
-import { Llm, LlmFailure, type LlmAdapter, type StreamChunk } from '@fudo/llm'
+import {
+  Agents,
+  agentsLayer,
+  type Agent,
+  type AgentError,
+  type AgentsShape,
+} from '@jozo-harness/agent'
+import { Hooks, makeHooks, type HookRegistry } from '@jozo-harness/kernel'
+import { Llm, LlmFailure, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
 import {
   SessionError,
   sessionsLayer,
@@ -12,9 +18,15 @@ import {
   type SessionPersistence,
   type SessionSink,
   type SessionSummary,
-} from '@fudo/session'
-import { SystemPrompt, makeSystemPrompt, type SystemPromptShape } from '@fudo/system-prompt'
-import { Tools, ToolError, makeTools, type ToolDefinition, type ToolRegistry } from '@fudo/tools'
+} from '@jozo-harness/session'
+import { SystemPrompt, makeSystemPrompt, type SystemPromptShape } from '@jozo-harness/system-prompt'
+import {
+  Tools,
+  ToolError,
+  makeTools,
+  type ToolDefinition,
+  type ToolRegistry,
+} from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Scope, Stream } from 'effect'
 import { AgentLoop, agentLoopLayer } from '../src/index.ts'
 

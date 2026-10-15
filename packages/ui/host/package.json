@@ -1,13 +1,13 @@
 {
-  "name": "@fudo/ui-host",
+  "name": "@jozo-harness/ui-host",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/agent": "workspace:*",
-    "@fudo/kernel": "workspace:*",
-    "@fudo/session": "workspace:*",
-    "@fudo/ui-protocol": "workspace:*",
+    "@jozo-harness/agent": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
+    "@jozo-harness/ui-protocol": "workspace:*",
     "effect": "4.0.3"
   }
 }

@@ -18,7 +18,7 @@ export interface SandboxShape {
   readonly wrap: (command: SandboxCommand) => Effect.Effect<SandboxCommand, SandboxError>
 }
 
-export class Sandbox extends Context.Service<Sandbox, SandboxShape>()('fudo/Sandbox') {}
+export class Sandbox extends Context.Service<Sandbox, SandboxShape>()('jozo-harness/Sandbox') {}
 
 /** Runs commands unchanged; the default when no sandbox provider is configured. */
 export const noneSandbox: SandboxShape = {

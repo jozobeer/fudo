@@ -1,6 +1,6 @@
 import { Data } from 'effect'
 import type { Effect, Schema } from 'effect'
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock } from '@jozo-harness/llm'
 import type { SpillWriter } from './spill.ts'
 
 export type ToolErrorCode =

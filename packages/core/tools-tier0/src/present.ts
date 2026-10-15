@@ -1,4 +1,4 @@
-import { oneLine } from '@fudo/tools'
+import { oneLine } from '@jozo-harness/tools'
 
 /** `read src/app.ts:10-40`, or just the path when the whole file was meant. */
 export const rangeOf = (args: {

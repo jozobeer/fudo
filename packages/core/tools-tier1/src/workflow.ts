@@ -1,8 +1,8 @@
 import { Schema, Effect } from 'effect'
-import type { AgentsShape } from '@fudo/agent'
-import { forkSeed, type JsonValue, type SessionEvent } from '@fudo/session'
+import type { AgentsShape } from '@jozo-harness/agent'
+import { forkSeed, type JsonValue, type SessionEvent } from '@jozo-harness/session'
 import { childAnswerOf } from './child-answer.ts'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
 /** How many children a workflow runs at once unless the caller says otherwise. */
 export const WORKFLOW_CONCURRENCY = 4

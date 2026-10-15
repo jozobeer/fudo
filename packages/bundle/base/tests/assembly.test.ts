@@ -1,16 +1,16 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { kernelPlugin, loadProfile, parseProfile } from '@fudo/kernel'
-import { Sessions, sessionPlugin } from '@fudo/session'
-import { sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { SystemPrompt, systemPromptPlugin } from '@fudo/system-prompt'
-import { Tools, toolsPlugin } from '@fudo/tools'
-import { Policy, askPlugin, safetyPlugin } from '@fudo/safety'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { tier1Plugin } from '@fudo/tools-tier1'
-import { Llm } from '@fudo/llm'
-import { llmOpenAiPlugin } from '@fudo/llm-openai'
-import { Agents, agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
+import { kernelPlugin, loadProfile, parseProfile } from '@jozo-harness/kernel'
+import { Sessions, sessionPlugin } from '@jozo-harness/session'
+import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { SystemPrompt, systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { Tools, toolsPlugin } from '@jozo-harness/tools'
+import { Policy, askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { tier1Plugin } from '@jozo-harness/tools-tier1'
+import { Llm } from '@jozo-harness/llm'
+import { llmOpenAiPlugin } from '@jozo-harness/llm-openai'
+import { Agents, agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
 import { Context, Effect, Layer } from 'effect'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -75,7 +75,7 @@ describe('bundled profile assembly', () => {
       sessions: true,
       tools: 0,
       // The prompt layer opens with the built-in identity and tool guidance.
-      prompt: ['fudo:identity', 'fudo:tool-guidance'],
+      prompt: ['jzh:identity', 'jzh:tool-guidance'],
       llm: false,
       preset: 'workspace-write',
     })

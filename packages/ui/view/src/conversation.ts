@@ -1,12 +1,12 @@
-import type { ContentBlock } from '@fudo/llm'
-import type { ApprovalRequested, AskRequested } from '@fudo/safety'
-import type { SessionEvent } from '@fudo/session'
+import type { ContentBlock } from '@jozo-harness/llm'
+import type { ApprovalRequested, AskRequested } from '@jozo-harness/safety'
+import type { SessionEvent } from '@jozo-harness/session'
 import {
   sessionEventOf,
   type UiEvent,
   type UiSessionEvent,
   type UiStreamChunk,
-} from '@fudo/ui-protocol'
+} from '@jozo-harness/ui-protocol'
 import { firstLine, oneLine, truncate } from './text.ts'
 
 export type NoticeLevel = 'info' | 'warn' | 'error'

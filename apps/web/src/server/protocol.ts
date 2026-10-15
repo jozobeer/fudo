@@ -18,7 +18,7 @@ const decodeText = (encoded: Uint8Array | string): string =>
 
 /**
  * The RPC server protocol over one framed message per WebSocket frame. This is
- * the only place fudo uses `effect/rpc`; a change in its framing stays here.
+ * the only place jozo-harness uses `effect/rpc`; a change in its framing stays here.
  */
 export const makeWebProtocol: Effect.Effect<WebProtocol, never, RpcSerialization.RpcSerialization> =
   Effect.gen(function* () {

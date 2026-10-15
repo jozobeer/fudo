@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { appendFile, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Effect } from 'effect'
-import { SESSION_FORMAT_VERSION, type SessionHeader } from '@fudo/session'
+import { SESSION_FORMAT_VERSION, type SessionHeader } from '@jozo-harness/session'
 import { jsonlSessions } from '../src/index.ts'
 
 const tempRoot = join(import.meta.dir, '.tmp')

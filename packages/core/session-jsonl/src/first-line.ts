@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { stat } from 'node:fs/promises'
 import { persistenceError } from './errors.ts'
-import type { SessionError } from '@fudo/session'
+import type { SessionError } from '@jozo-harness/session'
 
 /** How much of a log is read to find its first line. */
 export const HEADER_READ_BYTES = 64 * 1024

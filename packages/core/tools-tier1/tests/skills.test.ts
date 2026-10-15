@@ -47,8 +47,8 @@ describe('parseSkillDocument', () => {
 
 describe('discoverSkills', () => {
   test('lists every root in order, first root wins on one name', async () => {
-    const first = await mkdtemp(join(tmpdir(), 'fudo-skills-'))
-    const second = await mkdtemp(join(tmpdir(), 'fudo-skills-'))
+    const first = await mkdtemp(join(tmpdir(), 'jozo-harness-skills-'))
+    const second = await mkdtemp(join(tmpdir(), 'jozo-harness-skills-'))
     await writeSkill(first, 'demo', 'from the first root')
     await writeSkill(first, 'other')
     await writeSkill(second, 'demo', 'from the second root')
@@ -65,7 +65,7 @@ describe('discoverSkills', () => {
   })
 
   test('a SKILL.md that fails validation is ignored', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-skills-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skills-'))
     await Bun.write(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
 
     const skills = await Effect.runPromise(discoverSkills([root]))
@@ -105,20 +105,20 @@ describe('renderSkillCatalog', () => {
 
 describe('skillRoots', () => {
   test('reads the workspace, the custom roots, then the home', () => {
-    expect(skillRoots({ cwd: '/work', home: '/home/me/.fudo', custom: ['/extra'] })).toEqual([
-      '/work/.fudo/skills',
+    expect(skillRoots({ cwd: '/work', home: '/home/me/.jzh', custom: ['/extra'] })).toEqual([
+      '/work/.jzh/skills',
       '/extra',
-      '/home/me/.fudo/skills',
+      '/home/me/.jzh/skills',
     ])
   })
 
   test('a repeated root appears once', () => {
-    expect(
-      skillRoots({ cwd: '/work', custom: ['/work/.fudo/skills', '/extra', '/extra'] }),
-    ).toEqual(['/work/.fudo/skills', '/extra'])
+    expect(skillRoots({ cwd: '/work', custom: ['/work/.jzh/skills', '/extra', '/extra'] })).toEqual(
+      ['/work/.jzh/skills', '/extra'],
+    )
   })
 
   test('without a home only the workspace and the custom roots remain', () => {
-    expect(skillRoots({ cwd: '/work' })).toEqual(['/work/.fudo/skills'])
+    expect(skillRoots({ cwd: '/work' })).toEqual(['/work/.jzh/skills'])
   })
 })

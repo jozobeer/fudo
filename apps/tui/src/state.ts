@@ -1,5 +1,10 @@
-import type { UiCommand, UiEvent } from '@fudo/ui-protocol'
-import { applyEvent, emptyConversation, type Conversation, type NoticeLevel } from '@fudo/ui-view'
+import type { UiCommand, UiEvent } from '@jozo-harness/ui-protocol'
+import {
+  applyEvent,
+  emptyConversation,
+  type Conversation,
+  type NoticeLevel,
+} from '@jozo-harness/ui-view'
 import {
   backspace,
   deleteForward,
@@ -23,7 +28,7 @@ export interface TuiState {
 }
 
 export const initialTuiState: TuiState = {
-  title: 'fudo',
+  title: 'jozo-harness',
   conversation: emptyConversation,
   editor: emptyEditor,
 }

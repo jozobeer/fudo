@@ -12,7 +12,7 @@ const write = async (dir: string, path: string, body = 'x\n'): Promise<void> => 
 
 describe('walkFiles', () => {
   test('never walks node_modules or .git, at any depth', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
     await write(dir, 'src/a.ts')
     await write(dir, 'node_modules/pkg/index.js')
     await write(dir, 'src/node_modules/pkg/index.js')
@@ -26,7 +26,7 @@ describe('walkFiles', () => {
   })
 
   test('honours the workspace ignore files, last rule winning', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
     await Bun.write(join(dir, '.gitignore'), ['logs/', '*.log', '!keep.log', ''].join('\n'))
     await write(dir, 'logs/debug.txt')
     await write(dir, 'debug.log')
@@ -40,7 +40,7 @@ describe('walkFiles', () => {
   })
 
   test('a nested pattern only matches where it points', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
     await Bun.write(join(dir, '.ignore'), ['src/generated/**', '*.tmp', ''].join('\n'))
     await write(dir, 'src/generated/a.ts')
     await write(dir, 'src/kept.ts')
@@ -54,7 +54,7 @@ describe('walkFiles', () => {
   })
 
   test('stops at the limit and reports what it collected', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
     for (let index = 0; index < 5; index += 1) await write(dir, 'f' + String(index) + '.txt')
 
     const found = await Effect.runPromise(walkFiles({ cwd: dir, limit: 2 }))
@@ -82,7 +82,7 @@ describe('the ignore rules themselves', () => {
   })
 
   test('a missing ignore file is no rules at all', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-walk-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
 
     expect(await Effect.runPromise(readIgnoreRules(dir))).toEqual([])
     await rm(dir, { recursive: true, force: true })

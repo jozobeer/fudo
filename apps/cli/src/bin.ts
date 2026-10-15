@@ -1,15 +1,15 @@
-import { loadBundledProfile, loadBundledProfileNamed } from '@fudo/bundle-base'
-import { type PluginRow } from '@fudo/kernel'
-import { cwdOf, type SessionEvent, type SessionHeader } from '@fudo/session'
-import { jsonlSessions, makeSessionQuery } from '@fudo/session-jsonl'
-import type { TuiIo } from '@fudo/tui'
+import { loadBundledProfile, loadBundledProfileNamed } from '@jozo-harness/bundle-base'
+import { type PluginRow } from '@jozo-harness/kernel'
+import { cwdOf, type SessionEvent, type SessionHeader } from '@jozo-harness/session'
+import { jsonlSessions, makeSessionQuery } from '@jozo-harness/session-jsonl'
+import type { TuiIo } from '@jozo-harness/tui'
 import { Effect, Stream } from 'effect'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { type SearchHost } from '@fudo/tools-tier1'
+import { type SearchHost } from '@jozo-harness/tools-tier1'
 import { parseArgs, type ParsedArgs } from './args.ts'
 import { configPaths, loadSecrets } from './config.ts'
-import { loadConfigFile, type FudoConfig } from './config-file.ts'
+import { loadConfigFile, type JozoHarnessConfig } from './config-file.ts'
 import { loadEnvFrom } from './env-file.ts'
 import { resolveSettings, type SettingsSurface } from './settings.ts'
 import { listModels, modelEndpointOf } from './models.ts'
@@ -38,28 +38,28 @@ export interface MainIo {
   readonly interrupt?: Effect.Effect<void>
 }
 
-const HELP = `fudo "task"                     one-shot headless run
-fudo                             terminal UI (a terminal is required)
-fudo --profile <name> --patch <file.yml>...
-fudo --config <file.yml>        settings (default: ~/.config/fudo/config.yaml)
-fudo --model <provider/model>    the route to use (fudo models lists them)
-fudo --dump-config
-fudo config [set K V|init]       settings: show them, write one key, start a file
-fudo models                      list the models the provider offers
-fudo auth [add|set|list|remove]  keep the keys a provider needs
-fudo web [--port N]              browser UI over a local server
-fudo --resume <sessionId> [task]
-fudo sessions                    list the sessions on disk
-fudo sessions <sessionId>        read one session back
-fudo sessions --search <text>    find sessions by what they say
-fudo --allow-preset-change         continue a session under a changed composition
-fudo --json "task"
-fudo --tui                       terminal UI even through a pipe
+const HELP = `jzh "task"                     one-shot headless run
+jzh                             terminal UI (a terminal is required)
+jzh --profile <name> --patch <file.yml>...
+jzh --config <file.yml>        settings (default: ~/.config/jzh/config.yaml)
+jzh --model <provider/model>    the route to use (jzh models lists them)
+jzh --dump-config
+jzh config [set K V|init]       settings: show them, write one key, start a file
+jzh models                      list the models the provider offers
+jzh auth [add|set|list|remove]  keep the keys a provider needs
+jzh web [--port N]              browser UI over a local server
+jzh --resume <sessionId> [task]
+jzh sessions                    list the sessions on disk
+jzh sessions <sessionId>        read one session back
+jzh sessions --search <text>    find sessions by what they say
+jzh --allow-preset-change         continue a session under a changed composition
+jzh --json "task"
+jzh --tui                       terminal UI even through a pipe
 `
 
 /** Everything the command reads from the environment and files before running. */
 interface CommandInputs {
-  readonly settings: FudoConfig
+  readonly settings: JozoHarnessConfig
   /** The file the settings came from, so `--dump-config` can name it. */
   readonly settingsPath: string
   /** What is in effect and which file filled each credential. */
@@ -119,7 +119,7 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     }
   })
 
-/** `fudo sessions [id]`: the sessions on disk, or one read back as a transcript. */
+/** `jzh sessions [id]`: the sessions on disk, or one read back as a transcript. */
 /** The header a log opens with, once it has been read back. The reader guarantees one. */
 const headerOf = (events: ReadonlyArray<SessionEvent>): SessionHeader | undefined => {
   const first = events[0]
@@ -142,7 +142,7 @@ const printSessions = (
     const sessions = jsonlSessions({ root })
     if (search !== undefined) {
       if (id !== undefined) {
-        io.stderr('fudo: sessions --search looks through every session; drop the id')
+        io.stderr('jzh: sessions --search looks through every session; drop the id')
         return 1
       }
       const query = makeSessionQuery({ root, sessions })
@@ -172,7 +172,7 @@ const printSessions = (
   }).pipe(
     Effect.match({
       onFailure: (error: unknown) => {
-        io.stderr('fudo: ' + String(error) + String.fromCharCode(10))
+        io.stderr('jzh: ' + String(error) + String.fromCharCode(10))
         return 1
       },
       onSuccess: (code) => code,
@@ -183,7 +183,7 @@ const printSessions = (
 const routesOf = (rows: ReadonlyArray<PluginRow>): Effect.Effect<ReadonlyArray<string>, Error> => {
   const endpoint = modelEndpointOf(rows)
   return endpoint === undefined
-    ? Effect.fail(new Error('the profile has no @fudo/llm-openai row to ask for models'))
+    ? Effect.fail(new Error('the profile has no @jozo-harness/llm-openai row to ask for models'))
     : listModels(endpoint, process.env)
 }
 
@@ -212,8 +212,8 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   plugins: bundledPlugins,
   cwd: io.cwd,
   route: inputs.route,
-  // The fudo home: where the sessions root lives, so user-global instructions sit there too.
-  fudoHome: join(homedir(), '.fudo'),
+  // The jzh home: where the sessions root lives, so user-global instructions sit there too.
+  jzhHome: join(homedir(), '.jzh'),
   settingsPath: inputs.settingsPath,
   settings: inputs.settings,
   stdout: io.stdout,
@@ -231,7 +231,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   ...optional('interrupt', io.interrupt),
 })
 
-/** `fudo models`: one route per line on stdout; a failure is one line on stderr. */
+/** `jzh models`: one route per line on stdout; a failure is one line on stderr. */
 const printModels = (inputs: CommandInputs, io: MainIo): Effect.Effect<number> =>
   profileRows({
     profiles: inputs.documents,
@@ -241,7 +241,7 @@ const printModels = (inputs: CommandInputs, io: MainIo): Effect.Effect<number> =
     Effect.flatMap(routesOf),
     Effect.match({
       onFailure: (error) => {
-        io.stderr(`fudo: ${error.message}\n`)
+        io.stderr(`jzh: ${error.message}\n`)
         return 1
       },
       onSuccess: (routes) => {
@@ -251,7 +251,7 @@ const printModels = (inputs: CommandInputs, io: MainIo): Effect.Effect<number> =
     }),
   )
 
-/** The `fudo` entry point: parse argv, load the bundled base profile, run. */
+/** The `jzh` entry point: parse argv, load the bundled base profile, run. */
 export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<number> {
   const parsed = parseArgs(argv)
   if (parsed.help) {
@@ -259,7 +259,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
     return Effect.succeed(0)
   }
   if (parsed.errors.length > 0) {
-    for (const error of parsed.errors) io.stderr(`fudo: ${error}\n`)
+    for (const error of parsed.errors) io.stderr(`jzh: ${error}\n`)
     return Effect.succeed(2)
   }
   return Effect.gen(function* () {
@@ -272,7 +272,7 @@ export function main(argv: ReadonlyArray<string>, io: MainIo): Effect.Effect<num
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {
-        io.stderr(`fudo: ${String(cause)}\n`)
+        io.stderr(`jzh: ${String(cause)}\n`)
         return 1
       }),
     ),

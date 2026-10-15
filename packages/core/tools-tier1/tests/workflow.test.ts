@@ -1,12 +1,12 @@
-import type { Agent, AgentsShape } from '@fudo/agent'
-import { HooksLive } from '@fudo/kernel'
+import type { Agent, AgentsShape } from '@jozo-harness/agent'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { makeWorkflowTool, type WorkflowTask } from '../src/index.ts'

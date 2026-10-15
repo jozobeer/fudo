@@ -3,7 +3,7 @@ import {
   type Conversation,
   type ConversationBlock,
   type NoticeLevel,
-} from '@fudo/ui-view'
+} from '@jozo-harness/ui-view'
 import type { TuiState } from './state.ts'
 import { clipText, displayWidth, wrapText, type Size } from './wrap.ts'
 

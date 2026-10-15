@@ -1,5 +1,5 @@
 import { Schema, Effect } from 'effect'
-import type { ToolDefinition } from '@fudo/tools'
+import type { ToolDefinition } from '@jozo-harness/tools'
 import type { JobsShape } from './jobs.ts'
 
 const StartParameters = Schema.Struct({

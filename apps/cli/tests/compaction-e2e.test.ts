@@ -1,12 +1,12 @@
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type LlmUsage, type StreamChunk } from '@fudo/llm'
-import { askPlugin, safetyPlugin } from '@fudo/safety'
-import { deriveMessages, sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { toolsPlugin } from '@fudo/tools'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type LlmUsage, type StreamChunk } from '@jozo-harness/llm'
+import { askPlugin, safetyPlugin } from '@jozo-harness/safety'
+import { deriveMessages, sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -80,29 +80,29 @@ const profile = (root: string, loopConfig?: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: full',
     '  - id: ask',
-    "    name: '@fudo/ask'",
+    "    name: '@jozo-harness/ask'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
     ...(loopConfig === undefined
       ? []
       : ['    config:', ...loopConfig.split('\n').map((l) => '      ' + l)]),
@@ -168,7 +168,7 @@ const runTasks = async (
 
 describe('compaction through the command', () => {
   test('the log alone reconstructs the request the model was sent', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const { sent, opened } = await runTasks(
       root,
       [BIG, 'two', 'three', 'four', 'five', 'six', 'seven'],
@@ -191,7 +191,7 @@ describe('compaction through the command', () => {
   })
 
   test('the profile row decides when a message is compacted', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const small = 'y'.repeat(100)
 
     const { sent, opened } = await runTasks(
@@ -210,8 +210,8 @@ describe('compaction through the command', () => {
   })
 
   test('a conversation with room left is sent untouched', async () => {
-    const roomy = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
-    const tight = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const roomy = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    const tight = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const first = 'the first thing the model was told'
     const tasks = [first, 'second']
 
@@ -237,8 +237,8 @@ describe('compaction through the command', () => {
   })
 
   test('what the provider counted is what pushes the request over', async () => {
-    const roomy = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
-    const tight = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const roomy = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
+    const tight = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const first = 'the first thing the model was told'
     const tasks = [first, 'second']
     const budget =
@@ -260,7 +260,7 @@ describe('compaction through the command', () => {
   })
 
   test('a summarizer that cannot answer leaves the prune as the fallback', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const first = 'the first thing the model was told'
 
     const noSummary = (seen: Array<ReadonlyArray<SentMessage>>): Plugin<{}, Llm, never> => ({
@@ -307,7 +307,7 @@ describe('compaction through the command', () => {
   })
 
   test('an old span becomes one summary the next request carries', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-compact-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-compact-'))
     const first = 'the first thing the model was told'
     const summary = 'SUMMARY-OF-THE-OLD-SPAN-7413'
     const summarized: Array<string> = []
@@ -343,7 +343,7 @@ describe('compaction through the command', () => {
     const { sent, opened } = await runTasks(
       root,
       [first, 'second'],
-      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 100\nheadroomTokens: 0',
+      'keepLast: 1\nmaxBytes: 10\ncontextWindow: 120\nheadroomTokens: 0',
       summaryLlm,
     )
 

@@ -12,7 +12,7 @@ const metricsOf = (toolCalls: number, compactions = 0): AbMetrics => ({
 })
 
 const cellOf = (repeat: number, metrics: AbMetrics | undefined): Cell => ({
-  harness: 'fudo',
+  harness: 'jozo-harness',
   task: 'fix-add',
   repeat,
   code: 0,
@@ -31,7 +31,7 @@ describe('the A/B summary', () => {
     expect(summaryOf(cells)).toEqual([
       '| harness | task | runs | counted | done | tool calls | turns | failed edits | re-reads | compactions |',
       '|---|---|---|---|---|---|---|---|---|---|',
-      '| fudo | fix-add | 3 | 2 | 3 | 3-5 (4.0) | 1 | 0 | 1 | 0-2 (1.0) |',
+      '| jozo-harness | fix-add | 3 | 2 | 3 | 3-5 (4.0) | 1 | 0 | 1 | 0-2 (1.0) |',
     ])
   })
 
@@ -41,13 +41,13 @@ describe('the A/B summary', () => {
     expect(lines.slice(0, 3)).toEqual([
       '| harness | task | run | done | tool calls | failed edits | re-reads | turns | compactions | exit | note |',
       '|---|---|---|---|---|---|---|---|---|---|---|',
-      '| fudo | fix-add | 1 | yes | 3 | 0 | 1 | 1 | 2 | 0 |  |',
+      '| jozo-harness | fix-add | 1 | yes | 3 | 0 | 1 | 1 | 2 | 0 |  |',
     ])
   })
 
   test('a group with no counted run shows no numbers', () => {
     const cells = [cellOf(0, undefined), cellOf(1, undefined)]
 
-    expect(summaryOf(cells)[2]).toBe('| fudo | fix-add | 2 | 0 | 2 | - | - | - | - | - |')
+    expect(summaryOf(cells)[2]).toBe('| jozo-harness | fix-add | 2 | 0 | 2 | - | - | - | - | - |')
   })
 })

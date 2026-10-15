@@ -168,7 +168,7 @@ export const runScenario = async (
   scenario: Scenario,
   runner: ScenarioRunner,
 ): Promise<ScenarioOutcome> => {
-  const base = await mkdtemp(join(tmpdir(), 'fudo-scenario-'))
+  const base = await mkdtemp(join(tmpdir(), 'jozo-harness-scenario-'))
   const workspace = join(base, 'workspace')
   const logs = join(base, 'logs')
   await mkdir(workspace, { recursive: true })

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { kernelPlugin, loadProfile } from '@fudo/kernel'
-import { Llm } from '@fudo/llm'
-import { llmOpenAiPlugin } from '@fudo/llm-openai'
+import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
+import { Llm } from '@jozo-harness/llm'
+import { llmOpenAiPlugin } from '@jozo-harness/llm-openai'
 import { Context, Effect, Layer } from 'effect'
 
 describe('llmOpenAiPlugin', () => {
@@ -12,10 +12,10 @@ describe('llmOpenAiPlugin', () => {
           plugins: [kernelPlugin, llmOpenAiPlugin],
           layers: [
             [
-              { id: 'kernel', name: '@fudo/kernel', config: {} },
+              { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
               {
                 id: 'llm',
-                name: '@fudo/llm-openai',
+                name: '@jozo-harness/llm-openai',
                 config: {
                   baseUrl: 'https://ollama.com/v1',
                   apiKeyEnv: 'OLLAMA_API_KEY',
@@ -39,7 +39,7 @@ describe('llmOpenAiPlugin', () => {
       Effect.flip(
         loadProfile({
           plugins: [kernelPlugin, llmOpenAiPlugin],
-          layers: [[{ id: 'llm', name: '@fudo/llm-openai', config: { apiKeyEnv: 'K' } }]],
+          layers: [[{ id: 'llm', name: '@jozo-harness/llm-openai', config: { apiKeyEnv: 'K' } }]],
         }),
       ),
     )

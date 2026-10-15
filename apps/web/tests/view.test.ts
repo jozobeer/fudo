@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { applyEvent, emptyConversation, type Conversation } from '@fudo/ui-view'
-import type { UiEvent } from '@fudo/ui-protocol'
+import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { initialState, withConnection, withDraft } from '../client/state.ts'
 import { escapeHtml, renderConversation, renderStatus } from '../client/view.ts'
 

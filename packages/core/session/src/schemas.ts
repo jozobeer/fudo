@@ -3,7 +3,7 @@ import {
   ContentBlockSchema,
   LlmFailureSchema,
   LlmUsageSchema,
-} from '@fudo/llm'
+} from '@jozo-harness/llm'
 import { Schema } from 'effect'
 import { USER_MESSAGE_SOURCES, type TurnEndReason } from './events.ts'
 import { registerLogOnlySessionEvents } from './projections.ts'

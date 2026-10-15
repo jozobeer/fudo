@@ -153,7 +153,7 @@ export function renderSkillCatalog(skills: ReadonlyArray<SkillSummary>): string 
 
 export interface SkillRootsInput {
   readonly cwd: string
-  /** The fudo home; its skills apply to every workspace. */
+  /** The jzh home; its skills apply to every workspace. */
   readonly home?: string
   /** Roots from the settings file, in order. */
   readonly custom?: ReadonlyArray<string>
@@ -163,7 +163,7 @@ export interface SkillRootsInput {
 export function skillRoots(input: SkillRootsInput): ReadonlyArray<string> {
   return [
     ...new Set([
-      join(input.cwd, '.fudo', 'skills'),
+      join(input.cwd, '.jzh', 'skills'),
       ...(input.custom ?? []),
       ...(input.home === undefined ? [] : [join(input.home, 'skills')]),
     ]),

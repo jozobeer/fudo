@@ -1,6 +1,6 @@
-import type { SessionEvent } from '@fudo/session'
+import type { SessionEvent } from '@jozo-harness/session'
 import { Data, type Effect, type Queue, type Scope } from 'effect'
-import type { Session, SessionError, SessionId, TurnCancelCause } from '@fudo/session'
+import type { Session, SessionError, SessionId, TurnCancelCause } from '@jozo-harness/session'
 import type { UserMessage } from './events.ts'
 import type { Inbox } from './inbox.ts'
 

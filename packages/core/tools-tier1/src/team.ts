@@ -1,7 +1,7 @@
 import { Schema, Effect } from 'effect'
-import type { AgentsShape } from '@fudo/agent'
-import { forkSeed, type SessionEvent } from '@fudo/session'
-import { ToolError, type ToolDefinition } from '@fudo/tools'
+import type { AgentsShape } from '@jozo-harness/agent'
+import { forkSeed, type SessionEvent } from '@jozo-harness/session'
+import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import {
   taskOf,
   teamRoster,

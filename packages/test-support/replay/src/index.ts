@@ -1,8 +1,8 @@
 export * from './scenario.ts'
 
-import type { Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { OpenAiStreamDecoder } from '@fudo/llm-openai'
+import type { Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { OpenAiStreamDecoder } from '@jozo-harness/llm-openai'
 import { Layer, Schema, Stream } from 'effect'
 
 /**

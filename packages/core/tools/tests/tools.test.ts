@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { HooksLive, makeHooks } from '@fudo/kernel'
+import { HooksLive, makeHooks } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 import {
   ToolError,

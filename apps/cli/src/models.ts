@@ -1,4 +1,4 @@
-import type { PluginRow } from '@fudo/kernel'
+import type { PluginRow } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 import { providerByBaseUrl } from './providers.ts'
 
@@ -9,7 +9,7 @@ export interface ModelEndpoint {
   readonly apiKeyEnv: string
 }
 
-const LLM_ROW = '@fudo/llm-openai'
+const LLM_ROW = '@jozo-harness/llm-openai'
 const LIST_TIMEOUT_MS = 30_000
 
 const ModelList = Schema.Struct({

@@ -1,6 +1,6 @@
-import { kernelPlugin, loadProfile } from '@fudo/kernel'
-import { safetyPlugin } from '@fudo/safety'
-import { systemPromptPlugin } from '@fudo/system-prompt'
+import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
+import { safetyPlugin } from '@jozo-harness/safety'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { Tier0Tools, tier0Plugin } from '../src/index.ts'
@@ -14,18 +14,18 @@ describe('tier0Plugin', () => {
             plugins: [kernelPlugin, systemPromptPlugin, safetyPlugin, tier0Plugin],
             layers: [
               [
-                { id: 'kernel', name: '@fudo/kernel', config: {} },
-                { id: 'system-prompt', name: '@fudo/system-prompt', config: {} },
+                { id: 'kernel', name: '@jozo-harness/kernel', config: {} },
+                { id: 'system-prompt', name: '@jozo-harness/system-prompt', config: {} },
                 {
                   id: 'safety',
-                  name: '@fudo/safety',
+                  name: '@jozo-harness/safety',
                   config: {
                     preset: 'workspace-write',
                     sandbox: 'seatbelt',
                     writableRoots: ['/work'],
                   },
                 },
-                { id: 'tier0', name: '@fudo/tools-tier0', config: {} },
+                { id: 'tier0', name: '@jozo-harness/tools-tier0', config: {} },
               ],
             ],
           })

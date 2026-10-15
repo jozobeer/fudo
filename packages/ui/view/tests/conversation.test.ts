@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { UiEvent } from '@fudo/ui-protocol'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '../src/index.ts'
 
 let seq = 0

@@ -1,13 +1,13 @@
 {
-  "name": "@fudo/safety",
+  "name": "@jozo-harness/safety",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/session": "workspace:*",
-    "@fudo/system-prompt": "workspace:*",
-    "@fudo/tools": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
+    "@jozo-harness/system-prompt": "workspace:*",
+    "@jozo-harness/tools": "workspace:*",
     "effect": "4.0.3"
   }
 }

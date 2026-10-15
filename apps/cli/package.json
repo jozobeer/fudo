@@ -1,29 +1,29 @@
 {
-  "name": "@fudo/cli",
+  "name": "@jozo-harness/cli",
   "private": true,
   "bin": {
-    "fudo": "./src/run.ts"
+    "jzh": "./src/run.ts"
   },
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/agent": "workspace:*",
-    "@fudo/agent-loop": "workspace:*",
-    "@fudo/bundle-base": "workspace:*",
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
-    "@fudo/llm-openai": "workspace:*",
-    "@fudo/safety": "workspace:*",
-    "@fudo/session": "workspace:*",
-    "@fudo/session-jsonl": "workspace:*",
-    "@fudo/system-prompt": "workspace:*",
-    "@fudo/test-support-replay": "workspace:*",
-    "@fudo/tools": "workspace:*",
-    "@fudo/tools-tier0": "workspace:*",
-    "@fudo/tools-tier1": "workspace:*",
-    "@fudo/tui": "workspace:*",
-    "@fudo/ui-host": "workspace:*",
-    "@fudo/web": "workspace:*",
+    "@jozo-harness/agent": "workspace:*",
+    "@jozo-harness/agent-loop": "workspace:*",
+    "@jozo-harness/bundle-base": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/llm-openai": "workspace:*",
+    "@jozo-harness/safety": "workspace:*",
+    "@jozo-harness/session": "workspace:*",
+    "@jozo-harness/session-jsonl": "workspace:*",
+    "@jozo-harness/system-prompt": "workspace:*",
+    "@jozo-harness/test-support-replay": "workspace:*",
+    "@jozo-harness/tools": "workspace:*",
+    "@jozo-harness/tools-tier0": "workspace:*",
+    "@jozo-harness/tools-tier1": "workspace:*",
+    "@jozo-harness/tui": "workspace:*",
+    "@jozo-harness/ui-host": "workspace:*",
+    "@jozo-harness/web": "workspace:*",
     "effect": "4.0.3"
   }
 }

@@ -1,5 +1,5 @@
-import type { Agent } from '@fudo/agent'
-import type { SessionEvent } from '@fudo/session'
+import type { Agent } from '@jozo-harness/agent'
+import type { SessionEvent } from '@jozo-harness/session'
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { goalRoundDecision, startGoalRound, type GoalState } from '../src/index.ts'

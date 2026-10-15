@@ -1,6 +1,6 @@
 /**
  * The doc gate: every relative markdown link in the docs and README must point
- * at a file that is there, and every `fudo:<path>` reference must name a path
+ * at a file that is there, and every `jzh:<path>` reference must name a path
  * this checkout holds. Documents are read as claims about the repository, so a
  * renamed file stops the check instead of quietly making the docs wrong.
  */
@@ -33,8 +33,8 @@ const linkTargets = (text: string): ReadonlyArray<string> =>
     return clean === '' ? [] : [clean]
   })
 
-const fudoPaths = (text: string): ReadonlyArray<string> =>
-  [...text.matchAll(/fudo:([A-Za-z0-9_./-]*\/[A-Za-z0-9_./-]+)/g)].flatMap((match) => {
+const jzhPaths = (text: string): ReadonlyArray<string> =>
+  [...text.matchAll(/jzh:([A-Za-z0-9_./-]*\/[A-Za-z0-9_./-]+)/g)].flatMap((match) => {
     const raw = (match[1] ?? '').replace(/:\d+(-\d+)?$/, '')
     return raw === '' ? [] : [raw]
   })
@@ -46,7 +46,7 @@ for (const document of documents) {
       problems.push(shown(document) + ': link points nowhere: ' + target)
     }
   }
-  for (const reference of fudoPaths(text)) {
+  for (const reference of jzhPaths(text)) {
     if (!existsSync(join(root, reference))) {
       problems.push(shown(document) + ': names a path that is not there: ' + reference)
     }
@@ -54,9 +54,9 @@ for (const document of documents) {
 }
 
 if (problems.length > 0) {
-  for (const problem of problems) process.stderr.write('fudo: ' + problem + '\n')
+  for (const problem of problems) process.stderr.write('jzh: ' + problem + '\n')
   process.exit(1)
 }
 process.stdout.write(
-  'docs: ' + String(documents.length) + ' files checked, every link and fudo: path resolves\n',
+  'docs: ' + String(documents.length) + ' files checked, every link and jzh: path resolves\n',
 )

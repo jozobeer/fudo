@@ -1,4 +1,4 @@
-import type { RequestMessage } from '@fudo/llm'
+import type { RequestMessage } from '@jozo-harness/llm'
 import { SessionError } from './errors.ts'
 import type { SessionEvent, SessionEventType, SessionSeq } from './events.ts'
 import { logOnlyEventTypes, messageProjections, type MessageProjection } from './projections.ts'

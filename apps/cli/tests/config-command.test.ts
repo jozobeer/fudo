@@ -21,15 +21,15 @@ const collector = () => {
 }
 
 const withHome = async (body: (env: Record<string, string>, path: string) => Promise<void>) => {
-  const directory = await mkdtemp(join(tmpdir(), 'fudo-config-'))
+  const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-config-'))
   try {
-    await body({ XDG_CONFIG_HOME: directory }, join(directory, 'fudo', 'config.yaml'))
+    await body({ XDG_CONFIG_HOME: directory }, join(directory, 'jzh', 'config.yaml'))
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
 }
 
-describe('fudo config', () => {
+describe('jzh config', () => {
   test('shows where the settings live and what they hold', async () => {
     await withHome(async (env, path) => {
       const sink = collector()
@@ -40,8 +40,8 @@ describe('fudo config', () => {
       expect(code).toBe(0)
       expect(text).toContain('settings (' + path + '):')
       expect(text).toContain('- model: not set')
-      expect(text).toContain('fudo config set model')
-      expect(text).toContain('fudo config init')
+      expect(text).toContain('jzh config set model')
+      expect(text).toContain('jzh config init')
     })
   })
 
@@ -106,7 +106,7 @@ describe('fudo config', () => {
       const code = await runConfig(['set', 'skills', '/tmp/skills'], sink.io, env)
 
       expect(code).toBe(2)
-      expect(sink.errs.join('')).toContain('fudo config add skills <dir>')
+      expect(sink.errs.join('')).toContain('jzh config add skills <dir>')
     })
   })
 
@@ -117,7 +117,7 @@ describe('fudo config', () => {
       const code = await runConfig(['--help'], sink.io, env)
 
       expect(code).toBe(0)
-      expect(sink.out.join('')).toContain('fudo config set K V')
+      expect(sink.out.join('')).toContain('jzh config set K V')
     })
   })
 
@@ -174,7 +174,7 @@ describe('fudo config', () => {
   })
 })
 
-describe('fudo config add and remove', () => {
+describe('jzh config add and remove', () => {
   /** A directory that is there, since the command checks before it writes. */
   const skillsDir = (path: string): string => {
     const dir = join(dirname(path), 'skills')
@@ -256,7 +256,7 @@ describe('fudo config add and remove', () => {
       expect(code).toBe(0)
       const settings = await Effect.runPromise(loadConfigFile(path))
       expect(settings.plugins).toEqual([
-        { id: 'safety', name: '@fudo/safety', config: { preset: 'full' } },
+        { id: 'safety', name: '@jozo-harness/safety', config: { preset: 'full' } },
       ])
     })
   })
@@ -265,14 +265,14 @@ describe('fudo config add and remove', () => {
     await withHome(async (env, path) => {
       const sink = collector()
 
-      const added = await runConfig(['add', 'plugins', '@fudo/mcp'], sink.io, env)
+      const added = await runConfig(['add', 'plugins', '@jozo-harness/mcp'], sink.io, env)
       const written = await runConfig(['set', 'plugins.mcp.command', '[npx, -y]'], sink.io, env)
 
       expect(added).toBe(0)
       expect(written).toBe(0)
       const settings = await Effect.runPromise(loadConfigFile(path))
       expect(settings.plugins).toEqual([
-        { id: 'mcp', name: '@fudo/mcp', config: { command: ['npx', '-y'] } },
+        { id: 'mcp', name: '@jozo-harness/mcp', config: { command: ['npx', '-y'] } },
       ])
     })
   })
@@ -281,10 +281,10 @@ describe('fudo config add and remove', () => {
     await withHome(async (env) => {
       const sink = collector()
 
-      const code = await runConfig(['add', 'plugins', '@fudo/nope'], sink.io, env)
+      const code = await runConfig(['add', 'plugins', '@jozo-harness/nope'], sink.io, env)
 
       expect(code).toBe(2)
-      expect(sink.errs.join('')).toContain('unknown plugin @fudo/nope')
+      expect(sink.errs.join('')).toContain('unknown plugin @jozo-harness/nope')
     })
   })
 
@@ -292,7 +292,7 @@ describe('fudo config add and remove', () => {
     await withHome(async (env) => {
       const sink = collector()
 
-      const code = await runConfig(['add', 'plugins', '@fudo/safety'], sink.io, env)
+      const code = await runConfig(['add', 'plugins', '@jozo-harness/safety'], sink.io, env)
 
       expect(code).toBe(2)
       expect(sink.errs.join('')).toContain('plugins.safety.')
@@ -330,7 +330,7 @@ describe('fudo config add and remove', () => {
 
       expect(code).toBe(0)
       const settings = await Effect.runPromise(loadConfigFile(path))
-      expect(settings.plugins).toEqual([{ id: 'ask', name: '@fudo/ask', disabled: true }])
+      expect(settings.plugins).toEqual([{ id: 'ask', name: '@jozo-harness/ask', disabled: true }])
     })
   })
 
@@ -352,7 +352,7 @@ describe('fudo config add and remove', () => {
       const code = await runConfig(['set', 'plugins.mcp.command', '[npx]'], sink.io, env)
 
       expect(code).toBe(2)
-      expect(sink.errs.join('')).toContain('fudo config add plugins')
+      expect(sink.errs.join('')).toContain('jzh config add plugins')
     })
   })
 
@@ -374,7 +374,7 @@ describe('fudo config add and remove', () => {
       const code = await runConfig(['add', 'skills'], sink.io, env)
 
       expect(code).toBe(2)
-      expect(sink.errs.join('')).toContain('fudo config add skills <dir>')
+      expect(sink.errs.join('')).toContain('jzh config add skills <dir>')
     })
   })
 

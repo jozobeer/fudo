@@ -18,15 +18,15 @@ const collector = (value: string): { io: AuthIo; out: Array<string>; err: Array<
   }
 }
 
-describe('fudo auth add', () => {
+describe('jzh auth add', () => {
   test('stores a provider key under its environment name', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-auth-provider-'))
     const env = { XDG_CONFIG_HOME: directory }
     const { io, out } = collector('key-value')
 
     const code = await runAuth(['add', 'ollama'], io, env)
 
-    const path = join(directory, 'fudo', 'secrets.env')
+    const path = join(directory, 'jzh', 'secrets.env')
     expect(code).toBe(0)
     expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=key-value\n')
     expect(out.join('')).toContain('stored the ollama key')
@@ -35,7 +35,7 @@ describe('fudo auth add', () => {
   })
 
   test('list names the service and the variable', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-auth-provider-'))
     const env = { XDG_CONFIG_HOME: directory }
     await runAuth(['add', 'ollama'], collector('one').io, env)
 
@@ -47,11 +47,11 @@ describe('fudo auth add', () => {
   })
 
   test('an unknown provider only prints usage', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-auth-provider-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-auth-provider-'))
     const { io, err } = collector('x')
 
     expect(await runAuth(['add', 'nope'], io, { XDG_CONFIG_HOME: directory })).toBe(2)
-    expect(err.join('')).toContain('fudo auth add PROVIDER')
+    expect(err.join('')).toContain('jzh auth add PROVIDER')
     expect(err.join('')).toContain('ollama')
     await rm(directory, { recursive: true, force: true })
   })

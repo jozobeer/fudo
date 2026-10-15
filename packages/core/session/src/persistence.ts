@@ -21,7 +21,7 @@ export interface SessionSummary {
   readonly createdAt: number
 }
 
-/** The persistence seam. S1 provides a JSONL implementation in `@fudo/session-jsonl`. */
+/** The persistence seam. S1 provides a JSONL implementation in `@jozo-harness/session-jsonl`. */
 export interface SessionPersistence {
   readonly create: (header: SessionHeader) => Effect.Effect<OpenedSession, SessionError>
   readonly open: (id: SessionId) => Effect.Effect<OpenedSession, SessionError>

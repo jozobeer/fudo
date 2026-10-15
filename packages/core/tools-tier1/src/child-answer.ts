@@ -1,4 +1,4 @@
-import type { Agent } from '@fudo/agent'
+import type { Agent } from '@jozo-harness/agent'
 
 /** The last text a child agent said: the answer its parent reads back from the log. */
 export const childAnswerOf = (agent: Agent): string => {

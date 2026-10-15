@@ -12,7 +12,7 @@ export interface PolicyShape {
 }
 
 /** The permission preset of the running profile, as a service tools can depend on. */
-export class Policy extends Context.Service<Policy, PolicyShape>()('fudo/Policy') {}
+export class Policy extends Context.Service<Policy, PolicyShape>()('jozo-harness/Policy') {}
 
 export const policyLayer = (preset: PermissionPreset): Layer.Layer<Policy, never> =>
   Layer.succeed(Policy, { preset, decide: (needs) => decide(preset, needs) })

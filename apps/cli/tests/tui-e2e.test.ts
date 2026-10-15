@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { agentPlugin } from '@fudo/agent'
-import { agentLoopPlugin } from '@fudo/agent-loop'
-import { kernelPlugin, type Plugin } from '@fudo/kernel'
-import { Llm, type LlmAdapter, type StreamChunk } from '@fudo/llm'
-import { safetyPlugin } from '@fudo/safety'
-import { sessionPlugin } from '@fudo/session'
-import { jsonlSessions, sessionJsonlPlugin } from '@fudo/session-jsonl'
-import { systemPromptPlugin } from '@fudo/system-prompt'
-import { tier0Plugin } from '@fudo/tools-tier0'
-import { toolsPlugin } from '@fudo/tools'
-import type { KeyEvent, TuiIo } from '@fudo/tui'
+import { agentPlugin } from '@jozo-harness/agent'
+import { agentLoopPlugin } from '@jozo-harness/agent-loop'
+import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
+import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
+import { safetyPlugin } from '@jozo-harness/safety'
+import { sessionPlugin } from '@jozo-harness/session'
+import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
+import { systemPromptPlugin } from '@jozo-harness/system-prompt'
+import { tier0Plugin } from '@jozo-harness/tools-tier0'
+import { toolsPlugin } from '@jozo-harness/tools'
+import type { KeyEvent, TuiIo } from '@jozo-harness/tui'
 import { Effect, Layer, Schedule, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -60,31 +60,31 @@ const profile = (root: string, preset: string): string =>
     'name: test',
     'plugins:',
     '  - id: kernel',
-    "    name: '@fudo/kernel'",
+    "    name: '@jozo-harness/kernel'",
     '  - id: sessions',
-    "    name: '@fudo/session'",
+    "    name: '@jozo-harness/session'",
     '  - id: session-jsonl',
-    "    name: '@fudo/session-jsonl'",
+    "    name: '@jozo-harness/session-jsonl'",
     '    config:',
     '      root: ' + root,
     '  - id: tools',
-    "    name: '@fudo/tools'",
+    "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
-    "    name: '@fudo/system-prompt'",
+    "    name: '@jozo-harness/system-prompt'",
     '  - id: safety',
-    "    name: '@fudo/safety'",
+    "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: ' + preset,
     // The TUI test drives a bash call; the sandbox has its own test.
     '      sandbox: none',
     '  - id: tier0',
-    "    name: '@fudo/tools-tier0'",
+    "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
     '    name: stub-llm',
     '  - id: agent',
-    "    name: '@fudo/agent'",
+    "    name: '@jozo-harness/agent'",
     '  - id: agent-loop',
-    "    name: '@fudo/agent-loop'",
+    "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
 const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, any>> => [
@@ -140,8 +140,8 @@ const screenOf = (tui: FakeTui): string => tui.writes.join('')
 
 describe('terminal UI through the command', () => {
   test('a typed line becomes a turn and the reply is drawn', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-tui-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-tui-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
     const tui = fakeTui(keyStream(spaced(typed('hi')), spaced([enter]), later(ctrlD, 250)))
 
     const code = await Effect.runPromise(
@@ -175,8 +175,8 @@ describe('terminal UI through the command', () => {
   })
 
   test('an approval is answered from the keyboard and the tool runs', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-tui-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-tui-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
     const tui = fakeTui(
       keyStream(spaced(typed('run')), spaced([enter]), later(char('y'), 300), later(ctrlD, 500)),
     )
@@ -213,8 +213,8 @@ describe('terminal UI through the command', () => {
   })
 
   test('resume draws the earlier conversation', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'fudo-tui-'))
-    const workspace = await mkdtemp(join(tmpdir(), 'fudo-tui-ws-'))
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
     const first = await Effect.runPromise(
       runCommand({
         profiles: [profile(root, 'full')],

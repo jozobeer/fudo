@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LlmFailure, type LlmRequest } from '@fudo/llm'
+import { LlmFailure, type LlmRequest } from '@jozo-harness/llm'
 import { Effect, Stream } from 'effect'
 import { openAiAdapter } from '../src/index.ts'
 

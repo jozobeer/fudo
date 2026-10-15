@@ -1,8 +1,8 @@
-import type { Emit, Waterfall } from '@fudo/kernel'
+import type { Emit, Waterfall } from '@jozo-harness/kernel'
 import type { Effect } from 'effect'
 import type { PreExecuteDecision, ToolExecution, ToolExecutionResult } from './types.ts'
 
-declare module '@fudo/kernel/hook' {
+declare module '@jozo-harness/kernel/hook' {
   interface HookMap {
     'tools/pre-execute': Waterfall<(exec: ToolExecution) => Effect.Effect<PreExecuteDecision>>
     'tools/execute': Waterfall<(exec: ToolExecution) => Effect.Effect<ToolExecutionResult>>

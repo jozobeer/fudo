@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { applyEvent, emptyConversation, type Conversation } from '../src/index.ts'
-import type { UiSessionEvent } from '@fudo/ui-protocol'
+import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
 
 const event = (seq: number, type: string, data: unknown): UiSessionEvent =>
   ({ seq, time: seq, type, data }) as unknown as UiSessionEvent

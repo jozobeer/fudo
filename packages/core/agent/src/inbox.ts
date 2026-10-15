@@ -1,4 +1,4 @@
-import type { Session, SessionError, SessionEvent } from '@fudo/session'
+import type { Session, SessionError, SessionEvent } from '@jozo-harness/session'
 import { Effect } from 'effect'
 import type { InboxTarget, UserMessage } from './events.ts'
 

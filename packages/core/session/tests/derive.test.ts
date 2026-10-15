@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LlmFailure, encodeLlmFailure } from '@fudo/llm'
+import { LlmFailure, encodeLlmFailure } from '@jozo-harness/llm'
 import { deriveMessages, type MessageProjection } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
 

@@ -1,5 +1,5 @@
-import { SessionPersistenceService } from '@fudo/session'
-import type { Plugin } from '@fudo/kernel'
+import { SessionPersistenceService } from '@jozo-harness/session'
+import type { Plugin } from '@jozo-harness/kernel'
 import { Layer, Schema } from 'effect'
 import { jsonlSessions } from './index.ts'
 
@@ -9,7 +9,7 @@ export const sessionJsonlPlugin: Plugin<
   SessionPersistenceService,
   never
 > = {
-  name: '@fudo/session-jsonl',
+  name: '@jozo-harness/session-jsonl',
   config: Schema.Struct({ root: Schema.String }),
   provides: [SessionPersistenceService],
   requires: [],

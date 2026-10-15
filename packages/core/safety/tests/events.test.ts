@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decodeSessionEvent } from '@fudo/session'
+import { decodeSessionEvent } from '@jozo-harness/session'
 import { Effect } from 'effect'
 import { approvalEventSchemas } from '../src/index.ts'
 

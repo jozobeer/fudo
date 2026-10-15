@@ -5,7 +5,7 @@ import {
   type SessionHeader,
   type SessionId,
   type SessionPersistence,
-} from '@fudo/session'
+} from '@jozo-harness/session'
 import { Database } from 'bun:sqlite'
 import { Effect } from 'effect'
 import { stat } from 'node:fs/promises'

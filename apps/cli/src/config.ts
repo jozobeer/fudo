@@ -12,13 +12,13 @@ export interface ConfigPaths {
 /** The variable that moves the settings and secrets out of `~/.config`. */
 export const CONFIG_HOME_ENV = 'XDG_CONFIG_HOME'
 
-/** Where fudo keeps its settings: XDG first, then ~/.config. */
+/** Where jozo-harness keeps its settings: XDG first, then ~/.config. */
 export const configPaths = (
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ConfigPaths => {
   const base = env[CONFIG_HOME_ENV]
   const directory =
-    base !== undefined && base !== '' ? join(base, 'fudo') : join(homedir(), '.config', 'fudo')
+    base !== undefined && base !== '' ? join(base, 'jzh') : join(homedir(), '.config', 'jzh')
   return {
     directory,
     config: join(directory, 'config.yaml'),
@@ -44,7 +44,7 @@ export function loadSecrets(
 ): ReadonlyArray<string> {
   if (!existsSync(path)) return []
   if (isTooOpen(path)) {
-    warn('fudo: ' + path + ' is readable by others; run: chmod 600 ' + path + '\n')
+    warn('jzh: ' + path + ' is readable by others; run: chmod 600 ' + path + '\n')
   }
   const loaded: Array<string> = []
   for (const [key, value] of parseEnvFile(readFileSync(path, 'utf8'))) {

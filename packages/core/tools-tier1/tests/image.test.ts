@@ -1,11 +1,11 @@
-import { HooksLive } from '@fudo/kernel'
+import { HooksLive } from '@jozo-harness/kernel'
 import {
   Tools,
   toolsLayer,
   type ToolDefinition,
   type ToolError,
   type ToolExecutionResult,
-} from '@fudo/tools'
+} from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -34,7 +34,7 @@ const call = (
 
 describe('read_image tool', () => {
   test('returns an image block for a png', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-image-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-image-'))
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
     await Bun.write(join(dir, 'tiny.png'), bytes)
 
@@ -50,7 +50,7 @@ describe('read_image tool', () => {
   })
 
   test('refuses a file that is not a known image', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'fudo-image-'))
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-image-'))
     await Bun.write(join(dir, 'notes.txt'), 'plain')
 
     const result = await Effect.runPromise(call(readImageTool, { path: 'notes.txt' }, dir))

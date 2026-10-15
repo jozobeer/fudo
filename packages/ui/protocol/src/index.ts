@@ -1,7 +1,7 @@
-import type { TimedStreamChunk } from '@fudo/llm'
-import { StreamChunkSchema } from '@fudo/llm'
-import type { ApprovalRequested, AskRequested } from '@fudo/safety'
-import type { SessionError, SessionEvent } from '@fudo/session'
+import type { TimedStreamChunk } from '@jozo-harness/llm'
+import { StreamChunkSchema } from '@jozo-harness/llm'
+import type { ApprovalRequested, AskRequested } from '@jozo-harness/safety'
+import type { SessionError, SessionEvent } from '@jozo-harness/session'
 import { Effect, Schema, Stream } from 'effect'
 
 /** One command a UI sends to the core. Serializable so a transport can carry it. */

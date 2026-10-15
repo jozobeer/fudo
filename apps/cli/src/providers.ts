@@ -1,4 +1,4 @@
-/** The services fudo can hold a key for, by the name a person would say. */
+/** The services jozo-harness can hold a key for, by the name a person would say. */
 export interface ProviderSecret {
   readonly name: string
   /** The provider part of a `provider/model` route. */

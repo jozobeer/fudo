@@ -1,4 +1,4 @@
-import { Tools } from '@fudo/tools'
+import { Tools } from '@jozo-harness/tools'
 import { Context, Effect, Layer, type Scope } from 'effect'
 import { builtinContexts, builtinSections, type BuiltinOptions } from './builtin.ts'
 import {
@@ -157,7 +157,7 @@ export function makeSystemPrompt(): SystemPromptShape {
 
 /** Prompt registry of the application. */
 export class SystemPrompt extends Context.Service<SystemPrompt, SystemPromptShape>()(
-  'fudo/SystemPrompt',
+  'jozo-harness/SystemPrompt',
 ) {}
 
 /**

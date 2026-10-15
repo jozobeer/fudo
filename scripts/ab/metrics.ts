@@ -54,7 +54,7 @@ const callOf = (data: Record<string, unknown>) => ({
 })
 
 /**
- * The path a read named. The two harnesses spell it differently — fudo `path`,
+ * The path a read named. The two harnesses spell it differently — jozo-harness `path`,
  * dsh `file_path` — and reading only one spelling counted dsh's re-reads as
  * zero, which is a measurement bug, not a behavioural difference. A read with
  * neither spelling throws, so an unknown spelling cannot pass for zero re-reads.
@@ -110,8 +110,8 @@ const count = (events: ReadonlyArray<AbEvent>, shape: LogShape): AbMetrics => {
   }
 }
 
-/** The fudo log carries the failure flat on the result's data. */
-export const fudoMetrics = (events: ReadonlyArray<AbEvent>): AbMetrics =>
+/** The jozo-harness log carries the failure flat on the result's data. */
+export const jozoHarnessMetrics = (events: ReadonlyArray<AbEvent>): AbMetrics =>
   count(events, {
     failedCallOf: (data) => (data['isError'] === true ? stringOf(data['callId']) : undefined),
     summaryType: 'compaction/checkpoint',

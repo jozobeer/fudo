@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@fudo/llm'
+import type { ContentBlock } from '@jozo-harness/llm'
 
 /** How much of a call's arguments a one-line summary keeps. */
 export const CALL_SUMMARY_CHARS = 80

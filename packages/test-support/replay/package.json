@@ -1,12 +1,12 @@
 {
-  "name": "@fudo/test-support-replay",
+  "name": "@jozo-harness/test-support-replay",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@fudo/kernel": "workspace:*",
-    "@fudo/llm": "workspace:*",
-    "@fudo/llm-openai": "workspace:*",
+    "@jozo-harness/kernel": "workspace:*",
+    "@jozo-harness/llm": "workspace:*",
+    "@jozo-harness/llm-openai": "workspace:*",
     "effect": "4.0.3"
   }
 }

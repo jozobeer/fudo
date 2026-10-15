@@ -24,7 +24,7 @@ describe('parseConfigText', () => {
           'unknown_key: ignored',
           'plugins:',
           '  - id: safety',
-          "    name: '@fudo/safety'",
+          "    name: '@jozo-harness/safety'",
           '    config:',
           '      preset: full',
         ].join('\n'),
@@ -50,13 +50,15 @@ describe('parseConfigText', () => {
   })
 
   test('a missing file is no settings', async () => {
-    const config = await Effect.runPromise(loadConfigFile('/tmp/fudo-no-settings-here.yaml'))
+    const config = await Effect.runPromise(
+      loadConfigFile('/tmp/jozo-harness-no-settings-here.yaml'),
+    )
 
     expect(config).toEqual({})
   })
 
   test('an empty file, or one with only comments, is no settings', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-empty-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-empty-'))
     const path = join(directory, 'config.yaml')
 
     await Bun.write(path, '')
@@ -70,14 +72,14 @@ describe('parseConfigText', () => {
 
 describe('the settings file through the command', () => {
   test('its plugin rows join the profile and --dump-config shows them', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-'))
-    const xdg = join(directory, 'fudo')
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-'))
+    const xdg = join(directory, 'jzh')
     await Bun.write(
       join(directory, 'config.yaml'),
       [
         'plugins:',
         '  - id: safety',
-        "    name: '@fudo/safety'",
+        "    name: '@jozo-harness/safety'",
         '    config:',
         '      preset: full',
       ].join('\n'),
@@ -96,7 +98,7 @@ describe('the settings file through the command', () => {
   })
 
   test('--dump-config names the settings file and shows what it holds', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-path-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-path-'))
     const path = join(directory, 'config.yaml')
     await Bun.write(path, 'model: my-cloud/some-model\n')
 
@@ -112,7 +114,7 @@ describe('the settings file through the command', () => {
   })
 
   test('a malformed settings file stops the run with a message', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'fudo-settings-bad-'))
+    const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-bad-'))
     const path = join(directory, 'config.yaml')
     await Bun.write(path, 'model: [unclosed')
 

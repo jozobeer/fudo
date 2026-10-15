@@ -23,7 +23,7 @@ const textOf = (section: PromptSection | undefined): string => {
 
 /** A workspace whose discovery stops at its own `.git`, so parent directories cannot leak in. */
 const workspace = async (): Promise<string> => {
-  const root = await mkdtemp(join(tmpdir(), 'fudo-agents-'))
+  const root = await mkdtemp(join(tmpdir(), 'jozo-harness-agents-'))
   await mkdir(join(root, '.git'), { recursive: true })
   return root
 }
@@ -71,7 +71,7 @@ describe('loadAgentsFiles', () => {
   })
 
   test('does not walk above the project root marker', async () => {
-    const parent = await mkdtemp(join(tmpdir(), 'fudo-agents-'))
+    const parent = await mkdtemp(join(tmpdir(), 'jozo-harness-agents-'))
     const root = join(parent, 'project')
     await mkdir(join(root, '.git'), { recursive: true })
     await Bun.write(join(parent, 'AGENTS.md'), 'above the project\n')
@@ -84,7 +84,7 @@ describe('loadAgentsFiles', () => {
 
   test('reads the home file first', async () => {
     const root = await workspace()
-    const home = await mkdtemp(join(tmpdir(), 'fudo-home-'))
+    const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
     await Bun.write(join(home, 'AGENTS.md'), 'home rules\n')
     await Bun.write(join(root, 'AGENTS.md'), 'workspace rules\n')
 

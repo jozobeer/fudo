@@ -1,4 +1,4 @@
-import { plainText } from '@fudo/ui-view'
+import { plainText } from '@jozo-harness/ui-view'
 /** Everything a page puts into HTML goes through here. */
 export const escapeHtml = (text) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -67,6 +67,6 @@ const hintOf = (state) => {
 export const renderStatus = (state) =>
   '<span class="dot ' +
   (state.connected ? 'on' : 'off') +
-  '"></span><span class="title">fudo</span><span class="hint">' +
+  '"></span><span class="title">jozo-harness</span><span class="hint">' +
   hintOf(state) +
   '</span>'

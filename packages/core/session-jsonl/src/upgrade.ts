@@ -1,4 +1,4 @@
-import { SESSION_FORMAT_VERSION, type SessionHeader } from '@fudo/session'
+import { SESSION_FORMAT_VERSION, type SessionHeader } from '@jozo-harness/session'
 
 /** What a reader knows that an old header does not say for itself. */
 export interface UpgradeContext {
@@ -24,7 +24,7 @@ const versionOf = (header: Record<string, unknown>): number | UpgradeProblem => 
   return version > SESSION_FORMAT_VERSION
     ? {
         message:
-          'this session was written by a newer fudo (formatVersion ' +
+          'this session was written by a newer jozo-harness (formatVersion ' +
           String(version) +
           '); this build reads up to ' +
           String(SESSION_FORMAT_VERSION),
