@@ -92,13 +92,14 @@ describe('jzh models', () => {
     const ids = randomIds(4)
     const { server, baseUrl } = serveProvider(ids)
     const { tearDown, flags } = await setUp(baseUrl)
-    const { io, out } = collect()
+    const { io, out, err } = collect()
 
     const code = await Effect.runPromise(main(['models', ...flags], io))
 
     server.stop(true)
     await tearDown()
-    expect(code).toBe(0)
+    // The pair, so a failure says why: this one flaked once in forty runs of the suite.
+    expect({ code, err }).toEqual({ code: 0, err: [] })
     expect(out.join('')).toBe(
       ids
         .map((id) => '127.0.0.1/' + id + '\n')
