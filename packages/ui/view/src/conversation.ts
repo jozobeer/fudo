@@ -23,6 +23,8 @@ export type ConversationBlock =
       readonly summary: string
       readonly status: ToolStatus
       readonly result: string
+      /** The whole body the result carried; a view may expand it where the summary is one line. */
+      readonly output: string
     }
   | { readonly kind: 'notice'; readonly level: NoticeLevel; readonly text: string }
 
@@ -58,8 +60,14 @@ const textOf = (content: ReadonlyArray<ContentBlock>): string =>
     .filter((text) => text !== '')
     .join('\n\n')
 
+/** How much of one result a view may carry: a page stays bounded even after a huge read. */
+const OUTPUT_LIMIT = 16_384
+
 const resultOf = (content: ReadonlyArray<ContentBlock>): string =>
   truncate(firstLine(textOf(content)), 200)
+
+const outputOf = (content: ReadonlyArray<ContentBlock>): string =>
+  truncate(textOf(content), OUTPUT_LIMIT)
 
 /** The event types each handler owns; a type the tables do not name goes to the generic view. */
 const STEP_TYPES: ReadonlySet<string> = new Set([
@@ -135,6 +143,7 @@ const callBlock = (data: {
   summary: recordedOr(data.summary, () => truncate(oneLine(data.arguments), 80)),
   status: 'running',
   result: '',
+  output: '',
 })
 
 const applyTool = (state: Conversation, event: ToolEvent): Conversation => {
@@ -143,11 +152,14 @@ const applyTool = (state: Conversation, event: ToolEvent): Conversation => {
   }
   const { callId, isError } = event.data
   const result = recordedOr(event.data.summary, () => resultOf(event.data.content))
+  const output = outputOf(event.data.content)
   const status: ToolStatus = isError ? 'error' : 'done'
   return {
     ...state,
     blocks: state.blocks.map((block) =>
-      block.kind === 'tool' && block.callId === callId ? { ...block, status, result } : block,
+      block.kind === 'tool' && block.callId === callId
+        ? { ...block, status, result, output }
+        : block,
     ),
   }
 }

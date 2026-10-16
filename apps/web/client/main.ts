@@ -4,7 +4,7 @@ import { Socket } from 'effect/socket'
 import type { UiCommand } from '@jozo-harness/ui-protocol'
 import { UiRpcs, withoutServices } from '../src/shared/rpc.ts'
 import { followsBottom } from './scroll.ts'
-import { applyUiEvent, initialState, withDraft, withConnection, type WebState } from './state.ts'
+import { applyUiEvent, initialState, withConnection, withDraft, type WebState } from './state.ts'
 import { renderConversation, renderStatus } from './view.ts'
 
 const conversationElement = document.getElementById('conversation')
@@ -42,6 +42,12 @@ const send = (command: UiCommand): void => {
   Queue.offerUnsafe(commands, command)
 }
 
+/** The composer grows with its draft, up to the height of a page. */
+const grow = (): void => {
+  input.style.height = 'auto'
+  input.style.height = Math.min(input.scrollHeight, 220) + 'px'
+}
+
 const submit = (): void => {
   const value = state.draft.trim()
   if (value === '') return
@@ -53,6 +59,7 @@ const submit = (): void => {
   )
   state = withDraft(state, '')
   input.value = ''
+  grow()
   paintStatus()
 }
 
@@ -100,6 +107,7 @@ form.addEventListener('submit', (event) => {
 
 input.addEventListener('input', () => {
   state = withDraft(state, input.value)
+  grow()
 })
 
 input.addEventListener('keydown', (event) => {
@@ -117,9 +125,25 @@ conversationElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
   const callId = target.dataset.callId
-  if (callId === undefined) return
-  send({ kind: 'approve', callId, approved: target.dataset.approve === 'true' })
+  if (callId !== undefined) {
+    send({ kind: 'approve', callId, approved: target.dataset.approve === 'true' })
+    return
+  }
+  const askId = target.dataset.askId
+  const answer = target.dataset.answer
+  if (askId !== undefined && answer !== undefined) send({ kind: 'answer', id: askId, answer })
 })
 
+// y and n answer a pending approval, as long as the composer does not have the keys.
+document.addEventListener('keydown', (event) => {
+  const approval = state.conversation.approval
+  if (approval === undefined || document.activeElement === input) return
+  const key = event.key.toLowerCase()
+  if (key !== 'y' && key !== 'n') return
+  event.preventDefault()
+  send({ kind: 'approve', callId: approval.callId, approved: key === 'y' })
+})
+
+grow()
 paint()
 void Effect.runPromise(Effect.retry(program, Schedule.spaced('1 second'))).catch(() => undefined)

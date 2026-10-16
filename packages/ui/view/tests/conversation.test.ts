@@ -81,6 +81,7 @@ describe('conversation', () => {
         summary: '{"path":"a.ts"}',
         status: 'done',
         result: 'line one',
+        output: 'line one\nline two',
       },
       {
         kind: 'tool',
@@ -89,8 +90,24 @@ describe('conversation', () => {
         summary: '{}',
         status: 'error',
         result: 'boom',
+        output: 'boom',
       },
     ])
+  })
+
+  test('a result longer than a page is capped so the view stays bounded', () => {
+    const state = fold([
+      session('tool/call', { callId: 'c1', name: 'bash', arguments: '{}' }),
+      session('tool/result', {
+        callId: 'c1',
+        isError: false,
+        content: [{ type: 'text', text: 'x'.repeat(20_000) }],
+      }),
+    ])
+    const block = state.blocks[0]
+    if (block?.kind !== 'tool') throw new Error('the result did not settle the call')
+    expect(block.output.length).toBe(16_384)
+    expect(block.output.endsWith('…')).toBe(true)
   })
 
   test('an approval is pending only while its turn runs', () => {

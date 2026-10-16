@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 import type { UiEvent } from '@jozo-harness/ui-protocol'
+import { escapeHtml } from '../client/html.ts'
 import { initialState, withConnection, withDraft } from '../client/state.ts'
-import { escapeHtml, renderConversation, renderStatus } from '../client/view.ts'
+import { renderConversation, renderStatus } from '../client/view.ts'
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {
@@ -11,6 +12,16 @@ const session = (type: string, data: unknown): UiEvent => {
 }
 const fold = (events: ReadonlyArray<UiEvent>): Conversation =>
   events.reduce(applyEvent, emptyConversation)
+const asked = [
+  session('turn/start', { turn: 1 }),
+  session('user/message', { text: 'do it', source: 'user' }),
+  session('assistant/message', {
+    provider: 'stub',
+    model: 'm',
+    content: [{ type: 'text', text: 'the **answer**\n\n```ts\nlet a = 1\n```' }],
+    stream: [],
+  }),
+]
 
 describe('the browser view', () => {
   test('model output cannot inject markup', () => {
@@ -22,37 +33,66 @@ describe('the browser view', () => {
     expect(escapeHtml('a & b "c"')).toBe('a &amp; b &quot;c&quot;')
   })
 
-  test('blocks render with their kind and tool state', () => {
+  test('an answer is marked up and a tool call becomes a card', () => {
     const view = renderConversation(
       fold([
-        session('user/message', { text: 'do it', source: 'user' }),
+        ...asked,
         session('tool/call', { callId: 'c1', name: 'bash', arguments: '{"command":"ls"}' }),
         session('tool/result', {
           callId: 'c1',
-          isError: true,
-          content: [{ type: 'text', text: 'no' }],
+          isError: false,
+          content: [{ type: 'text', text: 'a.ts\nb.ts' }],
         }),
       ]),
     )
-    expect(view).toContain('class="block user"')
-    expect(view).toContain('class="block tool error"')
-    expect(view).toContain('bash')
+    expect(view).toContain('<div class="body markdown"><p>the <strong>answer</strong></p>')
+    expect(view).toContain('data-lang="ts"')
+    expect(view).toContain('class="block tool done"')
+    expect(view).toContain('class="tool-name">bash')
+    expect(view).toContain('a.ts\nb.ts')
   })
 
-  test('a pending approval offers both answers and no question hides them', () => {
-    const view = renderConversation(
+  test('a failed call opens its body and a running one has none yet', () => {
+    const failed = renderConversation(
+      fold([
+        session('tool/call', { callId: 'c1', name: 'bash', arguments: '{}' }),
+        session('tool/result', {
+          callId: 'c1',
+          isError: true,
+          content: [{ type: 'text', text: 'boom' }],
+        }),
+      ]),
+    )
+    expect(failed).toContain('class="tool-card" open')
+    expect(failed).toContain('failed')
+    const running = renderConversation(
+      fold([session('tool/call', { callId: 'c1', name: 'bash', arguments: '{}' })]),
+    )
+    expect(running).toContain('class="block tool running"')
+    expect(running).not.toContain('tool-output')
+  })
+
+  test('a pending approval offers both answers and a pending question its choices', () => {
+    const approval = renderConversation(
       fold([
         session('turn/start', { turn: 1 }),
         session('safety/approval/requested', { callId: 'c1', tool: 'bash', reason: 'because' }),
       ]),
     )
-    expect(view).toContain('data-call-id="c1"')
-    expect(view).toContain('data-approve="true"')
-    expect(view).toContain('data-approve="false"')
+    expect(approval).toContain('data-call-id="c1"')
+    expect(approval).toContain('data-approve="true"')
+    expect(approval).toContain('data-approve="false"')
+    const ask = renderConversation(
+      fold([
+        session('interaction/ask/requested', { id: 'a1', question: 'which?', options: ['x', 'y'] }),
+      ]),
+    )
+    expect(ask).toContain('data-answer="x"')
+    expect(ask).toContain('data-answer="y"')
     expect(renderConversation(emptyConversation)).not.toContain('data-approve')
   })
 
-  test('the status strip reports the connection and the next action', () => {
+  test('the status strip reports the connection, where it runs and the next action', () => {
     expect(renderStatus(initialState)).toContain('reconnecting')
     const connected = withConnection(withDraft(initialState, 'hi'), true)
     expect(renderStatus(connected)).toContain('ready')

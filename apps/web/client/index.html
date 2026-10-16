@@ -3,21 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
     <title>jozo-harness</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <header id="status"></header>
-    <main id="conversation"></main>
+    <header id="status" aria-live="polite"></header>
+    <main id="conversation" tabindex="0"></main>
     <footer>
       <form id="composer">
         <textarea
           id="input"
-          rows="2"
-          placeholder="Message jozo-harness… (Enter sends, Shift+Enter adds a line)"
+          rows="1"
+          placeholder="Message jozo-harness…  (Enter sends, Shift+Enter adds a line)"
         ></textarea>
         <div class="actions">
-          <button id="send" type="submit">Send</button>
+          <button id="send" class="primary" type="submit">Send</button>
           <button id="cancel" type="button">Stop</button>
         </div>
       </form>
