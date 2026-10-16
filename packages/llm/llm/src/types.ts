@@ -71,6 +71,11 @@ export class LlmFailure extends Data.TaggedError('LlmFailure')<{
 /** What an adapter can do. Consumers must not assume one provider's features. */
 export interface LlmCapabilities {
   readonly toolChoice: boolean
+  /**
+   * The reasoning-effort levels this adapter knows the endpoint takes. `null` means
+   * the adapter declares none: whatever the deployment resolves is passed through
+   * as `reasoning_effort` and the endpoint decides whether it takes it.
+   */
   readonly reasoningEffort: ReadonlyArray<string> | null
   readonly images: 'base64' | 'none'
   readonly promptCacheControl: boolean

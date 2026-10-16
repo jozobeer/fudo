@@ -67,6 +67,39 @@ describe('openAiAdapter', () => {
     expect([...chunks].some((chunk) => chunk.type === 'usage')).toBe(true)
   })
 
+  test('the params a request carries reach the body as written', async () => {
+    const bodies: Array<string> = []
+    const fixture = await Bun.file(
+      new URL('../fixtures/ollama-cloud-tool-call.sse', import.meta.url),
+    ).text()
+    const streaming = openAiAdapter({
+      baseUrl: 'https://example.test/v1',
+      apiKey: () => 'key',
+      capabilities: {
+        toolChoice: false,
+        reasoningEffort: null,
+        images: 'none',
+        promptCacheControl: false,
+      },
+      fetch: ((_url: string, init: RequestInit) => {
+        bodies.push(String(init.body))
+        return Promise.resolve(new Response(fixture, { status: 200 }))
+      }) as unknown as typeof fetch,
+    })
+
+    // The runner writes the field the provider reads; the adapter changes nothing.
+    await Effect.runPromise(
+      Stream.runCollect(
+        streaming.stream({ ...request, params: { reasoning_effort: 'high', max_tokens: 64 } }),
+      ),
+    )
+    const sent = JSON.parse(bodies[0] ?? '{}') as Record<string, unknown>
+
+    expect(sent['reasoning_effort']).toBe('high')
+    expect(sent['max_tokens']).toBe(64)
+    expect(sent).not.toHaveProperty('reasoningEffort')
+  })
+
   test('an HTTP error becomes an AUTH LlmFailure', async () => {
     const error = await Effect.runPromise(
       Effect.flip(collect(new Response('nope', { status: 401 }))),

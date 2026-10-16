@@ -20,6 +20,7 @@ plugin ごとの config キー、フラグ、環境変数の一覧は `jzh --dum
 | キー | 値 | 効果 |
 |---|---|---|
 | `model` | `provider/model` | 使うルート。`--model` > この値 > 行の `config.model` |
+| `effort` | provider が読む語 | 推論の強さ。`--effort` > この値 > 行の `config.effort`。未設定なら provider の既定 |
 | `profile` | profile 名 | 層2で重ねる profile。既定は `headless`。`--profile` > この値 |
 | `skills` | 文字列の配列 | `<name>/SKILL.md` を持つディレクトリを追加する。```/x``` は展開する |
 | `plugins` | 行の配列 | 層3として重なる |
@@ -71,11 +72,12 @@ tool が宣言する能力（`exec` や `network`）では承認を求めない�
 
 ## plugin の schema に無い行キー
 
-次の3つは plugin の schema ではなく CLI が行から直接読む。`model` と `maxSpillBytes` は複数の行に書いた場合に最初の行が勝ち、`planMode` は1つの行でも `true` なら効く。
+次の4つは plugin の schema ではなく CLI が行から直接読む。`model`、`effort`、`maxSpillBytes` は複数の行に書いた場合に最初の行が勝ち、`planMode` は1つの行でも `true` なら効く。
 
 | キー | 置ける行 | 効果 |
 |---|---|---|
 | `model` | どの行でも | `provider/model`。`--model` と設定ファイルの `model` が無いときにルートになる |
+| `effort` | どの行でも | provider に渡す reasoning effort。`--effort` と設定ファイルの `effort` が無いときに効く |
 | `maxSpillBytes` | どの行でも | tool の出力がこの大きさを超えたら、ファイルに退避して参照と要点だけをモデルに返す。退避先は jzh home の `spill/<sessionId>/`（0700、7日で掃除）、jzh home が無ければ一時ディレクトリ。`read` の結果は対象外で、注記のパスを `read` の offset/limit で読み直せる |
 | `planMode` | `@jozo-harness/safety` の行 | `true` でワークスペースを変える tool を外す。モデルは `exit_plan_mode` で計画を出し、ユーザーが承認したときだけ解除される |
 
@@ -84,6 +86,7 @@ tool が宣言する能力（`exec` や `network`）では承認を求めない�
 | フラグ | 効果 |
 |---|---|
 | `--model <provider/model>` | ルートを決める |
+| `--effort <level>` | provider に渡す reasoning effort を決める |
 | `--profile <name>` | 層2の profile |
 | `--patch <file.yml>` | 層4の行。複数回で複数ファイル |
 | `--config <file.yml>` | 設定ファイルのパス |
@@ -101,7 +104,7 @@ tool が宣言する能力（`exec` や `network`）では承認を求めない�
 
 | 書き方 | 効果 |
 |---|---|
-| `jzh config set model <provider/model>` | `model` を書く。`profile` も同じ形 |
+| `jzh config set model <provider/model>` | `model` を書く。`effort` と `profile` も同じ形 |
 | `jzh config set plugins.<id>.<key> <value>` | その行のキーを書く。同梱 profile の行を指すと差分の行を作る。`disabled` は行の項目として書く |
 | `jzh config add skills <dir>` | `skills` にディレクトリを足す |
 | `jzh config add plugins <name>` | 行を足す。`id` は名前から作り（`@jozo-harness/mcp` → `mcp`）、`--id` で決められる |
@@ -134,7 +137,7 @@ tool が宣言する能力（`exec` や `network`）では承認を求めない�
 
 ## 設定できないもの
 
-- provider の能力（tool の強制なし、画像なし、reasoning effort なし、prompt cache 制御なし）は adapter に固定されている
+- provider の能力（tool の強制なし、画像なし、prompt cache 制御なし）は adapter に固定されている。reasoning effort は `effort` / `--effort` で指定でき、adapter は `reasoning_effort` としてそのまま渡す（endpoint がその語を受け付けるかは検証しない）
 - Web UI の bind 先は `127.0.0.1` に固定されている
 - セッションログの形式は `session.v1.jsonl` に固定されている
 - tool ごとの実行時間の上限は tool の定義側にある

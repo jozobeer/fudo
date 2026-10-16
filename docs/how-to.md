@@ -16,6 +16,28 @@ jzh config                                  # 入ったことを確かめる
 jzh --model ollama-cloud/gemma4:31b "Reply with the single word pong"
 ```
 
+## 推論の強さ（effort）を選ぶ
+
+モデルにどこまで考えさせるかを、ルートと同じ3経路で決める。
+
+```sh
+jzh --effort high "このモジュールの分割方針を検討して"   # 1回だけ
+jzh config set effort low                                  # 既定にする
+jzh config                                                 # 入ったことを確かめる
+```
+
+行に書くこともできる（`model` と同じで、どの行でも読まれる）。
+
+```yaml
+plugins:
+  - id: agent-loop
+    name: '@jozo-harness/agent-loop'
+    config:
+      effort: high
+```
+
+優先順は `--effort` > 設定ファイルの `effort` > 行の `effort` で、どれも無ければ provider の既定になる。値は `reasoning_effort` としてそのまま provider に渡るので、受け付ける語は provider が決める（`jzh --dump-config` が「effort in effect:」で実効値を出す）。
+
 ## 設定ファイルを雛形から始める
 
 ```sh

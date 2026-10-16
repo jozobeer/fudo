@@ -285,6 +285,15 @@
   - 学び: 最初の記録は `assistant/message` の中の `time0`（stream の時刻）を正規化しておらず、**同じコードでも毎回落ちる**不安定な gate だった。落ちた理由を「差分の行」として見せたので、退行ではなく正規化漏れだと即座に分かった。記録の gate は「何を不安定とみなすか」を先に決めてから作る。
   - 未確認: dsh は 227 シナリオを持つが jozo-harness は 2 本で、approval の往復・失敗の再試行・compaction・resume の case はまだ無い（`scenario.ts` は `approve` を受け取れるので足せる）。coverage 閾値・doc gate・重複 gate は持たない。real-API lane は無く、`bun run snapshot:record`（API キーで記録を作り直す script）も未実装。i18n は設計で除外（二言語ドキュメントを持たない）。記録の fixture のうち実記録は 1 本で、tool call の case は同じ形で書いた固定入力である。
 
+## F. モデル呼び出し
+
+- [x] **F1 reasoning effort**。jozo-harness は `AgentOptions.reasoningEffort` と params の型を持つだけで、値を入れる口が無く、綴りも provider が読む `reasoning_effort` ではなかった（`jzh:packages/core/agent-loop/src/runner.ts`、`jzh:apps/cli/src/index.ts`）。dsh はモデルごとに `reasoningEfforts` と `defaultReasoningEffort` を宣言し、既定を `agent-default-model.reasoningEffort` に置き、composer からセッション単位で切り替え、endpoint が受け取れないときは `reasoning_effort` を送らない（`dsh:packages/llm/llm-pi-ai/src/catalog.ts:397`、`dsh:packages/llm/llm-pi-ai/tests/adapter.spec.ts:757`）。受け入れ: 実行ごと・設定・行の3経路で effort を選べ、provider に読める語で届く。
+  - 実装（2026-10-16）: `model` と同じ3経路にした。`--effort <level>`（args / HELP）、設定ファイルの `effort`、行の `effort`（どの行でも読め、最初の行が勝つ）。解決は `resolveSettings` がフラグ > 設定ファイル、行は CLI が最後に折る（`jzh:apps/cli/src/settings.ts`、`jzh:apps/cli/src/index.ts`）。`jzh config set effort <level>` で書け、`--dump-config` が「effort in effect:」と、行キー・設定キーの説明を出す（`jzh:apps/cli/src/surface.ts`）。
+  - agent-loop の envelope は params に `reasoning_effort` を載せる。`max_tokens` と同じで、provider が読む語を runner が書く（adapter は params をそのまま body に展開する）。どこにも指定が無ければ params に何も載せず、provider の既定に任せる。
+  - 検証: `loop.test.ts`（`reasoningEffort: 'high'` の agent の header params が `{ reasoning_effort: 'high' }`）、`settings.test.ts`（フラグ > 設定ファイル > 既定、未設定は空文字と default）、`effort-e2e.test.ts` 3 本（実 CLI で provider に届いた params が `{ reasoning_effort: 'high' }`／どこにも無ければ `{}`／行が `low` を名指しし、フラグがあれば `high` が勝つ）、`bin.test.ts`（dump が行キー・設定キー・実効値を出す）、`config-command.test.ts`（キー一覧に effort が入る）、`adapter.test.ts`（params が本文にそのまま載る）。`bun run check` 868 pass / 1 skip / 0 fail。
+  - 学び: 通り道（型と params）が既にあっても、**値を入れる口と綴りが揃って初めて機能する**。この変更の前は `AgentOptions.reasoningEffort` を誰も設定せず、仮に設定しても camelCase のまま provider に渡る状態だった。既存の `max_tokens` が「runner が wire 名を書く」という前例だったので、それに合わせた。なお、`runCommand` に分岐を足した時点で cognitive complexity の gate（上限 7）が落ちたので、effort の解決を名前付きの関数に切り出した。
+  - 未確認: dsh はモデルカタログが levels を宣言し、endpoint が受け取れないときは送らない。jozo-harness は値を検証せずそのまま渡すので、受け付けない語を書くと provider が 400 を返す。セッション単位の切り替え（composer 相当）は無く、起動時の解決だけである。
+
 ## 未確認
 
 - dsh の TUI はこのチェックアウトに無い。外部に別途あるかは未確認。
