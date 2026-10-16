@@ -16,6 +16,8 @@ describe('parseArgs', () => {
       'b.yml',
       '--model',
       'ollama-cloud/deepseek-v4.1-flash',
+      '--effort',
+      'high',
       '--json',
       'do',
       'the',
@@ -25,6 +27,8 @@ describe('parseArgs', () => {
     expect(parsed.profile).toBe('repl')
     expect(parsed.patches).toEqual(['a.yml', 'b.yml'])
     expect(parsed.model).toBe('ollama-cloud/deepseek-v4.1-flash')
+    expect(parsed.effort).toBe('high')
+    expect(parsed.effortFlag).toBe('high')
     expect(parsed.json).toBe(true)
     expect(parsed.task).toBe('do the thing')
     expect(parsed.errors).toEqual([])
@@ -39,6 +43,9 @@ describe('parseArgs', () => {
     const parsed = parseArgs([])
     expect(parsed.profile).toBe('headless')
     expect(parsed.task).toBeUndefined()
+    // No effort anywhere: the provider chooses.
+    expect(parsed.effort).toBe('')
+    expect(parsed.effortFlag).toBeUndefined()
   })
 })
 
