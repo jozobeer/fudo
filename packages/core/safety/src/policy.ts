@@ -1,47 +1,37 @@
 /** A named permission level a profile chooses. */
 export type PermissionPreset = 'read-only' | 'workspace-write' | 'full'
 
-/** What a tool declared it needs; see ToolNeeds in @jozo-harness/tools. */
-export type NeededCapability = 'read' | 'write' | 'exec' | 'network'
+/**
+ * How far a command's file effects may reach while it runs. The preset picks the
+ * mode; the sandbox enforces it. Nothing else is what decides whether a call may
+ * run: a tool that runs commands runs them, confined.
+ */
+export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 
-export const KNOWN_CAPABILITIES: ReadonlyArray<NeededCapability> = [
-  'read',
-  'write',
-  'exec',
-  'network',
-]
-
-export type PolicyDecision =
-  | { readonly kind: 'allow' }
-  | { readonly kind: 'ask'; readonly reason: string }
-  | { readonly kind: 'deny'; readonly reason: string }
-
-const PRESETS: Readonly<Record<PermissionPreset, ReadonlyArray<NeededCapability>>> = {
-  'read-only': ['read'],
-  'workspace-write': ['read', 'write'],
-  full: ['read', 'network', 'write', 'exec'],
+/** The preset table: name → the mode its commands run under. */
+const MODES: Readonly<Record<PermissionPreset, SandboxMode>> = {
+  'read-only': 'read-only',
+  'workspace-write': 'workspace-write',
+  full: 'danger-full-access',
 }
 
-/** True when this one capability is inside the preset. */
-export function allows(preset: PermissionPreset, need: NeededCapability): boolean {
-  return PRESETS[preset].includes(need)
+/** The sandbox mode one preset runs commands under. */
+export function modeOf(preset: PermissionPreset): SandboxMode {
+  return MODES[preset]
 }
 
 /**
- * Judges one call against the preset. Anything outside the preset becomes an
- * escalation request; an unknown capability or preset is denied outright.
+ * The modes a call running under `mode` may ask for once the sandbox denied it:
+ * strictly wider ones only. `read-only` is the floor, so nothing escalates to it,
+ * and the widest mode has nothing left to ask for.
  */
-export function decide(
-  preset: PermissionPreset,
-  needs: ReadonlyArray<NeededCapability>,
-): PolicyDecision {
-  if (!Object.hasOwn(PRESETS, preset)) {
-    return { kind: 'deny', reason: 'unknown preset: ' + String(preset) }
-  }
-  const unknown = needs.filter((need) => !KNOWN_CAPABILITIES.includes(need))
-  if (unknown.length > 0)
-    return { kind: 'deny', reason: 'unknown capability: ' + unknown.join(', ') }
-  const missing = needs.filter((need) => !allows(preset, need))
-  if (missing.length === 0) return { kind: 'allow' }
-  return { kind: 'ask', reason: 'preset ' + preset + ' does not allow: ' + missing.join(', ') }
+const WIDER: Readonly<Record<SandboxMode, ReadonlyArray<SandboxMode>>> = {
+  'read-only': ['workspace-write', 'danger-full-access'],
+  'workspace-write': ['danger-full-access'],
+  'danger-full-access': [],
+}
+
+/** The escalation targets of one mode, narrowest first. Empty means none. */
+export function widerModes(mode: SandboxMode): ReadonlyArray<SandboxMode> {
+  return WIDER[mode]
 }

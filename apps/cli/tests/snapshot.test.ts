@@ -221,13 +221,18 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     ],
   },
   {
-    name: 'approval-refusal',
+    name: 'bash-run',
     task: 'run the command',
-    approve: false,
-    streams: [
-      sseOf(toolTurn('bash', { command: 'echo hi' }, 'c1')),
-      sseOf(textTurn('that was refused')),
+    // The bundled profile confines commands; this scenario watches the tool layer
+    // run one, and the sandbox has its own tests.
+    extraRows: [
+      {
+        id: 'safety',
+        name: '@jozo-harness/safety',
+        config: { preset: 'workspace-write', sandbox: 'none' },
+      },
     ],
+    streams: [sseOf(toolTurn('bash', { command: 'echo hi' }, 'c1')), sseOf(textTurn('that ran'))],
   },
   {
     name: 'compaction',

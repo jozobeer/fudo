@@ -7,7 +7,7 @@ import { seatbeltSandbox } from './seatbelt.ts'
 import { Ask } from './ask.ts'
 import { askServiceLayer } from './ask.ts'
 import { Policy, type PolicyShape } from './policy-service.ts'
-import { decide, type PermissionPreset } from './policy.ts'
+import { modeOf } from './policy.ts'
 
 export const safetyConfigSchema = Schema.Struct({
   preset: Schema.Literals(['read-only', 'workspace-write', 'full']),
@@ -66,6 +66,8 @@ const policyLayerWithContexts = (config: SafetyConfig): Layer.Layer<Policy, neve
     Policy,
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt
+      const mode = modeOf(config.preset)
+      const confined = (config.sandbox ?? 'seatbelt') === 'seatbelt'
       yield* prompt.context({
         name: 'approval',
         order: APPROVAL_CONTEXT_ORDER,
@@ -74,10 +76,9 @@ const policyLayerWithContexts = (config: SafetyConfig): Layer.Layer<Policy, neve
       yield* prompt.context({
         name: 'sandbox',
         order: SANDBOX_CONTEXT_ORDER,
-        text: () => Effect.succeed('sandbox: ' + (config.sandbox ?? 'seatbelt')),
+        text: () => Effect.succeed('sandbox: ' + (confined ? mode : 'none')),
       })
-      const preset: PermissionPreset = config.preset
-      const shape: PolicyShape = { preset, decide: (needs) => decide(preset, needs) }
+      const shape: PolicyShape = { preset: config.preset, mode }
       return shape
     }).pipe(Effect.orDie),
   )

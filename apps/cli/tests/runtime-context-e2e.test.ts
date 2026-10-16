@@ -142,7 +142,8 @@ describe('the runtime context through the command', () => {
     expect(first).toContain('Current runtime context:')
     expect(first).toContain('cwd: ' + workspace)
     expect(first).toContain('approval: workspace-write')
-    expect(first).toContain('sandbox: seatbelt')
+    // The fact the model reads is the mode its commands run under, not the provider.
+    expect(first).toContain('sandbox: workspace-write')
     expect(first).toMatch(/time: \d{4}-\d{2}-\d{2}T/)
     expect(second).toContain('cwd: ' + sub)
 

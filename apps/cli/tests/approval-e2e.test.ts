@@ -75,7 +75,8 @@ const profile = (root: string, preset: string): string =>
     "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: ' + preset,
-    // These tests watch the permission preset, not the sandbox: run as they are.
+    // The boundary these tests watch is the sandbox; a run with none is the
+    // unconfined one, so what a preset does to an ordinary call shows here.
     '      sandbox: none',
     '  - id: tier0',
     "    name: '@jozo-harness/tools-tier0'",
@@ -124,7 +125,7 @@ const run = async (
 }
 
 describe('approval through the command', () => {
-  test('workspace-write asks before bash and the refusal stops it', async () => {
+  test('workspace-write runs a bash call without asking', async () => {
     const asked: Array<ApprovalRequested> = []
     const observed = await run('workspace-write', (request) =>
       Effect.sync(() => {
@@ -137,28 +138,25 @@ describe('approval through the command', () => {
     const result = observed.events.find((event) => event.type === 'tool/result')
 
     expect(observed.code).toBe(0)
-    expect(asked.map((request) => request.tool)).toEqual(['bash'])
-    expect(asked[0]?.reason).toBe('preset workspace-write does not allow: exec')
-    expect(types).toContain('safety/approval/requested')
-    expect(types).toContain('safety/approval/answered')
-    expect(result?.type === 'tool/result' ? result.data.isError : false).toBe(true)
+    expect(asked).toEqual([])
+    expect(types).not.toContain('safety/approval/requested')
+    expect(result?.type === 'tool/result' ? result.data.isError : true).toBe(false)
+    expect(JSON.stringify(result)).toContain('ran')
   })
 
-  test('full runs the same call without asking', async () => {
+  test('read-only runs the call too: the sandbox, not the preset, is the boundary', async () => {
     const asked: Array<ApprovalRequested> = []
-    const observed = await run('full', (request) =>
+    const observed = await run('read-only', (request) =>
       Effect.sync(() => {
         asked.push(request)
-        return true
+        return false
       }),
     )
 
-    const types = observed.events.map((event) => event.type)
     const result = observed.events.find((event) => event.type === 'tool/result')
 
     expect(observed.code).toBe(0)
     expect(asked).toEqual([])
-    expect(types).not.toContain('safety/approval/requested')
     expect(result?.type === 'tool/result' ? result.data.isError : true).toBe(false)
     expect(JSON.stringify(result)).toContain('ran')
   })

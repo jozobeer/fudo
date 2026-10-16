@@ -21,26 +21,42 @@ const build = (config: unknown) =>
       const policy = Context.get(context, Policy)
       return {
         preset: policy.preset,
-        exec: policy.decide(['exec']),
+        mode: policy.mode,
         sandbox: Context.get(context, Sandbox).name,
       }
     }),
   )
 
 describe('safetyPlugin', () => {
-  test('contains commands by default', async () => {
+  test('the preset names the mode commands run under', async () => {
     const observed = await Effect.runPromise(build({ preset: 'read-only' }))
 
     expect(observed.preset).toBe('read-only')
-    expect(observed.exec.kind).toBe('ask')
+    expect(observed.mode).toBe('read-only')
     // No sandbox key at all: the provider this platform has is what runs.
     expect(observed.sandbox).toBe('seatbelt')
   })
 
+  test('a confined workspace-write stays confined', async () => {
+    const observed = await Effect.runPromise(
+      build({ preset: 'workspace-write', sandbox: 'seatbelt', writableRoots: ['/work'] }),
+    )
+
+    expect(observed.preset).toBe('workspace-write')
+    expect(observed.mode).toBe('workspace-write')
+    expect(observed.sandbox).toBe('seatbelt')
+  })
+
   test('running without a sandbox is an explicit choice', async () => {
-    const observed = await Effect.runPromise(build({ preset: 'full', sandbox: 'none' }))
+    const observed = await Effect.runPromise(build({ preset: 'workspace-write', sandbox: 'none' }))
 
     expect(observed.sandbox).toBe('none')
+  })
+
+  test('the full preset asks the provider for no confinement', async () => {
+    const observed = await Effect.runPromise(build({ preset: 'full' }))
+
+    expect(observed.mode).toBe('danger-full-access')
   })
 
   test('asking for seatbelt where it cannot run fails instead of running loose', async () => {
@@ -56,15 +72,5 @@ describe('safetyPlugin', () => {
     if (failed._tag === 'Failure') {
       expect(String(failed.failure)).toContain('sandbox: none')
     }
-  })
-
-  test('selects the seatbelt provider when asked', async () => {
-    const observed = await Effect.runPromise(
-      build({ preset: 'workspace-write', sandbox: 'seatbelt', writableRoots: ['/work'] }),
-    )
-
-    expect(observed.preset).toBe('workspace-write')
-    expect(observed.exec.kind).toBe('ask')
-    expect(observed.sandbox).toBe('seatbelt')
   })
 })

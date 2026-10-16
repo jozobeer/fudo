@@ -56,14 +56,14 @@ YAML では plugin 名を引用する（`name: '@jozo-harness/safety'`）。`@` 
 | plugin | キー |
 |---|---|
 | `@jozo-harness/session-jsonl` | `root`（必須）— セッションログのディレクトリ |
-| `@jozo-harness/safety` | `preset`（必須）— `read-only` / `workspace-write` / `full`、`sandbox` — `none` / `seatbelt`（macOS の sandbox-exec。**既定は `seatbelt`**）、`writableRoots` — sandbox が書き込めるディレクトリ（既定はコマンドの cwd と一時ディレクトリ。ここに足す） |
+| `@jozo-harness/safety` | `preset`（必須）— `read-only` / `workspace-write` / `full`。コマンドを走らせる sandbox モードを決める、`sandbox` — `none` / `seatbelt`（macOS の sandbox-exec。**既定は `seatbelt`**）、`writableRoots` — sandbox が書き込めるディレクトリ（既定はコマンドの cwd と一時ディレクトリ。ここに足す） |
 | `@jozo-harness/llm-openai` | `baseUrl`（必須）、`apiKeyEnv`（必須）— キーを持つ環境変数の名前、`streamIdleTimeoutMs` — 1回の試行が無応答でいられる上限（ミリ秒、既定 300000） |
 | `@jozo-harness/agent-loop` | `retainTokens` — 末尾で内容を置き換えない範囲を、推定トークンで表した目標（既定は窓の 16%。最新の 1 件は大きさによらず残る）、`maxBytes` — これを超える text block を、保持の外でスタブに置き換える（バイト、既定 32000）、`maxTokens` — 1 リクエストが答えのために予約するトークン。provider へ `max_tokens` として送り、発火点から先に引く（既定は無し＝予約しない） |
 | `@jozo-harness/mcp` | `command`（必須）、`prefix` |
 
 同梱の `base` profile は `root` に `~/.jzh/sessions`、`preset` に `workspace-write`、`baseUrl` に `https://ollama.com/v1`、`apiKeyEnv` に `OLLAMA_API_KEY` を置いている。
 
-`preset` が許す能力は `read-only` が読むだけ、`workspace-write` が読み書き、`full` が読み書きと実行とネットワークである。`sandbox` の既定は `seatbelt` で、コマンドはファイルシステム的に閉じ込められる（ネットワークは preset の判断に任せる）。無制限で走らせたいときは `sandbox: none` と明示する。`seatbelt` が使えない platform では、黙って無制限にするのではなく起動が失敗する。preset の外に出る呼び出しは承認要求になる。端末 UI と Web UI は y/n を尋ね、答える者がいない実行は拒否される。
+`preset` はコマンドを走らせる sandbox モードを決める。`read-only` は書き込み不可、`workspace-write` はコマンドの cwd と一時ディレクトリと `writableRoots` に書き込み可、`full` は封じ込めなしである。`sandbox` の既定は `seatbelt` で、`seatbelt` が使えない platform では、黙って無制限にするのではなく起動が失敗する。`sandbox: none` は封じ込めを外す明示的な選択である。tool が宣言する能力（`exec` や `network`）では承認を求めない: 実行は sandbox の中で素通りし、境界は sandbox が持つ。
 
 `@jozo-harness/mcp` の行は MCP サーバを起動し、その tool を `prefix`（既定 `mcp__`）を頭に付けて登録する。
 

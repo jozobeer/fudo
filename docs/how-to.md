@@ -64,14 +64,14 @@ jzh config                         # 入ったことを確かめる
 
 ## 書き込みと実行の許可を変える
 
-同梱 `base` profile の `safety` 行に、変えたいキーだけを重ねる。
+`preset` はコマンドを走らせる sandbox モードを決める。`read-only` は書き込み不可、`workspace-write` はコマンドの cwd と一時ディレクトリと `writableRoots` に書き込み可、`full` は封じ込めなしである。同梱 `base` profile の `safety` 行に、変えたいキーだけを重ねる。
 
 ```sh
 jzh config set plugins.safety.preset full
 jzh config                                             # 入ったことを確かめる
 ```
 
-`plugins.safety.preset` は「id が `safety` の行の `preset`」の意味で、`sandbox` のような他のキーは同梱の値のまま残る。1回の実行だけ変えるなら `--patch` に渡すファイルで同じ行を書く。
+`plugins.safety.preset` は「id が `safety` の行の `preset`」の意味で、`sandbox` のような他のキーは同梱の値のまま残る。`full` は sandbox を外すので、コマンドは何も封じ込められずに走る。1回の実行だけ変えるなら `--patch` に渡すファイルで同じ行を書く。
 
 ```yaml
 name: full
@@ -86,6 +86,8 @@ plugins:
 jzh --patch full.yml "…"
 jzh --dump-config --patch full.yml   # 効いた行を確かめる
 ```
+
+`sandbox` 自体を外す（`sandbox: none`）と、preset に関わらず封じ込めは無くなる。`seatbelt` が使えない platform で `seatbelt` を指定した場合は、無制限に落ちずに起動が失敗する。
 
 ## MCP サーバを繋ぐ
 

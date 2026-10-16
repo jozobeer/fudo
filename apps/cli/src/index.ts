@@ -69,20 +69,15 @@ import {
   tier1Tools,
 } from '@jozo-harness/tools-tier1'
 import {
-  Approval,
   Ask,
   approvalServiceLayer,
   askServiceLayer,
-  installApproval,
   installAsk,
   makePlanMode,
-  Policy,
   type ApprovalRequested,
-  type ApprovalShape,
   type AskRequested,
   type AskShape,
   type PlanModeShape,
-  type PolicyShape,
 } from '@jozo-harness/safety'
 import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@jozo-harness/tui'
@@ -173,8 +168,6 @@ const turnFailure = (agent: Agent): string | undefined => {
 }
 
 const planModeOf = (config: unknown): boolean => isRecord(config) && config[PLAN_MODE_KEY] === true
-
-const denyApproval = (_request: ApprovalRequested): Effect.Effect<boolean> => Effect.succeed(false)
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -385,20 +378,6 @@ const tier1ToolList = (
   }
   return list
 }
-
-/** Approval is enforced only when the profile chose a safety row. */
-const installSafety = (
-  agent: Agent,
-  approve: CommandOptions['approve'],
-  hooks: HookRegistry,
-  policy: PolicyShape,
-  approval: ApprovalShape,
-) =>
-  installApproval(agent.session, approve ?? denyApproval).pipe(
-    Effect.provideService(Hooks, hooks),
-    Effect.provideService(Policy, policy),
-    Effect.provideService(Approval, approval),
-  )
 
 const createAgent = (
   agents: AgentsShape,
@@ -627,15 +606,6 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
     }
     if (planMode !== undefined) {
       yield* planMode.install(tools)
-    }
-    if (hasRow(wiring.rows, '@jozo-harness/safety')) {
-      yield* installSafety(
-        wiring.agent,
-        wiring.approve,
-        wiring.hooks,
-        Context.get(wiring.context, Policy),
-        Context.get(wiring.context, Approval),
-      )
     }
     // An active goal keeps going by itself: at the end of a turn of this agent, the
     // next round is queued before the turn closes, so the run cannot go idle in between.

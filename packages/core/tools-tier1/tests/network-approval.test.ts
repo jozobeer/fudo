@@ -1,31 +1,12 @@
 import { HooksLive } from '@jozo-harness/kernel'
-import {
-  approvalServiceLayer,
-  installApproval,
-  policyLayer,
-  type ApprovalRequested,
-} from '@jozo-harness/safety'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@jozo-harness/session'
+import { approvalServiceLayer, policyLayer, type ApprovalRequested } from '@jozo-harness/safety'
 import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { webFetchTool } from '../src/index.ts'
 
-const fakeSession = (events: Array<SessionEvent>): Session =>
-  ({
-    id: 's1' as SessionId,
-    header: { formatVersion: 1, createdAt: 0, cwd: '/tmp' } as SessionHeader,
-    events: () => [...events],
-    append: (type: string, data: unknown) =>
-      Effect.sync(() => {
-        events.push({ seq: events.length + 1, time: 0, type, data } as SessionEvent)
-      }),
-    flush: () => Effect.void,
-    derive: () => [],
-  }) as unknown as Session
-
 describe('network under a preset', () => {
-  test('a fetch is asked about and refused without calling out', async () => {
+  test('a fetch runs without being asked about: the sandbox bounds files, not the network', async () => {
     let hits = 0
     const server = Bun.serve({
       // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
@@ -41,23 +22,16 @@ describe('network under a preset', () => {
     const observed = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const events: Array<SessionEvent> = []
           const asked: Array<ApprovalRequested> = []
           const tools = yield* Tools
           yield* tools.register(webFetchTool)
-          yield* installApproval(fakeSession(events), (request) =>
-            Effect.sync(() => {
-              asked.push(request)
-              return false
-            }),
-          )
           const result = yield* tools.call({
             callId: 'c1',
             tool: 'web_fetch',
             arguments: JSON.stringify({ url }),
             context: { sessionId: 's1', cwd: '/tmp', callId: 'c1' },
           })
-          return { asked, isError: result.isError, events: events.map((event) => event.type) }
+          return { asked, isError: result.isError, content: result.content }
         }).pipe(
           Effect.provide(
             Layer.mergeAll(
@@ -71,11 +45,9 @@ describe('network under a preset', () => {
     )
     await server.stop(true)
 
-    expect(observed.asked.map((request) => request.reason)).toEqual([
-      'preset workspace-write does not allow: network',
-    ])
-    expect(observed.isError).toBe(true)
-    expect(hits).toBe(0)
-    expect(observed.events).toEqual(['safety/approval/requested', 'safety/approval/answered'])
+    expect(observed.asked).toEqual([])
+    expect(observed.isError).toBe(false)
+    expect(JSON.stringify(observed.content)).toContain('secret')
+    expect(hits).toBe(1)
   })
 })

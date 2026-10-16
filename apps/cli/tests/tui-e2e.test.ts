@@ -174,12 +174,10 @@ describe('terminal UI through the command', () => {
     await rm(workspace, { recursive: true, force: true })
   })
 
-  test('an approval is answered from the keyboard and the tool runs', async () => {
+  test('a bash call runs in the terminal UI without a prompt', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
-    const tui = fakeTui(
-      keyStream(spaced(typed('run')), spaced([enter]), later(char('y'), 300), later(ctrlD, 500)),
-    )
+    const tui = fakeTui(keyStream(spaced(typed('run')), spaced([enter]), later(ctrlD, 500)))
 
     const code = await Effect.runPromise(
       runCommand({
@@ -197,16 +195,13 @@ describe('terminal UI through the command', () => {
     const sessions = await Effect.runPromise(jsonlSessions({ root }).list())
     const opened = await Effect.runPromise(jsonlSessions({ root }).open(sessions[0]?.id ?? ''))
     const asked = opened.events.find((event) => event.type === 'safety/approval/requested')
-    const answered = opened.events.find((event) => event.type === 'safety/approval/answered')
     const result = opened.events.find((event) => event.type === 'tool/result')
 
     expect(code).toBe(0)
-    expect(screen).toContain('[y/n]')
+    // A call the preset's mode covers is never a question: the sandbox is the boundary.
+    expect(screen).not.toContain('[y/n]')
     expect(screen).toContain('all done')
-    expect(asked?.type).toBe('safety/approval/requested')
-    expect(answered?.type === 'safety/approval/answered' ? answered.data.approved : false).toBe(
-      true,
-    )
+    expect(asked).toBeUndefined()
     expect(result?.type === 'tool/result' ? result.data.isError : true).toBe(false)
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })
