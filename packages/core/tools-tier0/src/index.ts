@@ -10,7 +10,7 @@ export * from './walk.ts'
 export * from './text.ts'
 export * from './observed-files.ts'
 
-import { noneSandbox, type SandboxShape } from '@jozo-harness/safety'
+import { noneSandbox, type ApprovalShape, type SandboxShape } from '@jozo-harness/safety'
 import type { ToolDefinition } from '@jozo-harness/tools'
 import { makeReadTool } from './read.ts'
 import { makeWriteTool } from './write.ts'
@@ -20,16 +20,20 @@ import { grepTool } from './grep.ts'
 import { makeBashTool } from './bash.ts'
 import { makeObservedFiles, type ObservedFiles } from './observed-files.ts'
 
-/** Every Tier 0 tool, with the sandbox the caller chose for bash. */
+/**
+ * Every Tier 0 tool, with the sandbox the caller chose for bash and the approval
+ * seam it escalates through. Without a seam the escalation arguments are refused.
+ */
 export const tier0Tools = (
   sandbox: SandboxShape = noneSandbox,
   observed: ObservedFiles = makeObservedFiles(),
+  approval?: ApprovalShape,
 ): ReadonlyArray<ToolDefinition<any, any>> => [
   makeReadTool(observed),
   makeWriteTool(observed),
   makeEditTool(observed),
   globTool,
   grepTool,
-  makeBashTool(sandbox),
+  makeBashTool(sandbox, approval),
 ]
 export * from './plugin.ts'

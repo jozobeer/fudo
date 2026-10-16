@@ -24,7 +24,7 @@ import {
   type AgentsMdOptions,
 } from '@jozo-harness/system-prompt'
 import { ToolError, type ToolExecution } from '@jozo-harness/tools'
-import { Tools, type ToolDefinition, type ToolRegistry } from '@jozo-harness/tools'
+import { Tools, type ToolRegistry } from '@jozo-harness/tools'
 import {
   currentPreset,
   makeCommands,
@@ -33,7 +33,7 @@ import {
   type Preset,
   type SessionError,
 } from '@jozo-harness/session'
-import { Tier0Tools } from '@jozo-harness/tools-tier0'
+import { Tier0Tools, type Tier0ToolBuilder } from '@jozo-harness/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
 import { modelEndpointOf } from './models.ts'
 import { credentialSource, type SettingsSurface } from './settings.ts'
@@ -69,12 +69,16 @@ import {
   tier1Tools,
 } from '@jozo-harness/tools-tier1'
 import {
+  Approval,
   Ask,
   approvalServiceLayer,
   askServiceLayer,
   installAsk,
   makePlanMode,
+  recordingAnswerer,
+  type ApprovalAnswerer,
   type ApprovalRequested,
+  type ApprovalShape,
   type AskRequested,
   type AskShape,
   type PlanModeShape,
@@ -231,9 +235,16 @@ const installMcpServers = (tools: ToolRegistry, servers: ReadonlyArray<McpServer
     }
   })
 
-const installTier0 = (tools: ToolRegistry, tier0: ReadonlyArray<ToolDefinition<any, any>>) =>
+/** Nobody is there to answer an escalation, so the call stays denied. */
+const refuseApproval: ApprovalAnswerer = () => Effect.succeed(false)
+
+const installTier0 = (
+  tools: ToolRegistry,
+  tier0: Tier0ToolBuilder,
+  approval: ApprovalShape | undefined,
+) =>
   Effect.gen(function* () {
-    for (const tool of tier0) yield* tools.register(tool)
+    for (const tool of tier0(approval)) yield* tools.register(tool)
   })
 
 /** Tier 1 tools ask the user; their questions and answers join the log. */
@@ -584,7 +595,11 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
       ? makePlanMode()
       : undefined
     if (hasRow(wiring.rows, '@jozo-harness/tools-tier0')) {
-      yield* installTier0(tools, Context.get(wiring.context, Tier0Tools))
+      yield* installTier0(
+        tools,
+        Context.get(wiring.context, Tier0Tools),
+        Context.get(wiring.context, Approval),
+      )
     }
     if (hasRow(wiring.rows, '@jozo-harness/tools-tier1')) {
       yield* installTier1(
@@ -746,6 +761,12 @@ const runSession = (
     const commands = makeCommands()
     yield* installBuiltinCommands(commands)
     const ui = yield* uiHostOf(work, agent, hooks, commands)
+
+    // An escalation asks whoever answers for this run: a UI, a caller's hook, or
+    // nobody — and nobody leaves the call denied, recorded as such.
+    yield* Context.get(context, Approval).serve(
+      recordingAnswerer(agent.session, answerersOf(ui, options).approve ?? refuseApproval),
+    )
 
     yield* installNestedAgentsMd({
       hooks,

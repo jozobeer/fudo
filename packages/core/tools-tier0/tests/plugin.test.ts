@@ -30,7 +30,8 @@ describe('tier0Plugin', () => {
             ],
           })
           const context = yield* Layer.build(layer)
-          const tools = Context.get(context, Tier0Tools)
+          // No approval seam here: this test watches the sandbox the row resolved.
+          const tools = Context.get(context, Tier0Tools)(undefined)
           const bash = tools.find((tool) => tool.name === 'bash')
           return {
             names: tools.map((tool) => tool.name),
