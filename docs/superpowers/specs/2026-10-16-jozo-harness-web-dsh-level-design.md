@@ -23,7 +23,7 @@
 | S1 | 会話の描画（markdown・コード・tool カード・承認/質問カード・ヘッダ） | 実装済み 2026-10-16 | 単体テストと実 Chrome の受け入れが通り、スクリーンショットが残る |
 | S2 | 左サイドバーとセッションの入口（一覧・新規・切り替え） | 一覧・新規・切り替えは実装済み 2026-10-16。右サイドバーと設定導線は未着手 | ブラウザだけでセッションを選び、新しく作り、切り替えられる |
 | S3 | 設定とテーマ（外観の切り替え、設定面とモデル選択） | 実装済み 2026-10-16（モデルと effort 以外のキーは未対応） | 設定ファイルを直接開かずに主要なキーを変えられる |
-| S4 | 走行状態（job・subagent・goal・schedule・plan）と trajectory | 未着手 | 実行中のものを会話とは別の面で見て、止められる |
+| S4 | 走行状態（goal・schedule・job・subagent・plan） | goal と schedule は実装済み 2026-10-16。job・subagent・plan は未着手 | 実行中のものを会話とは別の面で見て、止められる |
 | S5 | 設定（権限・プリセット・テーマ・ショートカット） | 未着手 | 設定ファイルを直接開かずに主要なキーを変えられる |
 
 S2 は「1 プロセス = 1 セッション」を「サーバがセッション登録簿を持ち、必要なときに
@@ -83,6 +83,23 @@ S2 は「1 プロセス = 1 セッション」を「サーバがセッション�
 
 未着手は、選択を今のセッションに効かせること（agent の route を差し替える設計が要る）、
 effort や profile など他のキーの編集、右サイドバーである。
+
+## S4 で入れたもの（goal と schedule、2026-10-16）
+
+- ログが既に持っているものだけを、まず見せた。`goal/updated` と
+  `schedule/*` は `registerLogOnlySessionEvents` でセッションに記録されている
+  ので、**新しいイベントも新しい畳み方も要らない**。
+- 畳み方は 1 つに保った。規則は `@jozo-harness/tools-tier1` の `currentGoal` /
+  `goalRounds` / `currentSchedules` / `ruleText` / `lastFiredAt` にあり、
+  同じものを使っている CLI の `/status` と Web が同じ答えを出す。UI のパッケージは
+  tier1 に依存しない（node 側の重い依存をブラウザへ持ち込まないため）ので、
+  **UI は畳まずに問い合わせる**: `OpenSession.runState()` を apps/cli が閉じ込め、
+  RPC `state` がそれを返す。
+- レールに `RUN` の面を足した。ゴールは objective・phase・ラウンド数、schedule は
+  rule・prompt、無ければ "no goal"。turn が終わるたびに読み直す。
+
+未着手は job と subagent（ログに無く、実行中の一覧を渡す口が要る）、plan の提示、
+trajectory である。
 
 ## S1 で入れたもの
 
