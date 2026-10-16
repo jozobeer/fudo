@@ -100,6 +100,92 @@ body {
   white-space: nowrap;
 }
 
+#shell {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+#sidebar {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 264px;
+  padding: 12px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  overflow-y: auto;
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#new-session {
+  width: 100%;
+}
+
+#session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session:hover {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+
+.session.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.session-id {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.session-where {
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-when {
+  font-size: 11px;
+}
+
+#status .hint.error {
+  color: var(--error);
+}
+
+@media (max-width: 720px) {
+  #sidebar {
+    display: none;
+  }
+}
+
 #conversation {
   flex: 1;
   overflow-y: auto;

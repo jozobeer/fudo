@@ -2,8 +2,17 @@ import { describe, expect, test } from 'bun:test'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { escapeHtml } from '../client/html.ts'
-import { initialState, withConnection, withDraft } from '../client/state.ts'
-import { renderConversation, renderStatus } from '../client/view.ts'
+import {
+  initialState,
+  withConnection,
+  withDraft,
+  withSession,
+  withSessions,
+} from '../client/state.ts'
+import { renderConversation, renderSessions, renderStatus } from '../client/view.ts'
+
+const a = { id: 'a', cwd: '/work/one', createdAt: 1 }
+const b = { id: 'b', cwd: '/work/two', createdAt: 2 }
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {
@@ -90,6 +99,16 @@ describe('the browser view', () => {
     expect(ask).toContain('data-answer="x"')
     expect(ask).toContain('data-answer="y"')
     expect(renderConversation(emptyConversation)).not.toContain('data-approve')
+  })
+
+  test('the sidebar lists the sessions and marks the one being read', () => {
+    const view = renderSessions(withSession(withSessions(initialState, [a, b]), b))
+    expect(view).toContain('data-session-id="a"')
+    expect(view).toContain('data-session-id="b"')
+    expect(view).toContain('class="session active" data-session-id="b"')
+    expect(view).not.toContain('class="session active" data-session-id="a"')
+    expect(view).toContain('two')
+    expect(renderSessions(initialState)).not.toContain('data-session-id')
   })
 
   test('the status strip reports the connection, where it runs and the next action', () => {

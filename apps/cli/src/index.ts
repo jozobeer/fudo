@@ -13,7 +13,13 @@ import {
   type PluginError,
   type PluginRow,
 } from '@jozo-harness/kernel'
-import { cwdOf, lastSkillCatalog, type SessionId } from '@jozo-harness/session'
+import {
+  Sessions,
+  cwdOf,
+  lastSkillCatalog,
+  type SessionId,
+  type SessionSummary,
+} from '@jozo-harness/session'
 import { expandHome } from '@jozo-harness/session-jsonl'
 import {
   SystemPrompt,
@@ -86,7 +92,12 @@ import {
 import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@jozo-harness/tui'
 import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
-import { defaultStaticRoot, serveWeb } from '@jozo-harness/web'
+import {
+  WebSessionError,
+  defaultStaticRoot,
+  serveWeb,
+  type SessionFactory,
+} from '@jozo-harness/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 import {
   EFFORT_KEY,
@@ -409,6 +420,7 @@ const createAgent = (
   route: string,
   spillBytes: number | undefined,
   effort: string,
+  resume: SessionId | undefined,
 ) =>
   Effect.gen(function* () {
     const agentOptions: AgentOptions = {
@@ -419,9 +431,9 @@ const createAgent = (
       // Spilled text belongs in the jzh home, under the session that owns it.
       ...(options.jzhHome === undefined ? {} : { spillDir: join(options.jzhHome, 'spill') }),
     }
-    return options.resume === undefined
+    return resume === undefined
       ? yield* agents.create({ cwd: options.cwd, options: agentOptions })
-      : yield* agents.create({ cwd: options.cwd, resume: options.resume, options: agentOptions })
+      : yield* agents.create({ cwd: options.cwd, resume, options: agentOptions })
   })
 
 const serveLines = (
@@ -655,48 +667,76 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
   })
 
 /**
- * Records the composition of a new session, or refuses to carry on with one whose
- * composition differs from what it recorded. True means the run may proceed.
+ * Records the composition of a new session, or says why the run may not carry on
+ * with one whose composition differs from what it recorded.
  */
 const applyPreset = (
   agent: Agent,
   composition: Preset,
-  options: CommandOptions,
-): Effect.Effect<boolean, SessionError> =>
+  allowChange: boolean,
+): Effect.Effect<string | undefined, SessionError> =>
   Effect.gen(function* () {
     const recorded = currentPreset(agent.session.events())
     if (recorded === undefined) {
       yield* agent.session.append('preset/selected', composition)
-      return true
+      return undefined
     }
     const problem = presetProblem(recorded, composition)
-    if (problem === undefined) return true
-    if (options.allowPresetChange !== true) {
-      options.stderr('jzh: ' + problem + '\n')
-      return false
-    }
+    if (problem === undefined) return undefined
+    if (!allowChange) return problem
     // The human said so: the new composition becomes the session's own.
     yield* agent.session.append('preset/selected', composition)
-    return true
+    return undefined
   })
 
 /** A UI runs the session itself instead of streaming into the caller's terminal. */
 const ownsTheScreen = (work: Work): boolean => work.kind === 'tui' || work.kind === 'web'
 
-const uiHostOf = (
-  work: Work,
-  agent: Agent,
-  hooks: HookRegistry,
-  commands: CommandsShape,
-): Effect.Effect<UiHost | undefined, never, Scope.Scope> =>
-  ownsTheScreen(work)
-    ? makeUiHost({ session: agent.session, agent, hooks, commands })
-    : Effect.succeed(undefined)
+/** One line of the command a human typed; the model never sees it. */
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error)
+
+/** Opens one more session for a UI that outlives its first: the same wiring, a new scope. */
+const sessionFactoryOf = (
+  options: CommandOptions,
+  rows: ReadonlyArray<PluginRow>,
+  route: string,
+  effort: string,
+  spillBytes: number | undefined,
+  layer: Layer.Layer<any, PluginError, never>,
+  listSessions: SessionRuntime['listSessions'],
+): SessionFactory => ({
+  list: () =>
+    listSessions().pipe(
+      Effect.mapError((error) => new WebSessionError({ message: messageOf(error) })),
+    ),
+  open: (id) =>
+    Effect.gen(function* () {
+      const built = yield* buildSession(options, rows, route, effort, spillBytes, layer, true, id)
+      if (built.kind === 'refused') {
+        return yield* Effect.fail(new WebSessionError({ message: built.message }))
+      }
+      const { agent, ui } = built.runtime
+      if (ui === undefined) {
+        return yield* Effect.fail(
+          new WebSessionError({ message: 'the session was built without a UI host' }),
+        )
+      }
+      return { summary: summaryOf(agent), host: ui }
+    }).pipe(
+      Effect.mapError((error) =>
+        error instanceof WebSessionError
+          ? error
+          : new WebSessionError({ message: messageOf(error) }),
+      ),
+    ),
+})
 
 /** Starts the browser UI; it runs until interrupted. */
 const serveWebUi = (
   options: CommandOptions,
   ui: UiHost,
+  runtime: SessionRuntime,
   work: Extract<Work, { kind: 'web' }>,
 ): Effect.Effect<number> =>
   Effect.gen(function* () {
@@ -707,7 +747,16 @@ const serveWebUi = (
       return 1
     }
     return yield* serveWeb({
-      host: ui,
+      initial: { summary: summaryOf(runtime.agent), host: ui },
+      factory: sessionFactoryOf(
+        options,
+        runtime.rows,
+        runtime.route,
+        runtime.effort,
+        runtime.spillBytes,
+        runtime.layer,
+        runtime.listSessions,
+      ),
       port: work.port,
       staticRoot,
       onReady: (url) => {
@@ -720,19 +769,18 @@ const serveWebUi = (
 /** The UI a work kind asks for, when the caller supplied one. */
 const serveUi = (
   options: CommandOptions,
-  ui: UiHost | undefined,
+  runtime: SessionRuntime,
   work: Work,
-  route: string,
-  agent: Agent,
 ): Effect.Effect<number> | undefined => {
+  const { agent, ui } = runtime
   if (ui === undefined) return undefined
   if (work.kind === 'tui') {
     return runTui(ui, work.io, {
-      title: 'jozo-harness · ' + route + ' · ' + agent.id.slice(0, 8),
+      title: 'jozo-harness · ' + runtime.route + ' · ' + agent.id.slice(0, 8),
       ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
     })
   }
-  if (work.kind === 'web') return serveWebUi(options, ui, work)
+  if (work.kind === 'web') return serveWebUi(options, ui, runtime, work)
   return undefined
 }
 
@@ -745,21 +793,47 @@ const answerersOf = (
   approve: ui === undefined ? options.approve : ui.answerApproval,
 })
 
-/** The scoped body that owns the built layer and serves one agent run. */
-const runSession = (
+/** Everything one running session owns: its agent, its UI face, and the wiring a second one repeats. */
+interface SessionRuntime {
+  readonly agent: Agent
+  readonly ui: UiHost | undefined
+  readonly commands: CommandsShape
+  /** The store this session lives in: a UI that lists sessions reads the same one. */
+  readonly listSessions: () => Effect.Effect<ReadonlyArray<SessionSummary>, SessionError>
+  readonly rows: ReadonlyArray<PluginRow>
+  readonly route: string
+  readonly effort: string
+  readonly spillBytes: number | undefined
+  readonly layer: Layer.Layer<any, PluginError, never>
+}
+
+/** A session that was built, or one whose recorded composition refuses this run. */
+type BuiltSession =
+  | { readonly kind: 'ready'; readonly runtime: SessionRuntime }
+  | { readonly kind: 'refused'; readonly message: string }
+
+const summaryOf = (agent: Agent): SessionSummary => ({
+  id: agent.session.id,
+  cwd: agent.session.header.cwd,
+  createdAt: agent.session.header.createdAt,
+})
+
+/** The scoped body that builds one session: its layer, agent, tools, and UI host. */
+const buildSession = (
   options: CommandOptions,
   rows: ReadonlyArray<PluginRow>,
   route: string,
   effort: string,
   spillBytes: number | undefined,
   layer: Layer.Layer<any, PluginError, never>,
-  work: Work,
+  wantsUi: boolean,
+  resume: SessionId | undefined,
 ) =>
   Effect.gen(function* () {
     const context = yield* Layer.build(Layer.mergeAll(layer, approvalServiceLayer, askServiceLayer))
     const hooks = Context.get(context, Hooks)
     // A UI owns the screen; only the non-interactive paths stream text out.
-    if (!ownsTheScreen(work)) yield* installOutput(hooks, options)
+    if (!wantsUi) yield* installOutput(hooks, options)
 
     // Workspace instructions join the prompt before the first turn.
     const agents = yield* registerAgentsMd(
@@ -778,12 +852,15 @@ const runSession = (
       route,
       spillBytes,
       effort,
+      resume,
     )
     // What a human can type at this session is not the model's business; both the
     // REPL and a UI run it through the same registry and the log keeps the record.
     const commands = makeCommands()
     yield* installBuiltinCommands(commands)
-    const ui = yield* uiHostOf(work, agent, hooks, commands)
+    const ui = wantsUi
+      ? yield* makeUiHost({ session: agent.session, agent, hooks, commands })
+      : undefined
 
     // An escalation asks whoever answers for this run: a UI, a caller's hook, or
     // nobody — and nobody leaves the call denied, recorded as such.
@@ -826,11 +903,52 @@ const runSession = (
 
     // A session keeps the composition it was started with: the tools behind its
     // history are not something a later run may swap out without being told to.
-    if (!(yield* applyPreset(agent, composition, options))) return 1
+    const problem = yield* applyPreset(agent, composition, options.allowPresetChange === true)
+    if (problem !== undefined) return { kind: 'refused', message: problem } satisfies BuiltSession
+    return {
+      kind: 'ready',
+      runtime: {
+        agent,
+        ui,
+        commands,
+        listSessions: () => Context.get(context, Sessions).list(),
+        rows,
+        route,
+        effort,
+        spillBytes,
+        layer,
+      },
+    } satisfies BuiltSession
+  })
 
-    const served = serveUi(options, ui, work, route, agent)
+/** The scoped body that owns the built layer and serves one run. */
+const runSession = (
+  options: CommandOptions,
+  rows: ReadonlyArray<PluginRow>,
+  route: string,
+  effort: string,
+  spillBytes: number | undefined,
+  layer: Layer.Layer<any, PluginError, never>,
+  work: Work,
+) =>
+  Effect.gen(function* () {
+    const built = yield* buildSession(
+      options,
+      rows,
+      route,
+      effort,
+      spillBytes,
+      layer,
+      ownsTheScreen(work),
+      options.resume,
+    )
+    if (built.kind === 'refused') {
+      options.stderr('jzh: ' + built.message + '\n')
+      return 1
+    }
+    const served = serveUi(options, built.runtime, work)
     if (served !== undefined) return yield* served
-    return yield* serveAgent(agent, options, work, commands)
+    return yield* serveAgent(built.runtime.agent, options, work, built.runtime.commands)
   })
 
 /**

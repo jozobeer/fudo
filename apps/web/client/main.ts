@@ -1,23 +1,36 @@
-import { Effect, Queue, Schedule, Stream } from 'effect'
+import { Effect, Fiber, Queue, Schedule, Stream } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
 import type { UiCommand } from '@jozo-harness/ui-protocol'
 import { UiRpcs, withoutServices } from '../src/shared/rpc.ts'
 import { followsBottom } from './scroll.ts'
-import { applyUiEvent, initialState, withConnection, withDraft, type WebState } from './state.ts'
-import { renderConversation, renderStatus } from './view.ts'
+import {
+  applyUiEvent,
+  initialState,
+  withConnection,
+  withDraft,
+  withProblem,
+  withSession,
+  withSessions,
+  type WebState,
+} from './state.ts'
+import { renderConversation, renderSessions, renderStatus } from './view.ts'
 
 const conversationElement = document.getElementById('conversation')
 const statusElement = document.getElementById('status')
 const form = document.getElementById('composer')
 const input = document.getElementById('input')
 const cancelButton = document.getElementById('cancel')
+const newSessionButton = document.getElementById('new-session')
+const sessionListElement = document.getElementById('session-list')
 if (
   conversationElement === null ||
   statusElement === null ||
   form === null ||
   input === null ||
   cancelButton === null ||
+  newSessionButton === null ||
+  sessionListElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
   throw new Error('the page is missing its skeleton')
@@ -25,12 +38,20 @@ if (
 
 let state: WebState = initialState
 const commands = Effect.runSync(Queue.unbounded<UiCommand>())
+/** What the page was asked to read: a session id, or undefined for a new session. */
+const moves = Effect.runSync(Queue.unbounded<string | undefined>())
+/** The subscription the page follows; replaced every time it moves. */
+let following: Fiber.Fiber<void, unknown> | undefined
+
+const messageOf = (error: unknown): string =>
+  typeof error === 'string' ? error : error instanceof Error ? error.message : String(error)
 
 const paint = (): void => {
   // Where the reader was, read before the DOM moves: only a view at the bottom follows it.
   const follow = followsBottom(conversationElement)
   conversationElement.innerHTML = renderConversation(state.conversation)
   statusElement.innerHTML = renderStatus(state)
+  sessionListElement.innerHTML = renderSessions(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
@@ -40,6 +61,15 @@ const paintStatus = (): void => {
 
 const send = (command: UiCommand): void => {
   Queue.offerUnsafe(commands, command)
+}
+
+const moveTo = (id: string | undefined): void => {
+  Queue.offerUnsafe(moves, id)
+}
+
+const sessionInUrl = (search: string): string | undefined => {
+  const value = new URLSearchParams(search).get('session')
+  return value === null || value === '' ? undefined : value
 }
 
 /** The composer grows with its draft, up to the height of a page. */
@@ -67,20 +97,57 @@ const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.h
 
 const session = Effect.gen(function* () {
   const client = yield* RpcClient.make(UiRpcs)
+
+  // Everything one session logs, until the socket or the page moves on.
+  const follow = (id: string) =>
+    client.events({ sessionId: id }).pipe(
+      Stream.runForEach((event) =>
+        Effect.sync(() => {
+          state = applyUiEvent(state, event)
+          paint()
+        }),
+      ),
+    )
+
+  const show = (id: string | undefined) =>
+    Effect.gen(function* () {
+      const summary = yield* client.open(id === undefined ? {} : { sessionId: id })
+      if (following !== undefined) yield* Fiber.interrupt(following)
+      yield* Effect.sync(() => {
+        state = withSession(state, summary)
+        history.replaceState(null, '', '?session=' + encodeURIComponent(summary.id))
+        paint()
+      })
+      following = yield* Effect.forkScoped(follow(summary.id))
+    })
+
+  const complain = (error: unknown): Effect.Effect<void> =>
+    Effect.sync(() => {
+      state = withProblem(state, messageOf(error))
+      paint()
+    })
+
   yield* Effect.sync(() => {
     state = withConnection(state, true)
     paint()
   })
   yield* Effect.forkScoped(
     Stream.runForEach(Stream.fromQueue(commands), (command) =>
-      client.command(command).pipe(Effect.ignore),
+      client.command({ sessionId: state.sessionId, command }).pipe(Effect.ignore),
     ),
   )
-  yield* Stream.runForEach(client.events(), (event) =>
-    Effect.sync(() => {
-      state = applyUiEvent(state, event)
-      paint()
-    }),
+
+  const listed = yield* client.sessions()
+  yield* Effect.sync(() => {
+    state = withSessions(state, listed.items)
+    paint()
+  })
+  // The session the page opens, then one more for every move: a click, or a new session.
+  const wanted =
+    state.sessionId !== '' ? state.sessionId : (sessionInUrl(location.search) ?? listed.initial)
+  yield* Stream.runForEach(
+    Stream.concat(Stream.fromIterable([wanted]), Stream.fromQueue(moves)),
+    (id) => show(id).pipe(Effect.catch(complain)),
   )
 })
 
@@ -119,6 +186,18 @@ input.addEventListener('keydown', (event) => {
 
 cancelButton.addEventListener('click', () => {
   send({ kind: 'cancel' })
+})
+
+newSessionButton.addEventListener('click', () => {
+  moveTo(undefined)
+})
+
+sessionListElement.addEventListener('click', (event) => {
+  const target = event.target
+  if (!(target instanceof HTMLElement)) return
+  const row = target.closest('button.session')
+  const id = row instanceof HTMLButtonElement ? row.dataset.sessionId : undefined
+  if (id !== undefined) moveTo(id)
 })
 
 conversationElement.addEventListener('click', (event) => {

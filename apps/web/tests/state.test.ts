@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import type { UiEvent } from '@jozo-harness/ui-protocol'
-import { applyUiEvent, initialState } from '../client/state.ts'
+import {
+  applyUiEvent,
+  initialState,
+  withProblem,
+  withSession,
+  withSessions,
+} from '../client/state.ts'
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {
@@ -9,6 +15,9 @@ const session = (type: string, data: unknown): UiEvent => {
 }
 
 const fold = (events: ReadonlyArray<UiEvent>) => events.reduce(applyUiEvent, initialState)
+
+const a = { id: 'a', cwd: '/work/one', createdAt: 1 }
+const b = { id: 'b', cwd: '/work/two', createdAt: 2 }
 
 describe('the browser state', () => {
   test('the header learns where the session runs and what answers it', () => {
@@ -46,5 +55,29 @@ describe('the browser state', () => {
       session('turn/start', { turn: 'not a number' }),
     ])
     expect(state.info).toEqual({ cwd: '', model: '', turns: 0 })
+  })
+
+  test('the list a page opens with is what its sidebar shows', () => {
+    const state = withSessions(initialState, [b, a])
+    expect(state.sessions).toEqual([b, a])
+    expect(state.sessionId).toBe('')
+  })
+
+  test('showing another session clears the conversation and joins the list', () => {
+    const talking = applyUiEvent(
+      withSession(initialState, a),
+      session('user/message', { text: 'hello', source: 'user' }),
+    )
+    expect(talking.conversation.blocks).toHaveLength(1)
+    const moved = withSession(talking, b)
+    expect(moved.sessionId).toBe('b')
+    expect(moved.conversation.blocks).toHaveLength(0)
+    expect(moved.sessions.map((item) => item.id)).toEqual(['a', 'b'])
+  })
+
+  test('a problem the page could not act on is shown until the next move', () => {
+    const failed = withProblem(withSession(initialState, a), 'the session is gone')
+    expect(failed.problem).toBe('the session is gone')
+    expect(withSession(failed, b).problem).toBe('')
   })
 })

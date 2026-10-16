@@ -130,8 +130,9 @@ describe('the browser UI through the command', () => {
           const used = Effect.gen(function* () {
             const client = yield* RpcClient.make(UiRpcs)
             const seen = yield* Deferred.make<string>()
+            const { initial } = yield* client.sessions()
             yield* Effect.forkScoped(
-              client.events().pipe(
+              client.events({ sessionId: initial }).pipe(
                 Stream.runForEach((event) =>
                   Effect.gen(function* () {
                     if (event.kind !== 'session' || event.event.type !== 'assistant/message') return
@@ -140,7 +141,10 @@ describe('the browser UI through the command', () => {
                 ),
               ),
             )
-            const accepted = yield* client.command({ kind: 'submit', text: 'ping' })
+            const accepted = yield* client.command({
+              sessionId: initial,
+              command: { kind: 'submit', text: 'ping' },
+            })
             const answer = yield* Deferred.await(seen)
             const page = yield* Effect.promise(() => fetch(url + '/'))
             const home = yield* Effect.promise(() => page.text())

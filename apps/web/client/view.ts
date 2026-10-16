@@ -1,5 +1,6 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
+import type { SessionSummary } from '../src/shared/rpc.ts'
 import { escapeHtml } from './html.ts'
 import { renderMarkdown } from './markdown.ts'
 import type { WebState } from './state.ts'
@@ -146,7 +147,41 @@ export const renderConversation = (conversation: Conversation): string => {
   return blocksHtml(conversation.blocks) + live + approvalHtml(conversation) + askHtml(conversation)
 }
 
+const basenameOf = (path: string): string => {
+  const parts = path.split('/')
+  return parts[parts.length - 1] ?? path
+}
+
+const clockOf = (time: number): string => {
+  const at = new Date(time)
+  const hours = String(at.getHours()).padStart(2, '0')
+  const minutes = String(at.getMinutes()).padStart(2, '0')
+  return hours + ':' + minutes
+}
+
+const sessionRow = (state: WebState, summary: SessionSummary): string => {
+  const active = summary.id === state.sessionId ? ' active' : ''
+  return (
+    '<button class="session' +
+    active +
+    '" data-session-id="' +
+    escapeHtml(summary.id) +
+    '" type="button"><span class="session-id">' +
+    text(summary.id.slice(0, 8)) +
+    '</span><span class="session-where">' +
+    text(basenameOf(summary.cwd)) +
+    '</span><span class="session-when">' +
+    clockOf(summary.createdAt) +
+    '</span></button>'
+  )
+}
+
+/** The left rail: every session the store holds, the one on screen marked. */
+export const renderSessions = (state: WebState): string =>
+  state.sessions.map((summary) => sessionRow(state, summary)).join('')
+
 const hintOf = (state: WebState): string => {
+  if (state.problem !== '') return state.problem
   if (!state.connected) return 'reconnecting…'
   const conversation = state.conversation
   if (conversation.approval !== undefined) return 'waiting for your approval'
@@ -164,8 +199,10 @@ export const renderStatus = (state: WebState): string => {
     '<span class="title">jozo-harness</span>' +
     (info.cwd === '' ? '' : '<span class="where">' + text(info.cwd) + '</span>') +
     (info.model === '' ? '' : '<span class="model">' + text(info.model) + '</span>') +
-    '<span class="hint">' +
-    hintOf(state) +
+    '<span class="hint' +
+    (state.problem === '' ? '' : ' error') +
+    '">' +
+    text(hintOf(state)) +
     '</span>'
   )
 }

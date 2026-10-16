@@ -1,5 +1,6 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
+import type { SessionSummary } from '../src/shared/rpc.ts'
 
 /** What the header says about the session behind the page. */
 export interface SessionInfo {
@@ -10,12 +11,18 @@ export interface SessionInfo {
 
 const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
 
-/** What the browser shows: the conversation, the socket state, the draft, and the session. */
+/** What the browser shows: the conversation, the socket, the draft, and the sessions. */
 export interface WebState {
   readonly conversation: Conversation
   readonly connected: boolean
   readonly draft: string
   readonly info: SessionInfo
+  /** Every session the store holds, newest first, as the sidebar lists them. */
+  readonly sessions: ReadonlyArray<SessionSummary>
+  /** The session being read; '' until the page has opened one. */
+  readonly sessionId: string
+  /** Why the last move failed; shown until the page moves again. */
+  readonly problem: string
 }
 
 export const initialState: WebState = {
@@ -23,6 +30,9 @@ export const initialState: WebState = {
   connected: false,
   draft: '',
   info: emptyInfo,
+  sessions: [],
+  sessionId: '',
+  problem: '',
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -31,6 +41,29 @@ export const withConnection = (state: WebState, connected: boolean): WebState =>
 })
 
 export const withDraft = (state: WebState, draft: string): WebState => ({ ...state, draft })
+
+export const withSessions = (state: WebState, items: ReadonlyArray<SessionSummary>): WebState => ({
+  ...state,
+  sessions: items,
+})
+
+export const withProblem = (state: WebState, problem: string): WebState => ({ ...state, problem })
+
+/**
+ * Reads one session: the conversation starts over because another log does, and
+ * a session the store did not list (one just created) joins the sidebar.
+ */
+export const withSession = (state: WebState, summary: SessionSummary): WebState => {
+  const known = state.sessions.some((item) => item.id === summary.id)
+  return {
+    ...state,
+    sessions: known ? state.sessions : [...state.sessions, summary],
+    sessionId: summary.id,
+    conversation: emptyConversation,
+    info: emptyInfo,
+    problem: '',
+  }
+}
 
 /** The event bodies arrive as unknown; a header shows nothing it could not read. */
 const fieldOf = (data: unknown, key: string): unknown =>

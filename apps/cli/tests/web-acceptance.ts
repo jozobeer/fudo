@@ -248,6 +248,71 @@ const keepsReadingPosition = async (client: Cdp, read: () => Promise<unknown>): 
   }
 }
 
+/** The id the rail marks as the session on screen, or '' while it marks none. */
+const activeSession = (): string =>
+  "(() => { const row = document.querySelector('#session-list button.session.active'); return row === null ? '' : row.dataset.sessionId })()"
+
+const sessionRows = "document.querySelectorAll('#session-list button.session').length"
+
+/** Waits until the page reads a session other than the one it had. */
+const waitForOther = async (client: Cdp, previous: string): Promise<string | undefined> => {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await Bun.sleep(250)
+    const id = await client.evaluate(activeSession())
+    if (typeof id === 'string' && id !== '' && id !== previous) return id
+  }
+  return undefined
+}
+
+/** Moves the page back to the session it started with and waits for its history. */
+const switchBack = async (client: Cdp, read: () => Promise<unknown>, id: string): Promise<void> => {
+  await client.evaluate(
+    "document.querySelector('#session-list button[data-session-id=" +
+      JSON.stringify(id) +
+      "]').click()",
+  )
+  if ((await waitFor(read, 'approved and done')) === undefined) {
+    throw new Error('the first session never came back')
+  }
+}
+
+/** Asks for a command, answers the approval the page draws, and checks the reply it drew. */
+const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Promise<string> => {
+  await client.evaluate(type('run the command'))
+  if ((await waitFor(read, 'Approve bash')) === undefined) {
+    throw new Error('the approval never reached the page')
+  }
+  await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
+  const answer = await waitFor(read, 'approved and done')
+  if (answer === undefined) throw new Error('the reply never reached the page')
+  const code = await client.evaluate(
+    'document.querySelector(\'pre.code[data-lang="ts"]\') !== null',
+  )
+  if (code !== true) throw new Error('the fenced block never became a code element')
+  const card = await client.evaluate("document.querySelector('details.tool-card') !== null")
+  if (card !== true) throw new Error('the tool result never became a card')
+  return answer
+}
+
+/** Presses New session and checks the page took it over; returns the session it left. */
+const opensANewSession = async (client: Cdp): Promise<string> => {
+  const first = await client.evaluate(activeSession())
+  if (typeof first !== 'string' || first === '') throw new Error('no session was marked as read')
+  if ((await client.evaluate(sessionRows)) !== 1) {
+    throw new Error('the first session is not the only row the rail lists')
+  }
+  await client.evaluate("document.getElementById('new-session').click()")
+  if ((await waitForOther(client, first)) === undefined) {
+    throw new Error('the page never moved to a new session')
+  }
+  if ((await client.evaluate(sessionRows)) !== 2) {
+    throw new Error('the new session did not join the rail')
+  }
+  const cleared = await client.evaluate("!document.body.innerText.includes('approved and done')")
+  if (cleared !== true) throw new Error('the old conversation stayed on screen')
+  return first
+}
+
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = Bun.spawn(
     [
@@ -269,28 +334,16 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await client.send('Runtime.enable')
     const read = (): Promise<unknown> => client.evaluate('document.body.innerText')
 
-    const shown = async (): Promise<string> =>
-      String(await read())
+    if ((await waitFor(read, 'ready')) === undefined) {
+      const shown = String(await read())
         .split('\n')
         .join(' | ')
-    if ((await waitFor(read, 'ready')) === undefined) {
-      throw new Error('the page never reported ready: ' + (await shown()).slice(0, 400))
+      throw new Error('the page never reported ready: ' + shown.slice(0, 400))
     }
-    await client.evaluate(type('run the command'))
-    if ((await waitFor(read, 'Approve bash')) === undefined) {
-      throw new Error('the approval never reached the page: ' + (await shown()).slice(0, 400))
-    }
-    await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
-    const answer = await waitFor(read, 'approved and done')
-    if (answer === undefined) throw new Error('the reply never reached the page')
-    const code = await client.evaluate(
-      'document.querySelector(\'pre.code[data-lang="ts"]\') !== null',
-    )
-    if (code !== true) throw new Error('the fenced block never became a code element')
-    const card = await client.evaluate("document.querySelector('details.tool-card') !== null")
-    if (card !== true) throw new Error('the tool result never became a card')
-
+    const answer = await answersTheApproval(client, read)
+    const first = await opensANewSession(client)
     await keepsReadingPosition(client, read)
+    await switchBack(client, read, first)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {

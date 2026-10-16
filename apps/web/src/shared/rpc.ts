@@ -2,19 +2,47 @@ import { UiCommandSchema, UiEventSchema } from '@jozo-harness/ui-protocol'
 import { type Effect, Schema } from 'effect'
 import { Rpc, RpcGroup } from 'effect/rpc'
 
-/** One UI command. Returns false when the core could not take it. */
+/** A session as a page lists it: what the store holds, without reading its log. */
+export const SessionSummarySchema = Schema.Struct({
+  id: Schema.String,
+  cwd: Schema.String,
+  createdAt: Schema.Number,
+})
+
+/** The wire shape of one session summary; the store's own summary carries these fields. */
+export type SessionSummary = typeof SessionSummarySchema.Type
+
+/** What a page needs before it opens anything: the list, and where to start. */
+export const SessionsRpc = Rpc.make('sessions', {
+  success: Schema.Struct({
+    initial: Schema.String,
+    items: Schema.Array(SessionSummarySchema),
+  }),
+  error: Schema.String,
+})
+
+/** Opens one session: the named one, or a new one when no id is given. */
+export const OpenRpc = Rpc.make('open', {
+  payload: Schema.Struct({ sessionId: Schema.optionalKey(Schema.String) }),
+  success: SessionSummarySchema,
+  error: Schema.String,
+})
+
+/** One UI command, addressed to one session. Returns false when the core could not take it. */
 export const UiCommandRpc = Rpc.make('command', {
-  payload: UiCommandSchema,
+  payload: Schema.Struct({ sessionId: Schema.String, command: UiCommandSchema }),
   success: Schema.Boolean,
 })
 
-/** Everything the UI renders: history first, then live. */
+/** Everything one session logs: history first, then live. */
 export const UiEventsRpc = Rpc.make('events', {
+  payload: Schema.Struct({ sessionId: Schema.String }),
   success: UiEventSchema,
+  error: Schema.String,
   stream: true,
 })
 
-export const UiRpcs = RpcGroup.make(UiCommandRpc, UiEventsRpc)
+export const UiRpcs = RpcGroup.make(SessionsRpc, OpenRpc, UiCommandRpc, UiEventsRpc)
 
 /**
  * Drops a phantom service requirement. `StreamChunkSchema` is annotated with
