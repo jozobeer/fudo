@@ -2,7 +2,7 @@ import { agentPlugin } from '@jozo-harness/agent'
 import { agentLoopPlugin } from '@jozo-harness/agent-loop'
 import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
 import { Llm, type LlmAdapter, type StreamChunk } from '@jozo-harness/llm'
-import { Policy, Sandbox, type ApprovalRequested, type SandboxShape } from '@jozo-harness/safety'
+import type { ApprovalRequested } from '@jozo-harness/safety'
 import { sessionPlugin } from '@jozo-harness/session'
 import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
 import { systemPromptPlugin } from '@jozo-harness/system-prompt'
@@ -14,46 +14,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
-
-/**
- * A sandbox that refuses every command the way seatbelt refuses a file effect.
- * The wider mode runs the command as it is, which is what an unconfined provider
- * does — a real seatbelt cannot be nested inside the sandbox these tests run in.
- */
-const confiningSandbox: SandboxShape = {
-  name: 'test-confine',
-  confines: true,
-  mode: 'workspace-write',
-  wrap: (command) => {
-    const mode = command.mode ?? 'workspace-write'
-    if (mode !== 'workspace-write') {
-      return Effect.succeed({ argv: command.argv, cwd: command.cwd, mode, denialSignatures: [] })
-    }
-    return Effect.succeed({
-      argv: [
-        'bash',
-        '-lc',
-        'printf "%s\\n" "bash: /etc/hosts: Operation not permitted" >&2; exit 1',
-      ],
-      cwd: command.cwd,
-      mode,
-      denialSignatures: ['operation not permitted'],
-    })
-  },
-}
-
-/** Stands in for the safety row: the same services, a sandbox that always denies. */
-const testSafety: Plugin<{}, Policy | Sandbox, never> = {
-  name: 'test-safety',
-  config: Schema.Struct({}),
-  provides: [Policy, Sandbox],
-  requires: [],
-  layer: () =>
-    Layer.merge(
-      Layer.succeed(Policy, { preset: 'workspace-write', mode: 'workspace-write' }),
-      Layer.succeed(Sandbox, confiningSandbox),
-    ),
-}
+import { testSafety } from './test-safety.ts'
 
 const attempt: ReadonlyArray<StreamChunk> = [
   {

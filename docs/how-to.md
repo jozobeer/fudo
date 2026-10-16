@@ -89,6 +89,19 @@ jzh --dump-config --patch full.yml   # 効いた行を確かめる
 
 `sandbox` 自体を外す（`sandbox: none`）と、preset に関わらず封じ込めは無くなる。`seatbelt` が使えない platform で `seatbelt` を指定した場合は、無制限に落ちずに起動が失敗する。
 
+## 拒否された呼び出しを1回だけ通す
+
+sandbox が断った呼び出しの結果には、断ったモードと再試行の案内が付く。
+
+```
+bash: /etc/hosts: Operation not permitted
+[exit code: 1]
+[sandbox: file access denied under workspace-write mode]
+[sandbox: escalation available — retry this exact command once with sandbox_permissions (the narrowest wider mode that suffices) + justification; the approval prompt asks the user]
+```
+
+モデルは同じ呼び出しを `sandbox_permissions`（より広いモード）と `justification`（1文の理由）付きでやり直せる。端末 UI と Web UI はそこで y/n を尋ね、`y` のときだけその1回が広いモードで走る。拒否されれば呼び出しは拒否されたままで、`safety/approval/requested` と `answered` がセッションログに残る。`write` / `edit` も同じ引数を持ち、ワークスペースの外を指すパスで同じ往復になる。
+
 ## MCP サーバを繋ぐ
 
 行を足し、`command` に起動コマンドを配列で渡す。

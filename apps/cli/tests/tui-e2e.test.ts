@@ -15,6 +15,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { runCommand } from '../src/index.ts'
+import { testSafety } from './test-safety.ts'
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'text-delta', index: 0, text },
@@ -27,6 +28,25 @@ const callBash: ReadonlyArray<StreamChunk> = [
     type: 'block-end',
     index: 0,
     block: { type: 'tool-call', id: 'c1', name: 'bash', arguments: '{"command":"echo ran"}' },
+  },
+  { type: 'finish', kind: 'tool-calls' },
+]
+
+/** The same command again, this time asking to run outside what denied it. */
+const callBashWider: ReadonlyArray<StreamChunk> = [
+  {
+    type: 'block-end',
+    index: 0,
+    block: {
+      type: 'tool-call',
+      id: 'c2',
+      name: 'bash',
+      arguments: JSON.stringify({
+        command: 'echo ran',
+        sandbox_permissions: 'danger-full-access',
+        justification: 'the command writes outside the workspace',
+      }),
+    },
   },
   { type: 'finish', kind: 'tool-calls' },
 ]
@@ -55,7 +75,20 @@ const stubLlm = (scripts: ReadonlyArray<ReadonlyArray<StreamChunk>>): Plugin<{},
   },
 })
 
-const profile = (root: string, preset: string): string =>
+/** The safety row of a test profile: the shipped plugin, or the sandbox that always denies. */
+const safetyRow = (preset: string, kind: 'shipped' | 'denying'): ReadonlyArray<string> =>
+  kind === 'denying'
+    ? ['  - id: safety', '    name: test-safety']
+    : [
+        '  - id: safety',
+        "    name: '@jozo-harness/safety'",
+        '    config:',
+        '      preset: ' + preset,
+        // The TUI tests drive a bash call; the sandbox has its own test.
+        '      sandbox: none',
+      ]
+
+const profile = (root: string, preset: string, kind: 'shipped' | 'denying' = 'shipped'): string =>
   [
     'name: test',
     'plugins:',
@@ -71,12 +104,7 @@ const profile = (root: string, preset: string): string =>
     "    name: '@jozo-harness/tools'",
     '  - id: system-prompt',
     "    name: '@jozo-harness/system-prompt'",
-    '  - id: safety',
-    "    name: '@jozo-harness/safety'",
-    '    config:',
-    '      preset: ' + preset,
-    // The TUI test drives a bash call; the sandbox has its own test.
-    '      sandbox: none',
+    ...safetyRow(preset, kind),
     '  - id: tier0',
     "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
@@ -87,13 +115,16 @@ const profile = (root: string, preset: string): string =>
     "    name: '@jozo-harness/agent-loop'",
   ].join('\n')
 
-const plugins = (llm: Plugin<{}, Llm, never>): ReadonlyArray<Plugin<any, any, any>> => [
+const plugins = (
+  llm: Plugin<{}, Llm, never>,
+  safety: Plugin<any, any, any> = safetyPlugin,
+): ReadonlyArray<Plugin<any, any, any>> => [
   kernelPlugin,
   sessionJsonlPlugin,
   sessionPlugin,
   toolsPlugin,
   systemPromptPlugin,
-  safetyPlugin,
+  safety,
   tier0Plugin,
   llm,
   agentPlugin,
@@ -203,6 +234,53 @@ describe('terminal UI through the command', () => {
     expect(screen).toContain('all done')
     expect(asked).toBeUndefined()
     expect(result?.type === 'tool/result' ? result.data.isError : true).toBe(false)
+    await rm(root, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
+  })
+
+  test('an escalation is asked from the keyboard and the approved retry runs', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
+    const tui = fakeTui(
+      keyStream(spaced(typed('run')), spaced([enter]), later(char('y'), 500), later(ctrlD, 1500)),
+    )
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(root, 'workspace-write', 'denying')],
+        plugins: plugins(stubLlm([callBash, callBashWider, textTurn('all done')]), testSafety),
+        cwd: workspace,
+        route: 'stub/model',
+        tui: tui.io,
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+
+    const screen = screenOf(tui)
+    const sessions = await Effect.runPromise(jsonlSessions({ root }).list())
+    const opened = await Effect.runPromise(jsonlSessions({ root }).open(sessions[0]?.id ?? ''))
+    const results = opened.events.flatMap((event) =>
+      event.type === 'tool/result'
+        ? [
+            event.data as {
+              readonly isError: boolean
+              readonly content: ReadonlyArray<{ type: string; text?: string }>
+            },
+          ]
+        : [],
+    )
+    const answered = opened.events.find((event) => event.type === 'safety/approval/answered')
+
+    expect(code).toBe(0)
+    // The denial is what the screen asks about; the answer comes from the keyboard.
+    expect(screen).toContain('[y/n]')
+    expect(screen).toContain('all done')
+    expect(JSON.stringify(results[0]?.content)).toContain(
+      '[sandbox: file access denied under workspace-write mode]',
+    )
+    expect(results[1]?.isError).toBe(false)
+    expect(answered?.data.approved).toBe(true)
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })
   })
