@@ -42,12 +42,17 @@ S2 は「1 プロセス = 1 セッション」を「サーバがセッション�
 - `apps/cli/src/index.ts` — `buildSession` が layer・agent・tool・UI host を 1 単位に
   まとめ、`sessionFactoryOf` が Web のためにもう 1 つ開く。preset の不一致は
   exit code ではなく、ページに出るメッセージになった。
-- `apps/web/client/*` — 左レールに一覧（id の先頭・cwd の末尾・時刻）、New session、
-  行のクリックで切り替え。切り替えると会話は空になり、URL は `?session=<id>` に
-  なる（再読込しても同じセッションに戻る）。開けなかった理由はヘッダに出す。
+- `apps/web/client/*` — 左レールに一覧（名前・時刻・id の先頭と cwd の末尾）、
+  New session、行のクリックで切り替え。切り替えると会話は空になり、URL は
+  `?session=<id>` になる（再読込しても同じセッションに戻る）。開けなかった理由は
+  ヘッダに出す。turn が終わるたびに store を読み直すので、名前の付いたセッションは
+  その場で名前が出る。
+- `packages/core/session` の `titleOf` / `titleOfRecord` — 「最初の user/message を
+  1 行に縮める」規則の唯一の置き場。store は行を、CLI と Web はイベントを読む。
+  `packages/core/session-jsonl` の `readTitle` が 64 KB の先頭からそれを探す。
+- `jzh sessions` の一覧も名前を出す。
 
-未着手は、一覧のタイトル（いまは id と cwd と時刻だけ）、右サイドバー、
-設定への導線である。
+未着手は、右サイドバーと設定への導線である。
 
 ## S1 で入れたもの
 
