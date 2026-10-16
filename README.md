@@ -2,6 +2,25 @@
 
 汎用コーディングエージェントのハーネス。設計は [docs/superpowers/specs/2026-10-13-jozo-harness-kernel-design.md](docs/superpowers/specs/2026-10-13-jozo-harness-kernel-design.md)、設定できるものの全体は [docs/configuration.md](docs/configuration.md)、作業ごとの手順は [docs/how-to.md](docs/how-to.md) にある。
 
+## リポジトリの見取り図
+
+ワークスペースは `apps/`（実行するもの）と `packages/`（組み込むもの）に分かれる。
+
+| 場所 | 何が入っているか |
+|---|---|
+| `apps/cli` | `jzh` 本体。引数の解釈、設定と鍵の読み込み、profile の組み立て、`config` / `auth` / `models` / `sessions` / `web` の入口 |
+| `apps/tui` | 端末 UI。会話と承認・質問を 1 画面に描く |
+| `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client/` を `bun run build:web` で `dist` に束ねる |
+| `packages/kernel/kernel` | profile の解析・マージと plugin のローダ、hook |
+| `packages/core/*` | agent と turn（`agent` / `agent-loop`）、session とそのログ（`session` / `session-jsonl`）、tool（`tools` / `tools-tier0` / `tools-tier1`）、許可と sandbox（`safety`）、system prompt（`system-prompt`）、scope |
+| `packages/llm/*` | provider に依らない LLM の型（`llm`）と OpenAI 互換 adapter（`llm-openai`） |
+| `packages/ui/*` | UI とコアの間の rpc の約束（`protocol`）、ログを会話に畳む共有の描画（`view`）、承認と質問の待ち合わせ（`host`） |
+| `packages/bundle/base` | 同梱の `base` / `headless` / `repl` profile |
+| `packages/test-support/replay` | 記録した SSE を再生する adapter（テストと snapshot 用） |
+| `scripts/` | `bun run check` の中身（doc / duplication / coverage の gate）と dsh との A/B |
+
+`tools-tier1` がモデルに渡すのは todo、skill、`web_fetch`、`read_image`、subagent と team、job、goal、schedule、MCP、`plugin` 行の編集である。TUI と Web は同じ `@jozo-harness/ui-view` を通してログを読むので、片方で書かれたログをもう片方でも同じ形で描ける。
+
 ## はじめかた
 
 Bun と依存を入れる。[mise](https://mise.jdx.dev/) を使うと mise.toml が指す版の Bun が入る。
