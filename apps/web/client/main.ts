@@ -13,6 +13,7 @@ import {
   withPanel,
   withProblem,
   withSession,
+  withRun,
   withSessions,
   withSettings,
   withTheme,
@@ -125,12 +126,15 @@ const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.h
 const session = Effect.gen(function* () {
   const client = yield* RpcClient.make(UiRpcs)
 
-  // Reads the store again, so a session that just earned its name shows it.
+  // Reads the store and the run state again: a session earns its name and its goal as it works.
   const relist = () =>
     Effect.gen(function* () {
       const listed = yield* client.sessions()
+      const running =
+        state.sessionId === '' ? undefined : yield* client.state({ sessionId: state.sessionId })
       yield* Effect.sync(() => {
         state = withSessions(state, listed.items)
+        if (running !== undefined) state = withRun(state, running)
         paint()
       })
     })
@@ -154,8 +158,9 @@ const session = Effect.gen(function* () {
     Effect.gen(function* () {
       const summary = yield* client.open(id === undefined ? {} : { sessionId: id })
       if (following !== undefined) yield* Fiber.interrupt(following)
+      const running = yield* client.state({ sessionId: summary.id })
       yield* Effect.sync(() => {
-        state = withSession(state, summary)
+        state = withRun(withSession(state, summary), running)
         history.replaceState(null, '', '?session=' + encodeURIComponent(summary.id))
         paint()
       })

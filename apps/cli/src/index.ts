@@ -43,6 +43,13 @@ import {
 import { Tier0Tools, type Tier0ToolBuilder } from '@jozo-harness/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
 import { listModels, modelEndpointOf } from './models.ts'
+import {
+  currentGoal,
+  currentSchedules,
+  goalRounds,
+  lastFiredAt,
+  ruleText,
+} from '@jozo-harness/tools-tier1'
 import { runConfig } from './config-command.ts'
 import { sessionRootOf } from './session-list.ts'
 import { credentialSource, type SettingsSurface } from './settings.ts'
@@ -99,6 +106,7 @@ import {
   WebError,
   defaultStaticRoot,
   serveWeb,
+  type RunStateView,
   type SessionFactory,
   type SettingsPort,
 } from '@jozo-harness/web'
@@ -761,7 +769,7 @@ const sessionFactoryOf = (
           new WebError({ message: 'the session was built without a UI host' }),
         )
       }
-      return { summary: summaryOf(agent), host: ui }
+      return { summary: summaryOf(agent), host: ui, runState: () => runStateOf(agent) }
     }).pipe(
       Effect.mapError((error) =>
         error instanceof WebError ? error : new WebError({ message: messageOf(error) }),
@@ -784,7 +792,11 @@ const serveWebUi = (
       return 1
     }
     return yield* serveWeb({
-      initial: { summary: summaryOf(runtime.agent), host: ui },
+      initial: {
+        summary: summaryOf(runtime.agent),
+        host: ui,
+        runState: () => runStateOf(runtime.agent),
+      },
       factory: sessionFactoryOf(
         options,
         runtime.rows,
@@ -849,6 +861,29 @@ interface SessionRuntime {
 type BuiltSession =
   | { readonly kind: 'ready'; readonly runtime: SessionRuntime }
   | { readonly kind: 'refused'; readonly message: string }
+
+/** What the session can say about itself right now: its goal, and its standing schedules. */
+const runStateOf = (agent: Agent): RunStateView => {
+  const events = agent.session.events()
+  const goal = currentGoal(events)
+  return {
+    goal:
+      goal === undefined
+        ? null
+        : {
+            objective: goal.objective,
+            phase: goal.phase,
+            rounds: goalRounds(events),
+            maxRounds: goal.maxGoalRounds,
+          },
+    schedules: currentSchedules(events).map((schedule) => ({
+      id: schedule.id,
+      when: ruleText(schedule.rule),
+      prompt: schedule.prompt,
+      lastFiredAt: lastFiredAt(events, schedule.id) ?? 0,
+    })),
+  }
+}
 
 const summaryOf = (agent: Agent): SessionSummary => ({
   id: agent.session.id,

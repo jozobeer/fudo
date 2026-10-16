@@ -1,12 +1,14 @@
 import type { UiHost } from '@jozo-harness/ui-protocol'
 import { Effect, Exit, Scope } from 'effect'
-import type { SessionSummary } from '../shared/rpc.ts'
+import type { RunStateView, SessionSummary } from '../shared/rpc.ts'
 import type { WebError } from './errors.ts'
 
 /** One session the server can serve: the summary a page lists, and the UI face of its core. */
 export interface OpenSession {
   readonly summary: SessionSummary
   readonly host: UiHost
+  /** The goal and the schedules its log holds right now. */
+  readonly runState: () => RunStateView
 }
 
 /** What the app that owns the profiles gives the server: the store's list, and one more session. */
@@ -24,6 +26,8 @@ export interface SessionRegistry {
   readonly open: (id: string | undefined) => Effect.Effect<OpenSession, WebError>
   /** The host of a session already open; undefined when the page names one nobody opened. */
   readonly hostOf: (id: string) => UiHost | undefined
+  /** What an open session says about itself; undefined when nobody opened it. */
+  readonly stateOf: (id: string) => RunStateView | undefined
 }
 
 /**
@@ -58,5 +62,6 @@ export const makeSessionRegistry = (input: {
       list: input.factory.list,
       open: openInOwnScope,
       hostOf: (id) => opened.get(id)?.host,
+      stateOf: (id) => opened.get(id)?.runState(),
     }
   })

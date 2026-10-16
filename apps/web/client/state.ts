@@ -1,6 +1,6 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
-import type { SessionSummary, SettingsView } from '../src/shared/rpc.ts'
+import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
 
 /** What the header says about the session behind the page. */
@@ -32,6 +32,8 @@ export interface WebState {
   readonly models: ReadonlyArray<string>
   /** Whether the settings and the model list are on screen. */
   readonly panelOpen: boolean
+  /** What the session says it works toward; undefined until the page has asked. */
+  readonly run: RunStateView | undefined
 }
 
 export const initialState: WebState = {
@@ -46,6 +48,7 @@ export const initialState: WebState = {
   settings: undefined,
   models: [],
   panelOpen: false,
+  run: undefined,
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -79,6 +82,8 @@ export const withPanel = (state: WebState, panelOpen: boolean): WebState => ({
   panelOpen,
 })
 
+export const withRun = (state: WebState, run: RunStateView): WebState => ({ ...state, run })
+
 /**
  * Reads one session: the conversation starts over because another log does, and
  * a session the store did not list (one just created) joins the sidebar.
@@ -92,6 +97,7 @@ export const withSession = (state: WebState, summary: SessionSummary): WebState 
     conversation: emptyConversation,
     info: emptyInfo,
     problem: '',
+    run: undefined,
   }
 }
 

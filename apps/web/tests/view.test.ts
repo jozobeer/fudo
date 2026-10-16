@@ -8,6 +8,7 @@ import {
   withDraft,
   withModels,
   withPanel,
+  withRun,
   withSession,
   withSessions,
   withSettings,
@@ -130,6 +131,20 @@ describe('the browser view', () => {
     expect(view).toContain('class="theme active" data-theme="light"')
     expect(view).not.toContain('class="theme active" data-theme="dark"')
     expect(view).toContain('id="settings"')
+  })
+
+  test('the rail says what the session works toward', () => {
+    const running = withRun(initialState, {
+      goal: { objective: 'ship the UI', phase: 'active', rounds: 2, maxRounds: 8 },
+      schedules: [{ id: 's-1', when: 'every 60s', prompt: 'check the build', lastFiredAt: 0 }],
+    })
+    const view = renderRail(running)
+    expect(view).toContain('ship the UI')
+    expect(view).toContain('run-phase active')
+    expect(view).toContain('2/8')
+    expect(view).toContain('every 60s')
+    expect(view).toContain('check the build')
+    expect(renderRail(withRun(initialState, { goal: null, schedules: [] }))).toContain('no goal')
   })
 
   test('the settings sheet stays away until it is asked for', () => {

@@ -58,6 +58,10 @@ const handlersOf = (registry: SessionRegistry, settings: SettingsPort) =>
       const host = registry.hostOf(sessionId)
       return host === undefined ? Stream.fail('the session is not open') : host.events
     },
+    state: ({ sessionId }) => {
+      const view = registry.stateOf(sessionId)
+      return view === undefined ? Effect.fail('the session is not open') : Effect.succeed(view)
+    },
     settings: () => settings.read().pipe(Effect.mapError((error) => error.message)),
     models: () => settings.models().pipe(Effect.mapError((error) => error.message)),
     setModel: ({ model }) =>

@@ -355,6 +355,13 @@ const choosesATheme = async (client: Cdp, read: () => Promise<unknown>): Promise
   }
 }
 
+/** The rail says what the session works toward, even when it works toward nothing yet. */
+const readsTheRun = async (read: () => Promise<unknown>): Promise<void> => {
+  if ((await waitFor(read, 'no goal')) === undefined) {
+    throw new Error('the rail never said what the session works toward')
+  }
+}
+
 /** Opens the settings sheet, checks what it says, and closes it again. */
 const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
   await client.evaluate("document.getElementById('settings').click()")
@@ -403,6 +410,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
       throw new Error('the page never reported ready: ' + shown.slice(0, 400))
     }
     const answer = await answersTheApproval(client, read)
+    await readsTheRun(read)
     const first = await opensANewSession(client)
     await keepsReadingPosition(client, read)
     await switchBack(client, read, first)

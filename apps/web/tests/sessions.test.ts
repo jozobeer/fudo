@@ -7,7 +7,7 @@ import {
   type OpenSession,
   type SessionFactory,
 } from '../src/server/sessions.ts'
-import type { SessionSummary } from '../src/shared/rpc.ts'
+import type { RunStateView, SessionSummary } from '../src/shared/rpc.ts'
 
 const summaryOf = (id: string): SessionSummary => ({ id, cwd: '/work', createdAt: 1, title: '' })
 
@@ -45,13 +45,19 @@ const makeFactory = (): Fake => {
               closed.push(made)
             }),
           )
-          return { summary: summaryOf(made), host: hostOf() }
+          return { summary: summaryOf(made), host: hostOf(), runState: runStateOf }
         }),
     },
   }
 }
 
-const initial = (id: string): OpenSession => ({ summary: summaryOf(id), host: hostOf() })
+const runStateOf = (): RunStateView => ({ goal: null, schedules: [] })
+
+const initial = (id: string): OpenSession => ({
+  summary: summaryOf(id),
+  host: hostOf(),
+  runState: runStateOf,
+})
 
 describe('the session registry', () => {
   test('the session the server started with is served without opening another', async () => {

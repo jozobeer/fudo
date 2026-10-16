@@ -44,6 +44,31 @@ export const UiEventsRpc = Rpc.make('events', {
   stream: true,
 })
 
+/** The goal one session works toward, as its log last recorded it. */
+export const GoalViewSchema = Schema.Struct({
+  objective: Schema.String,
+  phase: Schema.String,
+  rounds: Schema.Number,
+  maxRounds: Schema.Number,
+})
+
+/** One standing instruction and when it last came due. */
+export const ScheduleViewSchema = Schema.Struct({
+  id: Schema.String,
+  when: Schema.String,
+  prompt: Schema.String,
+  /** When it last fired; 0 while it never has. */
+  lastFiredAt: Schema.Number,
+})
+
+/** What one session can say about itself right now, folded from its own log. */
+export const RunStateViewSchema = Schema.Struct({
+  goal: Schema.Union([GoalViewSchema, Schema.Null]),
+  schedules: Schema.Array(ScheduleViewSchema),
+})
+
+export type RunStateView = typeof RunStateViewSchema.Type
+
 /** What a page may read about the run it is talking to. */
 export const SettingsViewSchema = Schema.Struct({
   model: Schema.String,
@@ -55,6 +80,13 @@ export const SettingsViewSchema = Schema.Struct({
 
 /** What a page reads about the run behind it; the schema is the one source. */
 export type SettingsView = typeof SettingsViewSchema.Type
+
+/** The goal and the schedules of one session, as of now. */
+export const StateRpc = Rpc.make('state', {
+  payload: Schema.Struct({ sessionId: Schema.String }),
+  success: RunStateViewSchema,
+  error: Schema.String,
+})
 
 export const SettingsRpc = Rpc.make('settings', {
   success: SettingsViewSchema,
@@ -79,6 +111,7 @@ export const UiRpcs = RpcGroup.make(
   OpenRpc,
   UiCommandRpc,
   UiEventsRpc,
+  StateRpc,
   SettingsRpc,
   ModelsRpc,
   SetModelRpc,

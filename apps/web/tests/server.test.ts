@@ -14,11 +14,17 @@ import {
   type SettingsPort,
   type SettingsView,
 } from '../src/server/index.ts'
-import { type SessionSummary, UiRpcs, withoutServices } from '../src/shared/rpc.ts'
+import {
+  type RunStateView,
+  type SessionSummary,
+  UiRpcs,
+  withoutServices,
+} from '../src/shared/rpc.ts'
 
 interface FakeHost {
   readonly summary: SessionSummary
   readonly host: UiHost
+  readonly runState: () => RunStateView
   readonly commands: Array<UiCommand>
   /** Broadcasts one event to every tab, like the real host does. */
   readonly publish: (event: UiEvent) => void
@@ -50,6 +56,10 @@ const makeHost = (id: string): FakeHost => {
     })
   return {
     summary: { id, cwd: '/work', createdAt: 1, title: '' },
+    runState: () => ({
+      goal: { objective: 'ship the UI', phase: 'active', rounds: 2, maxRounds: 8 },
+      schedules: [{ id: 's-1', when: 'every 60s', prompt: 'check the build', lastFiredAt: 0 }],
+    }),
     commands,
     publish,
     host: {
@@ -76,17 +86,23 @@ const makeWeb = (initialId: string): FakeWeb => {
   const hosts = new Map<string, FakeHost>([[initialId, first]])
   return {
     hosts,
-    initial: { summary: first.summary, host: first.host },
+    initial: {
+      summary: first.summary,
+      host: first.host,
+      runState: first.runState,
+    },
     factory: {
       list: () => Effect.succeed([...hosts.values()].map((fake) => fake.summary)),
       open: (id) =>
         Effect.sync(() => {
           const made = id ?? 'new-' + String(hosts.size + 1)
           const known = hosts.get(made)
-          if (known !== undefined) return { summary: known.summary, host: known.host }
+          if (known !== undefined) {
+            return { summary: known.summary, host: known.host, runState: known.runState }
+          }
           const fresh = makeHost(made)
           hosts.set(made, fresh)
-          return { summary: fresh.summary, host: fresh.host }
+          return { summary: fresh.summary, host: fresh.host, runState: fresh.runState }
         }),
     },
   }
@@ -322,6 +338,39 @@ describe('the web transport', () => {
     expect(observed.onNew).toEqual([{ kind: 'cancel' }])
     expect(observed.silent).toBe(true)
     expect(observed.refused).toBe(true)
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('the page asks a session what it is working toward', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-state-'))
+    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    const web = makeWeb('a')
+    const settings = makeSettings()
+
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const started = yield* start(root, web, settings)
+          const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
+          const useClient = Effect.gen(function* () {
+            const client = yield* RpcClient.make(UiRpcs)
+            const running = yield* client.state({ sessionId: 'a' })
+            const refused = yield* client
+              .state({ sessionId: 'gone' })
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            return { running, refused }
+          }).pipe(clientLayers(wsUrl))
+          const result = yield* withoutServices(useClient)
+          yield* Deferred.succeed(started.stop, undefined)
+          return result
+        }),
+      ),
+    )
+
+    expect(observed.running.goal?.objective).toBe('ship the UI')
+    expect(observed.running.goal?.rounds).toBe(2)
+    expect(observed.running.schedules[0]?.when).toBe('every 60s')
+    expect(observed.refused).toBe('the session is not open')
     await rm(root, { recursive: true, force: true })
   })
 

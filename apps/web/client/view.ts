@@ -1,6 +1,6 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
-import type { SessionSummary, SettingsView } from '../src/shared/rpc.ts'
+import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
 import { escapeHtml } from './html.ts'
 import { THEMES } from './theme.ts'
 import { renderMarkdown } from './markdown.ts'
@@ -192,8 +192,51 @@ const themesHtml = (state: WebState): string =>
   ).join('') +
   '</div>'
 
-/** The rail's foot: the ways a page may be lit, and the way to the settings. */
+const goalHtml = (goal: RunStateView['goal']): string =>
+  goal === null
+    ? '<div class="run-empty">no goal</div>'
+    : '<div class="run-goal"><span class="run-objective">' +
+      text(goal.objective) +
+      '</span><span class="run-phase ' +
+      escapeHtml(goal.phase) +
+      '">' +
+      text(goal.phase) +
+      '</span><span class="run-rounds">' +
+      String(goal.rounds) +
+      '/' +
+      String(goal.maxRounds) +
+      '</span></div>'
+
+const schedulesHtml = (schedules: RunStateView['schedules']): string =>
+  schedules.length === 0
+    ? ''
+    : '<ul class="run-schedules">' +
+      schedules
+        .map(
+          (schedule) =>
+            '<li><span class="run-when">' +
+            text(schedule.when) +
+            '</span><span class="run-prompt">' +
+            text(schedule.prompt) +
+            '</span></li>',
+        )
+        .join('') +
+      '</ul>'
+
+/** What the session works toward: the goal its log holds, and its standing schedules. */
+export const renderRun = (state: WebState): string => {
+  const run = state.run
+  return (
+    '<span class="rail-label">run</span>' +
+    (run === undefined
+      ? '<div class="run-empty">reading…</div>'
+      : goalHtml(run.goal) + schedulesHtml(run.schedules))
+  )
+}
+
+/** The rail's foot: what the session works toward, how the page is lit, and the settings. */
 export const renderRail = (state: WebState): string =>
+  renderRun(state) +
   '<span class="rail-label">theme</span>' +
   themesHtml(state) +
   '<button id="settings" class="rail-button' +
