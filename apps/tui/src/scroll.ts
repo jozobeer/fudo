@@ -35,6 +35,13 @@ export const pageBack = (scroll: Scroll, viewport: Viewport): Scroll =>
 export const pageForward = (scroll: Scroll, viewport: Viewport): Scroll =>
   at(windowTop(scroll, viewport) + viewport.height, viewport)
 
+/** How far one notch of a wheel or a trackpad moves the window. */
+const WHEEL_LINES = 3
+
+/** A few lines at a time, which is what a wheel asks for rather than a page. */
+const wheel = (scroll: Scroll, lines: number, viewport: Viewport): Scroll =>
+  at(Math.max(0, windowTop(scroll, viewport) + lines), viewport)
+
 /** The scroll a key asks for, or undefined when the key is not about scrolling. */
 export const scrollKey = (
   scroll: Scroll,
@@ -43,5 +50,7 @@ export const scrollKey = (
 ): Scroll | undefined => {
   if (key.kind === 'pageUp') return pageBack(scroll, viewport)
   if (key.kind === 'pageDown') return pageForward(scroll, viewport)
+  if (key.kind === 'wheelUp') return wheel(scroll, -WHEEL_LINES, viewport)
+  if (key.kind === 'wheelDown') return wheel(scroll, WHEEL_LINES, viewport)
   return key.kind === 'escape' && scroll.kind === 'pinned' ? TAIL : undefined
 }

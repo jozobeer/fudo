@@ -18,10 +18,10 @@ type Input =
   | { readonly kind: 'key'; readonly key: KeyEvent }
   | { readonly kind: 'resize' }
 
-/** Alternate screen on, cursor hidden. */
-const ENTER_SCREEN = '\u001b[?1049h\u001b[?25l'
-/** Cursor shown, alternate screen off. */
-const LEAVE_SCREEN = '\u001b[?25h\u001b[?1049l'
+/** Alternate screen on, cursor hidden, mouse reported so the wheel can scroll. */
+const ENTER_SCREEN = '\u001b[?1049h\u001b[?25l\u001b[?1000h\u001b[?1006h'
+/** Cursor shown, mouse released, alternate screen off. */
+const LEAVE_SCREEN = '\u001b[?1006l\u001b[?1000l\u001b[?25h\u001b[?1049l'
 
 const inputsOf = (host: UiHost, io: TuiIo): Stream.Stream<Input> =>
   Stream.merge(
