@@ -69,7 +69,13 @@ const stubLlm: Plugin<{}, Llm, never> = {
         promptCacheControl: false,
       },
       stream: () => {
-        const scripts = [callBash, markdownTurn, longTurn, textTurn('still here')]
+        const scripts = [
+          callBash,
+          markdownTurn,
+          textTurn('queued answer'),
+          longTurn,
+          textTurn('still here'),
+        ]
         const script = scripts[call] ?? []
         call += 1
         return Stream.fromIterable(script)
@@ -283,12 +289,30 @@ const switchBack = async (client: Cdp, read: () => Promise<unknown>, id: string)
   }
 }
 
+/** Types while the turn waits for an answer; the page must say the input is queued. */
+const queuesWhileWaiting = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate(type('the queued one'))
+  if ((await waitFor(read, 'queued')) === undefined) {
+    throw new Error('input typed while the turn ran was not shown as queued')
+  }
+}
+
+/** Waits for the queued input to become its own turn, and for the queue to empty. */
+const waitsForTheQueue = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  if ((await waitFor(read, 'queued answer')) === undefined) {
+    throw new Error('the queued input never became a turn')
+  }
+  const stillQueued = await client.evaluate("document.getElementById('queue').innerHTML !== ''")
+  if (stillQueued !== false) throw new Error('the queue stayed on screen after it was claimed')
+}
+
 /** Asks for a command, answers the approval the page draws, and checks the reply it drew. */
 const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Promise<string> => {
   await client.evaluate(type('run the command'))
   if ((await waitFor(read, 'Approve bash')) === undefined) {
     throw new Error('the approval never reached the page')
   }
+  await queuesWhileWaiting(client, read)
   await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
   const answer = await waitFor(read, 'approved and done')
   if (answer === undefined) throw new Error('the reply never reached the page')
@@ -298,6 +322,7 @@ const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Pr
   if (code !== true) throw new Error('the fenced block never became a code element')
   const card = await client.evaluate("document.querySelector('details.tool-card') !== null")
   if (card !== true) throw new Error('the tool result never became a card')
+  await waitsForTheQueue(client, read)
   // The turn is over: the store names the session and the rail picks the name up.
   if ((await waitFor(() => client.evaluate(activeName()), 'run the command')) === undefined) {
     throw new Error('the rail never picked up the name of the session')

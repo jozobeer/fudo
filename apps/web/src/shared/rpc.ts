@@ -73,6 +73,8 @@ export const RunStateViewSchema = Schema.Struct({
   goal: Schema.Union([GoalViewSchema, Schema.Null]),
   schedules: Schema.Array(ScheduleViewSchema),
   jobs: Schema.Array(JobViewSchema),
+  /** What the human typed while a turn was running; it becomes the next turn. */
+  queued: Schema.Array(Schema.String),
 })
 
 export type RunStateView = typeof RunStateViewSchema.Type

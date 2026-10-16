@@ -60,6 +60,7 @@ const makeHost = (id: string): FakeHost => {
       goal: { objective: 'ship the UI', phase: 'active', rounds: 2, maxRounds: 8 },
       schedules: [{ id: 's-1', when: 'every 60s', prompt: 'check the build', lastFiredAt: 0 }],
       jobs: [{ id: 'j-1', command: 'sleep 5', running: true }],
+      queued: ['one more thing'],
     }),
     commands,
     publish,
@@ -372,6 +373,7 @@ describe('the web transport', () => {
     expect(observed.running.goal?.rounds).toBe(2)
     expect(observed.running.schedules[0]?.when).toBe('every 60s')
     expect(observed.running.jobs).toEqual([{ id: 'j-1', command: 'sleep 5', running: true }])
+    expect(observed.running.queued).toEqual(['one more thing'])
     expect(observed.refused).toBe('the session is not open')
     await rm(root, { recursive: true, force: true })
   })

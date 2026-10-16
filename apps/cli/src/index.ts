@@ -1,6 +1,12 @@
 export * from './args.ts'
 export * from './bin.ts'
-import { Agents, type Agent, type AgentOptions, type AgentsShape } from '@jozo-harness/agent'
+import {
+  Agents,
+  projectInbox,
+  type Agent,
+  type AgentOptions,
+  type AgentsShape,
+} from '@jozo-harness/agent'
 import {
   Hooks,
   loadProfile,
@@ -877,6 +883,9 @@ const runStateOf = (agent: Agent, jobs: JobsShape): RunStateView => {
   const events = agent.session.events()
   const goal = currentGoal(events)
   return {
+    queued: projectInbox(events)
+      .nextTurn.filter((message) => message.source === 'user')
+      .map((message) => message.text),
     jobs: jobs.list().map((job) => ({
       id: job.id,
       command: job.command,

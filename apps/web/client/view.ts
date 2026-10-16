@@ -241,6 +241,18 @@ const jobsHtml = (jobs: RunStateView['jobs']): string =>
         .join('') +
       '</ul>'
 
+/** What the human typed while a turn was running: it waits above the composer. */
+export const renderQueue = (state: WebState): string =>
+  (state.run?.queued ?? [])
+    .map(
+      (message) =>
+        '<div class="queued"><span class="queued-label">queued</span>' +
+        '<span class="queued-text">' +
+        text(message) +
+        '</span></div>',
+    )
+    .join('')
+
 /** What the session works toward: its goal, its standing schedules, and its background work. */
 export const renderRun = (state: WebState): string => {
   const run = state.run

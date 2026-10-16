@@ -17,6 +17,7 @@ import {
 import {
   renderConversation,
   renderPanel,
+  renderQueue,
   renderRail,
   renderSessions,
   renderStatus,
@@ -141,6 +142,7 @@ describe('the browser view', () => {
         { id: 'j-1', command: 'sleep 5', running: true },
         { id: 'j-2', command: 'echo done', running: false },
       ],
+      queued: [],
     })
     const view = renderRail(running)
     expect(view).toContain('ship the UI')
@@ -151,9 +153,21 @@ describe('the browser view', () => {
     expect(view).toContain('run-job running')
     expect(view).toContain('sleep 5')
     expect(view).toContain('echo done')
-    expect(renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [] }))).toContain(
-      'no goal',
-    )
+    expect(
+      renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [], queued: [] })),
+    ).toContain('no goal')
+  })
+
+  test('input the human typed while a turn runs waits above the composer', () => {
+    const waiting = withRun(initialState, {
+      goal: null,
+      schedules: [],
+      jobs: [],
+      queued: ['one more thing'],
+    })
+    expect(renderQueue(waiting)).toContain('one more thing')
+    expect(renderQueue(waiting)).toContain('queued')
+    expect(renderQueue(initialState)).toBe('')
   })
 
   test('the settings sheet stays away until it is asked for', () => {

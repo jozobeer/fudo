@@ -23,6 +23,7 @@ import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
 import {
   renderConversation,
   renderPanel,
+  renderQueue,
   renderRail,
   renderSessions,
   renderStatus,
@@ -37,6 +38,7 @@ const newSessionButton = document.getElementById('new-session')
 const sessionListElement = document.getElementById('session-list')
 const railFootElement = document.getElementById('rail-foot')
 const panelElement = document.getElementById('panel')
+const queueElement = document.getElementById('queue')
 if (
   conversationElement === null ||
   statusElement === null ||
@@ -47,6 +49,7 @@ if (
   sessionListElement === null ||
   railFootElement === null ||
   panelElement === null ||
+  queueElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
   throw new Error('the page is missing its skeleton')
@@ -80,6 +83,7 @@ const paint = (): void => {
   sessionListElement.innerHTML = renderSessions(state)
   railFootElement.innerHTML = renderRail(state)
   panelElement.innerHTML = renderPanel(state)
+  queueElement.innerHTML = renderQueue(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
@@ -121,6 +125,10 @@ const submit = (): void => {
   paintStatus()
 }
 
+/** The events after which the page reads the store and the run state again. */
+const needsRefresh = (type: string): boolean =>
+  type === 'turn/end' || type.startsWith('agent/inbox/')
+
 const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ui'
 
 const session = Effect.gen(function* () {
@@ -148,8 +156,8 @@ const session = Effect.gen(function* () {
             state = applyUiEvent(state, event)
             paint()
           })
-          // A finished turn is where a session earns the name the rail shows.
-          if (event.kind === 'session' && event.event.type === 'turn/end') yield* relist()
+          // A finished turn is where a session earns its name; the inbox is where input waits.
+          if (event.kind === 'session' && needsRefresh(event.event.type)) yield* relist()
         }),
       ),
     )
