@@ -23,7 +23,6 @@ export const makeJobStartTool = (
   description:
     'Starts a command in the background and returns its job id. Use it for a command that outlives one call, then read it with job_output.',
   parameters: StartParameters,
-  needs: ['exec'],
   output: {
     schema: Schema.Struct({ id: Schema.String, command: Schema.String }),
     render: (_args, value) => [
@@ -45,7 +44,6 @@ export const makeJobOutputTool = (
   description:
     'Reads the output a background job has produced so far. Poll it to follow long work; job_kill stops one that no longer matters.',
   parameters: IdParameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({ id: Schema.String, running: Schema.Boolean, output: Schema.String }),
     render: (_args, value) => [
@@ -66,7 +64,6 @@ export const makeJobKillTool = (
   description:
     'Stops a background job and returns what it had produced. Use it when the job no longer matters, so its process does not outlive the work.',
   parameters: IdParameters,
-  needs: ['exec'],
   output: {
     schema: Schema.Struct({ id: Schema.String }),
     render: (_args, value) => [{ type: 'text', text: 'stopped ' + value.id }],
@@ -92,7 +89,6 @@ export const makeJobListTool = (
   description:
     'Lists the background jobs this session started and whether each is still running. Use it before starting work that may already be running, and to find the id of a job to read or stop.',
   parameters: Schema.Struct({}),
-  needs: ['read'],
   output: {
     schema: Schema.Array(
       Schema.Struct({ id: Schema.String, command: Schema.String, running: Schema.Boolean }),

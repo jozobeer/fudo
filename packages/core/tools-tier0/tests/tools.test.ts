@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { tier0Tools } from '../src/index.ts'
 
 describe('tier0Tools', () => {
-  test('lists the six tools with their declared needs', () => {
+  test('lists the six tools', () => {
     const tools = tier0Tools()
 
     expect(tools.map((tool) => tool.name)).toEqual([
@@ -13,14 +13,6 @@ describe('tier0Tools', () => {
       'glob',
       'grep',
       'bash',
-    ])
-    expect(tools.map((tool) => ({ name: tool.name, needs: tool.needs ?? [] }))).toEqual([
-      { name: 'read', needs: ['read'] },
-      { name: 'write', needs: ['write'] },
-      { name: 'edit', needs: ['write'] },
-      { name: 'glob', needs: ['read'] },
-      { name: 'grep', needs: ['read'] },
-      { name: 'bash', needs: ['exec'] },
     ])
   })
 

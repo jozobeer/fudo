@@ -176,7 +176,6 @@ export const makeReadTool = (observed: ObservedFiles): ToolDefinition<ReadArgs, 
   description:
     'Reads a UTF-8 text file and returns its lines with 1-based line numbers. Use it instead of cat, head, or tail. When the footer says more lines follow, call read again with offset; a file whose output was spilled is read the same way.',
   parameters: Parameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({
       text: Schema.String,

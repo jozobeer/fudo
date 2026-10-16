@@ -47,7 +47,6 @@ export const mcpTools = (
         name: prefix + name,
         description: tool.description ?? 'An MCP tool',
         parameters: Schema.Unknown,
-        needs: ['exec'],
         output: {
           schema: Schema.Unknown,
           render: (_args, value) => textBlocks(value),

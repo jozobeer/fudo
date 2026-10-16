@@ -154,7 +154,6 @@ export const makePluginTool = (host: PluginHost): ToolDefinition<PluginArgs, Plu
   description:
     'Lists the plugin rows this session runs with and changes them in the settings the next start reads: add a row for a plugin this build has, remove one, or switch one off. Every change is put to the user first, and it takes effect when jozo-harness starts again, not in this session.',
   parameters: Parameters,
-  needs: ['write'],
   output: {
     schema: Schema.Struct({
       action: Schema.String,

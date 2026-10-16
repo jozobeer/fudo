@@ -201,7 +201,6 @@ export const makeTeamTool = (host: TeamHost): ToolDefinition<TeamArgs, TeamValue
   description:
     'Keeps a roster of named teammates and a shared board of work. Spawn one teammate per name (a child agent like subagent starts), then hand work out with send_message and record where each piece stands with create, get, and update. Update refuses a row that moved on since it was read.',
   parameters: Parameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({
       action: Schema.String,

@@ -119,7 +119,6 @@ export const grepTool: ToolDefinition<GrepArgs, GrepValue> = {
   description:
     'Searches workspace files for a regular expression and returns file, line, and text for each match. Use it instead of shelling out to grep or rg. node_modules, .git, hidden paths, and binary files are skipped. A result too long to show is stored whole; read that file with offset and limit.',
   parameters: Parameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({
       matches: Schema.Array(

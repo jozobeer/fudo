@@ -62,7 +62,6 @@ export const makeEditTool = (
         ? ' A path the sandbox refuses is reported as `[sandbox: file access denied under <mode> mode]`.'
         : ''),
     parameters: Parameters,
-    needs: ['write'],
     output: {
       schema: Schema.Struct({ path: Schema.String, replacements: Schema.Int }),
       render: (_args, value) => [

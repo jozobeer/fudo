@@ -14,6 +14,5 @@ describe('tier1Tools', () => {
       'web_fetch',
       'read_image',
     ])
-    expect(tools.map((tool) => tool.needs ?? [])).toEqual([[], [], ['network'], ['read']])
   })
 })

@@ -40,7 +40,6 @@ export const makeSkillTool = (
   description:
     'Reads the full instructions of one skill by name. Call it before acting on a task that names a skill or clearly matches one in the catalog.',
   parameters: Parameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({ name: Schema.String, path: Schema.String, body: Schema.String }),
     render: (_args, value) => [{ type: 'text', text: value.body }],

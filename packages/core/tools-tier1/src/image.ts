@@ -37,7 +37,6 @@ export const readImageTool: ToolDefinition<ReadImageArgs, ReadImageValue> = {
   description:
     'Reads a png, jpeg, webp, or gif file and shows it to the model. Use it instead of read for images: read returns bytes as text.',
   parameters: Parameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({
       path: Schema.String,

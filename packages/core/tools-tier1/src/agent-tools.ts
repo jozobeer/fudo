@@ -49,7 +49,6 @@ export const makeListAgentsTool = (
   description:
     'Lists the child agents this session started and what each is doing. Use it to find a child id again before sending it a message or waiting for it.',
   parameters: Schema.Struct({}),
-  needs: ['read'],
   output: {
     schema: Schema.Array(Schema.Struct({ id: Schema.String, status: Schema.String })),
     render: (_args, value) => [
@@ -82,7 +81,6 @@ export const makeSendMessageTool = (
     id: Schema.String.annotate({ description: 'The session id of the child agent.' }),
     message: Schema.String.annotate({ description: 'What to tell the child.' }),
   }),
-  needs: ['read'],
   output: {
     schema: Schema.Struct({ id: Schema.String, queued: Schema.Boolean }),
     render: (_args, value) => [
@@ -115,7 +113,6 @@ export const makeInterruptAgentTool = (
   description:
     'Stops what a child agent is doing right now. The child keeps its session; the parent sees the turn end as cancelled by its parent.',
   parameters: IdParameters,
-  needs: ['read'],
   output: {
     schema: Schema.Struct({ id: Schema.String }),
     render: (_args, value) => [{ type: 'text', text: 'interrupted ' + value.id }],
@@ -141,7 +138,6 @@ export const makeWaitAgentTool = (
       Schema.Int.annotate({ description: 'The most milliseconds to wait. Defaults to 300000.' }),
     ),
   }),
-  needs: ['read'],
   output: {
     schema: Schema.Struct({ id: Schema.String, idle: Schema.Boolean }),
     render: (_args, value) => [

@@ -141,7 +141,6 @@ export const makeBashTool = (
         ? ' A file effect the sandbox refuses is reported as `[sandbox: file access denied under <mode> mode]`: that is a policy denial, so do not retry another way.'
         : ''),
     parameters: Parameters,
-    needs: ['exec'],
     output: {
       schema: Schema.Struct({
         exitCode: Schema.Int,

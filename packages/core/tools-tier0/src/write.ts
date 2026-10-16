@@ -43,7 +43,6 @@ export const makeWriteTool = (
         ? ' A path the sandbox refuses is reported as `[sandbox: file access denied under <mode> mode]`.'
         : ''),
     parameters: Parameters,
-    needs: ['write'],
     output: {
       schema: Schema.Struct({ path: Schema.String, bytes: Schema.Int }),
       render: (_args, value) => [

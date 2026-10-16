@@ -32,16 +32,11 @@ describe('tier0Plugin', () => {
           const context = yield* Layer.build(layer)
           // No approval seam here: this test watches the sandbox the row resolved.
           const tools = Context.get(context, Tier0Tools)(undefined)
-          const bash = tools.find((tool) => tool.name === 'bash')
-          return {
-            names: tools.map((tool) => tool.name),
-            bash: bash?.needs ?? [],
-          }
+          return { names: tools.map((tool) => tool.name) }
         }),
       ),
     )
 
     expect(observed.names).toEqual(['read', 'write', 'edit', 'glob', 'grep', 'bash'])
-    expect(observed.bash).toEqual(['exec'])
   })
 })
