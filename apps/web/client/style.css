@@ -326,7 +326,19 @@ body {
   display: flex;
   gap: 6px;
   align-items: baseline;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
   overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-job:hover .run-job-command {
+  color: var(--accent);
 }
 
 .run-job-state {
@@ -467,6 +479,17 @@ body {
 
 .panel .card-hint {
   padding: 0 12px 10px;
+}
+
+.job-output {
+  max-height: 20rem;
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  overflow: auto;
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .session-where {

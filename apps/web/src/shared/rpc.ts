@@ -91,6 +91,30 @@ export const SettingsViewSchema = Schema.Struct({
 /** What a page reads about the run behind it; the schema is the one source. */
 export type SettingsView = typeof SettingsViewSchema.Type
 
+/** One background command, opened: what it ran, whether it still runs, what it kept. */
+export const JobDetailViewSchema = Schema.Struct({
+  id: Schema.String,
+  command: Schema.String,
+  running: Schema.Boolean,
+  output: Schema.String,
+})
+
+export type JobDetailView = typeof JobDetailViewSchema.Type
+
+/** What one background command has kept as output. */
+export const JobDetailRpc = Rpc.make('jobDetail', {
+  payload: Schema.Struct({ sessionId: Schema.String, id: Schema.String }),
+  success: JobDetailViewSchema,
+  error: Schema.String,
+})
+
+/** Stops one background command. */
+export const JobStopRpc = Rpc.make('stopJob', {
+  payload: Schema.Struct({ sessionId: Schema.String, id: Schema.String }),
+  success: Schema.Boolean,
+  error: Schema.String,
+})
+
 /** The goal and the schedules of one session, as of now. */
 export const StateRpc = Rpc.make('state', {
   payload: Schema.Struct({ sessionId: Schema.String }),
@@ -122,6 +146,8 @@ export const UiRpcs = RpcGroup.make(
   UiCommandRpc,
   UiEventsRpc,
   StateRpc,
+  JobDetailRpc,
+  JobStopRpc,
   SettingsRpc,
   ModelsRpc,
   SetModelRpc,

@@ -112,6 +112,7 @@ import {
   WebError,
   defaultStaticRoot,
   serveWeb,
+  type JobDetailView,
   type RunStateView,
   type SessionFactory,
   type SettingsPort,
@@ -783,6 +784,8 @@ const sessionFactoryOf = (
         summary: summaryOf(agent),
         host: ui,
         runState: () => runStateOf(agent, built.runtime.jobs),
+        jobOutput: (jobId: string) => jobDetailOf(built.runtime.jobs, jobId),
+        stopJob: (jobId: string) => stopJobOf(built.runtime.jobs, jobId),
       }
     }).pipe(
       Effect.mapError((error) =>
@@ -810,6 +813,8 @@ const serveWebUi = (
         summary: summaryOf(runtime.agent),
         host: ui,
         runState: () => runStateOf(runtime.agent, runtime.jobs),
+        jobOutput: (jobId: string) => jobDetailOf(runtime.jobs, jobId),
+        stopJob: (jobId: string) => stopJobOf(runtime.jobs, jobId),
       },
       factory: sessionFactoryOf(
         options,
@@ -877,6 +882,22 @@ interface SessionRuntime {
 type BuiltSession =
   | { readonly kind: 'ready'; readonly runtime: SessionRuntime }
   | { readonly kind: 'refused'; readonly message: string }
+
+/** What one background command has kept as output. */
+const jobDetailOf = (jobs: JobsShape, id: string): Effect.Effect<JobDetailView, WebError> =>
+  jobs.read(id).pipe(
+    Effect.map((job) => ({
+      id: job.id,
+      command: job.command,
+      running: job.running,
+      output: job.output,
+    })),
+    Effect.mapError((error) => new WebError({ message: messageOf(error) })),
+  )
+
+/** Stops one background command; a job that already ended is not an error. */
+const stopJobOf = (jobs: JobsShape, id: string): Effect.Effect<void, WebError> =>
+  jobs.kill(id).pipe(Effect.mapError((error) => new WebError({ message: messageOf(error) })))
 
 /** What the session can say about itself right now: its goal, its schedules, its background work. */
 const runStateOf = (agent: Agent, jobs: JobsShape): RunStateView => {

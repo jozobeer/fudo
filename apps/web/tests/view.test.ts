@@ -7,8 +7,8 @@ import {
   withConnection,
   withDraft,
   withModels,
-  withPanel,
   withRun,
+  withSheet,
   withSession,
   withSessions,
   withSettings,
@@ -17,9 +17,9 @@ import {
 import {
   childSessionsOf,
   renderConversation,
-  renderPanel,
   renderQueue,
   renderRail,
+  renderSheet,
   renderSessions,
   renderStatus,
 } from '../client/view.ts'
@@ -155,6 +155,7 @@ describe('the browser view', () => {
     expect(view).toContain('every 60s')
     expect(view).toContain('check the build')
     expect(view).toContain('run-job running')
+    expect(view).toContain('data-job-id="j-1"')
     expect(view).toContain('sleep 5')
     expect(view).toContain('echo done')
     expect(
@@ -214,10 +215,22 @@ describe('the browser view', () => {
     expect(renderQueue(initialState)).toBe('')
   })
 
-  test('the settings sheet stays away until it is asked for', () => {
-    expect(renderPanel(initialState)).toBe('')
-    const open = withPanel(initialState, true)
-    expect(renderPanel(open)).toContain('reading the settings')
+  test('the sheet stays away until it is asked for', () => {
+    expect(renderSheet(initialState)).toBe('')
+    const open = withSheet(initialState, { kind: 'settings' })
+    expect(renderSheet(open)).toContain('reading the settings')
+  })
+
+  test('a job opens with the output it kept, and a running one can be stopped', () => {
+    const detail = { id: 'j-1', command: 'sleep 5', running: true, output: 'line one' }
+    const view = renderSheet(withSheet(initialState, { kind: 'job', id: 'j-1', detail }))
+    expect(view).toContain('sleep 5')
+    expect(view).toContain('line one')
+    expect(view).toContain('id="stop-job"')
+    const finished = renderSheet(
+      withSheet(initialState, { kind: 'job', id: 'j-1', detail: { ...detail, running: false } }),
+    )
+    expect(finished).not.toContain('id="stop-job"')
   })
 
   test('the sheet shows what the run is set to and asks before writing', () => {
@@ -228,15 +241,15 @@ describe('the browser view', () => {
       cwd: '/work',
       sessionRoot: '/home/me/.jzh/sessions',
     }
-    const read = withPanel(withSettings(initialState, settings), true)
-    const view = renderPanel(read)
+    const read = withSheet(withSettings(initialState, settings), { kind: 'settings' })
+    const view = renderSheet(read)
     expect(view).toContain('stub/model')
     expect(view).toContain('high')
     expect(view).toContain('/home/me/.jzh/sessions')
     expect(view).toContain('id="ask-models"')
     const listed = withModels(read, ['stub/model', 'stub/other'])
-    expect(renderPanel(listed)).toContain('<option value="stub/other">')
-    expect(renderPanel(listed)).toContain('id="use-model"')
+    expect(renderSheet(listed)).toContain('<option value="stub/other">')
+    expect(renderSheet(listed)).toContain('id="use-model"')
   })
 
   test('the status strip reports the connection, where it runs and the next action', () => {

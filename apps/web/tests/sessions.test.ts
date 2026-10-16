@@ -7,7 +7,7 @@ import {
   type OpenSession,
   type SessionFactory,
 } from '../src/server/sessions.ts'
-import type { RunStateView, SessionSummary } from '../src/shared/rpc.ts'
+import type { JobDetailView, RunStateView, SessionSummary } from '../src/shared/rpc.ts'
 
 const summaryOf = (id: string): SessionSummary => ({ id, cwd: '/work', createdAt: 1, title: '' })
 
@@ -45,7 +45,13 @@ const makeFactory = (): Fake => {
               closed.push(made)
             }),
           )
-          return { summary: summaryOf(made), host: hostOf(), runState: runStateOf }
+          return {
+            summary: summaryOf(made),
+            host: hostOf(),
+            runState: runStateOf,
+            jobOutput,
+            stopJob: () => Effect.void,
+          }
         }),
     },
   }
@@ -53,10 +59,15 @@ const makeFactory = (): Fake => {
 
 const runStateOf = (): RunStateView => ({ goal: null, schedules: [], jobs: [], queued: [] })
 
+const jobOutput = (): Effect.Effect<JobDetailView, WebError> =>
+  Effect.fail(new WebError({ message: 'no such job' }))
+
 const initial = (id: string): OpenSession => ({
   summary: summaryOf(id),
   host: hostOf(),
   runState: runStateOf,
+  jobOutput,
+  stopJob: () => Effect.void,
 })
 
 describe('the session registry', () => {

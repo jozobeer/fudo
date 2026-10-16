@@ -1,6 +1,11 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
-import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
+import type {
+  JobDetailView,
+  RunStateView,
+  SessionSummary,
+  SettingsView,
+} from '../src/shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
 
 /** What the header says about the session behind the page. */
@@ -11,6 +16,11 @@ export interface SessionInfo {
 }
 
 const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
+
+/** What the sheet on the right shows: the run's settings, or one background command. */
+export type Sheet =
+  | { readonly kind: 'settings' }
+  | { readonly kind: 'job'; readonly id: string; readonly detail: JobDetailView | undefined }
 
 /** What the browser shows: the conversation, the socket, the draft, and the sessions. */
 export interface WebState {
@@ -30,8 +40,8 @@ export interface WebState {
   readonly settings: SettingsView | undefined
   /** The provider's models, once the reader asked for them. */
   readonly models: ReadonlyArray<string>
-  /** Whether the settings and the model list are on screen. */
-  readonly panelOpen: boolean
+  /** What the sheet on the right is showing, if anything. */
+  readonly sheet: Sheet | undefined
   /** What the session says it works toward; undefined until the page has asked. */
   readonly run: RunStateView | undefined
 }
@@ -47,7 +57,7 @@ export const initialState: WebState = {
   theme: DEFAULT_THEME,
   settings: undefined,
   models: [],
-  panelOpen: false,
+  sheet: undefined,
   run: undefined,
 }
 
@@ -77,9 +87,9 @@ export const withModels = (state: WebState, models: ReadonlyArray<string>): WebS
   models,
 })
 
-export const withPanel = (state: WebState, panelOpen: boolean): WebState => ({
+export const withSheet = (state: WebState, sheet: Sheet | undefined): WebState => ({
   ...state,
-  panelOpen,
+  sheet,
 })
 
 export const withRun = (state: WebState, run: RunStateView): WebState => ({ ...state, run })

@@ -15,6 +15,7 @@ import {
   type SettingsView,
 } from '../src/server/index.ts'
 import {
+  type JobDetailView,
   type RunStateView,
   type SessionSummary,
   UiRpcs,
@@ -25,6 +26,8 @@ interface FakeHost {
   readonly summary: SessionSummary
   readonly host: UiHost
   readonly runState: () => RunStateView
+  readonly jobOutput: (id: string) => Effect.Effect<JobDetailView, WebError>
+  readonly stopJob: (id: string) => Effect.Effect<void, WebError>
   readonly commands: Array<UiCommand>
   /** Broadcasts one event to every tab, like the real host does. */
   readonly publish: (event: UiEvent) => void
@@ -62,6 +65,12 @@ const makeHost = (id: string): FakeHost => {
       jobs: [{ id: 'j-1', command: 'sleep 5', running: true }],
       queued: ['one more thing'],
     }),
+    jobOutput: (jobId) =>
+      jobId === 'j-1'
+        ? Effect.succeed({ id: 'j-1', command: 'sleep 5', running: true, output: 'still going' })
+        : Effect.fail(new WebError({ message: 'no such job' })),
+    stopJob: (jobId) =>
+      jobId === 'j-1' ? Effect.void : Effect.fail(new WebError({ message: 'no such job' })),
     commands,
     publish,
     host: {
@@ -92,6 +101,8 @@ const makeWeb = (initialId: string): FakeWeb => {
       summary: first.summary,
       host: first.host,
       runState: first.runState,
+      jobOutput: first.jobOutput,
+      stopJob: first.stopJob,
     },
     factory: {
       list: () => Effect.succeed([...hosts.values()].map((fake) => fake.summary)),
@@ -100,11 +111,23 @@ const makeWeb = (initialId: string): FakeWeb => {
           const made = id ?? 'new-' + String(hosts.size + 1)
           const known = hosts.get(made)
           if (known !== undefined) {
-            return { summary: known.summary, host: known.host, runState: known.runState }
+            return {
+              summary: known.summary,
+              host: known.host,
+              runState: known.runState,
+              jobOutput: known.jobOutput,
+              stopJob: known.stopJob,
+            }
           }
           const fresh = makeHost(made)
           hosts.set(made, fresh)
-          return { summary: fresh.summary, host: fresh.host, runState: fresh.runState }
+          return {
+            summary: fresh.summary,
+            host: fresh.host,
+            runState: fresh.runState,
+            jobOutput: fresh.jobOutput,
+            stopJob: fresh.stopJob,
+          }
         }),
     },
   }
@@ -360,7 +383,12 @@ describe('the web transport', () => {
             const refused = yield* client
               .state({ sessionId: 'gone' })
               .pipe(Effect.catch((message) => Effect.succeed(message)))
-            return { running, refused }
+            const detail = yield* client.jobDetail({ sessionId: 'a', id: 'j-1' })
+            const stopped = yield* client.stopJob({ sessionId: 'a', id: 'j-1' })
+            const unknownJob = yield* client
+              .jobDetail({ sessionId: 'a', id: 'j-9' })
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            return { running, refused, detail, stopped, unknownJob }
           }).pipe(clientLayers(wsUrl))
           const result = yield* withoutServices(useClient)
           yield* Deferred.succeed(started.stop, undefined)
@@ -374,6 +402,14 @@ describe('the web transport', () => {
     expect(observed.running.schedules[0]?.when).toBe('every 60s')
     expect(observed.running.jobs).toEqual([{ id: 'j-1', command: 'sleep 5', running: true }])
     expect(observed.running.queued).toEqual(['one more thing'])
+    expect(observed.detail).toEqual({
+      id: 'j-1',
+      command: 'sleep 5',
+      running: true,
+      output: 'still going',
+    })
+    expect(observed.stopped).toBe(true)
+    expect(observed.unknownJob).toBe('no such job')
     expect(observed.refused).toBe('the session is not open')
     await rm(root, { recursive: true, force: true })
   })

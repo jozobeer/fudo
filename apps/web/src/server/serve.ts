@@ -62,6 +62,21 @@ const handlersOf = (registry: SessionRegistry, settings: SettingsPort) =>
       const view = registry.stateOf(sessionId)
       return view === undefined ? Effect.fail('the session is not open') : Effect.succeed(view)
     },
+    jobDetail: ({ sessionId, id }) => {
+      const session = registry.sessionOf(sessionId)
+      return session === undefined
+        ? Effect.fail('the session is not open')
+        : session.jobOutput(id).pipe(Effect.mapError((error) => error.message))
+    },
+    stopJob: ({ sessionId, id }) => {
+      const session = registry.sessionOf(sessionId)
+      return session === undefined
+        ? Effect.fail('the session is not open')
+        : session.stopJob(id).pipe(
+            Effect.as(true),
+            Effect.mapError((error) => error.message),
+          )
+    },
     settings: () => settings.read().pipe(Effect.mapError((error) => error.message)),
     models: () => settings.models().pipe(Effect.mapError((error) => error.message)),
     setModel: ({ model }) =>

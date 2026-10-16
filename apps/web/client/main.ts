@@ -10,7 +10,7 @@ import {
   withConnection,
   withDraft,
   withModels,
-  withPanel,
+  withSheet,
   withProblem,
   withSession,
   withRun,
@@ -22,7 +22,7 @@ import {
 import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
 import {
   renderConversation,
-  renderPanel,
+  renderSheet,
   renderQueue,
   renderRail,
   renderSessions,
@@ -69,7 +69,11 @@ const moves = Effect.runSync(Queue.unbounded<string | undefined>())
 /** The subscription the page follows; replaced every time it moves. */
 let following: Fiber.Fiber<void, unknown> | undefined
 /** What the settings sheet asked the server for. */
-type PanelAsk = { readonly kind: 'models' } | { readonly kind: 'setModel'; readonly model: string }
+type PanelAsk =
+  | { readonly kind: 'models' }
+  | { readonly kind: 'setModel'; readonly model: string }
+  | { readonly kind: 'job'; readonly id: string }
+  | { readonly kind: 'stopJob'; readonly id: string }
 const panelAsks = Effect.runSync(Queue.unbounded<PanelAsk>())
 
 const messageOf = (error: unknown): string =>
@@ -82,7 +86,7 @@ const paint = (): void => {
   statusElement.innerHTML = renderStatus(state)
   sessionListElement.innerHTML = renderSessions(state)
   railFootElement.innerHTML = renderRail(state)
-  panelElement.innerHTML = renderPanel(state)
+  panelElement.innerHTML = renderSheet(state)
   queueElement.innerHTML = renderQueue(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
@@ -201,6 +205,24 @@ const session = Effect.gen(function* () {
           })
           return
         }
+        if (ask.kind === 'job') {
+          const detail = yield* client.jobDetail({ sessionId: state.sessionId, id: ask.id })
+          yield* Effect.sync(() => {
+            state = withSheet(state, { kind: 'job', id: ask.id, detail })
+            paint()
+          })
+          return
+        }
+        if (ask.kind === 'stopJob') {
+          yield* client.stopJob({ sessionId: state.sessionId, id: ask.id })
+          yield* relist()
+          const detail = yield* client.jobDetail({ sessionId: state.sessionId, id: ask.id })
+          yield* Effect.sync(() => {
+            state = withSheet(state, { kind: 'job', id: ask.id, detail })
+            paint()
+          })
+          return
+        }
         yield* client.setModel({ model: ask.model })
         // Read it back, so the sheet shows what the file now holds.
         const settings = yield* client.settings()
@@ -278,7 +300,15 @@ railFootElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
   if (target.id === 'settings') {
-    state = withPanel(state, !state.panelOpen)
+    state = withSheet(state, state.sheet === undefined ? { kind: 'settings' } : undefined)
+    paint()
+    return
+  }
+  // A job opens in the sheet, with the output it has kept.
+  const job = target.dataset.jobId
+  if (job !== undefined) {
+    state = withSheet(state, { kind: 'job', id: job, detail: undefined })
+    Queue.offerUnsafe(panelAsks, { kind: 'job', id: job })
     paint()
     return
   }
@@ -297,24 +327,32 @@ railFootElement.addEventListener('click', (event) => {
   paint()
 })
 
-panelElement.addEventListener('click', (event) => {
-  const target = event.target
-  if (!(target instanceof HTMLButtonElement)) return
-  if (target.id === 'panel-close') {
-    state = withPanel(state, false)
+/** What each button in the sheet does; one entry per button the sheet draws. */
+const sheetActions: Readonly<Record<string, () => void>> = {
+  'panel-close': () => {
+    state = withSheet(state, undefined)
     paint()
-    return
-  }
-  if (target.id === 'ask-models') {
+  },
+  'stop-job': () => {
+    const sheet = state.sheet
+    if (sheet?.kind === 'job') Queue.offerUnsafe(panelAsks, { kind: 'stopJob', id: sheet.id })
+  },
+  'ask-models': () => {
     Queue.offerUnsafe(panelAsks, { kind: 'models' })
-    return
-  }
-  if (target.id === 'use-model') {
+  },
+  'use-model': () => {
     const choice = document.getElementById('model-choice')
     if (choice instanceof HTMLSelectElement && choice.value !== '') {
       Queue.offerUnsafe(panelAsks, { kind: 'setModel', model: choice.value })
     }
-  }
+  },
+}
+
+panelElement.addEventListener('click', (event) => {
+  const target = event.target
+  if (!(target instanceof HTMLButtonElement)) return
+  const action = sheetActions[target.id]
+  if (action !== undefined) action()
 })
 
 sessionListElement.addEventListener('click', (event) => {

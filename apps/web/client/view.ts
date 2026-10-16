@@ -1,6 +1,7 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
 import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
+import type { Sheet } from './state.ts'
 import { escapeHtml } from './html.ts'
 import { THEMES } from './theme.ts'
 import { renderMarkdown } from './markdown.ts'
@@ -280,13 +281,15 @@ const jobsHtml = (jobs: RunStateView['jobs']): string =>
       jobs
         .map(
           (job) =>
-            '<li class="run-job ' +
+            '<li><button class="run-job ' +
             (job.running ? 'running' : 'done') +
-            '"><span class="run-job-state">' +
+            '" data-job-id="' +
+            escapeHtml(job.id) +
+            '" type="button"><span class="run-job-state">' +
             (job.running ? 'running' : 'done') +
             '</span><span class="run-job-command">' +
             text(job.command) +
-            '</span></li>',
+            '</span></button></li>',
         )
         .join('') +
       '</ul>'
@@ -323,7 +326,7 @@ export const renderRail = (state: WebState): string =>
   '<span class="rail-label">theme</span>' +
   themesHtml(state) +
   '<button id="settings" class="rail-button' +
-  (state.panelOpen ? ' active' : '') +
+  (state.sheet?.kind === 'settings' ? ' active' : '') +
   '" type="button">settings</button>'
 
 const panelRow = (name: string, value: string): string =>
@@ -354,19 +357,41 @@ const panelBody = (settings: SettingsView): string =>
   panelRow('sessions', settings.sessionRoot) +
   panelRow('settings', settings.settingsPath === '' ? '(none)' : settings.settingsPath)
 
-/** The settings sheet: what this run is configured with, and the one key a page may write. */
-export const renderPanel = (state: WebState): string => {
-  if (!state.panelOpen) return ''
-  const settings = state.settings
-  const body =
-    settings === undefined
-      ? '<div class="card-hint">reading the settings…</div>'
-      : '<div class="panel-rows">' + panelBody(settings) + '</div>' + modelsHtml(state)
+const settingsBody = (state: WebState): string =>
+  state.settings === undefined
+    ? '<div class="card-hint">reading the settings…</div>'
+    : '<div class="panel-rows">' + panelBody(state.settings) + '</div>' + modelsHtml(state)
+
+/** One background command with the output it has kept, and the way to stop it. */
+const jobBody = (sheet: Extract<Sheet, { kind: 'job' }>): string => {
+  const detail = sheet.detail
+  if (detail === undefined) return '<div class="card-hint">reading the job…</div>'
   return (
-    '<section class="panel" role="dialog" aria-label="Settings">' +
-    '<header class="panel-head"><span class="panel-title">Settings</span>' +
-    '<button id="panel-close" type="button">Close</button></header>' +
-    body +
+    '<div class="panel-rows">' +
+    panelRow('command', detail.command) +
+    panelRow('state', detail.running ? 'running' : 'done') +
+    '</div>' +
+    '<pre class="job-output">' +
+    text(detail.output === '' ? '(no output yet)' : detail.output) +
+    '</pre>' +
+    '<div class="panel-actions">' +
+    (detail.running ? '<button id="stop-job" type="button">Stop</button>' : '') +
+    '</div>'
+  )
+}
+
+/** The sheet on the right: either what this run is set to, or one background command. */
+export const renderSheet = (state: WebState): string => {
+  const sheet = state.sheet
+  if (sheet === undefined) return ''
+  const title = sheet.kind === 'settings' ? 'Settings' : 'Job ' + sheet.id.slice(0, 8)
+  return (
+    '<section class="panel" role="dialog" aria-label="' +
+    escapeHtml(title) +
+    '"><header class="panel-head"><span class="panel-title">' +
+    text(title) +
+    '</span><button id="panel-close" type="button">Close</button></header>' +
+    (sheet.kind === 'settings' ? settingsBody(state) : jobBody(sheet)) +
     '</section>'
   )
 }
