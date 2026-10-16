@@ -19,6 +19,8 @@ export interface SessionSummary {
   readonly id: SessionId
   readonly cwd: string
   readonly createdAt: number
+  /** The first thing the human typed, one short line; '' when the log holds none. */
+  readonly title: string
 }
 
 /** The persistence seam. S1 provides a JSONL implementation in `@jozo-harness/session-jsonl`. */

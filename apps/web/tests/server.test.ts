@@ -42,7 +42,7 @@ const makeHost = (id: string): FakeHost => {
       commands.push(command)
     })
   return {
-    summary: { id, cwd: '/work', createdAt: 1 },
+    summary: { id, cwd: '/work', createdAt: 1, title: '' },
     commands,
     publish,
     host: {
@@ -273,7 +273,7 @@ describe('the web transport', () => {
 
     expect(observed.listed).toEqual({
       initial: 'a',
-      items: [{ id: 'a', cwd: '/work', createdAt: 1 }],
+      items: [{ id: 'a', cwd: '/work', createdAt: 1, title: '' }],
     })
     expect(observed.again).toBe('a')
     expect(observed.made).toBe('new-2')

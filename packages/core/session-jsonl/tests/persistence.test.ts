@@ -67,6 +67,7 @@ describe('jsonlSessions', () => {
       id: first.id,
       cwd: '/one',
       createdAt: 100,
+      title: '',
     })
     const summaries = await Effect.runPromise(persistence.list())
     expect(summaries.map((summary) => summary.id).sort()).toEqual([first.id, second.id].sort())

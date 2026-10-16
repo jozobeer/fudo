@@ -161,17 +161,18 @@ const clockOf = (time: number): string => {
 
 const sessionRow = (state: WebState, summary: SessionSummary): string => {
   const active = summary.id === state.sessionId ? ' active' : ''
+  const short = summary.id.slice(0, 8)
   return (
     '<button class="session' +
     active +
     '" data-session-id="' +
     escapeHtml(summary.id) +
-    '" type="button"><span class="session-id">' +
-    text(summary.id.slice(0, 8)) +
-    '</span><span class="session-where">' +
-    text(basenameOf(summary.cwd)) +
+    '" type="button"><span class="session-name">' +
+    text(summary.title === '' ? short : summary.title) +
     '</span><span class="session-when">' +
     clockOf(summary.createdAt) +
+    '</span><span class="session-where">' +
+    text(short + ' · ' + basenameOf(summary.cwd)) +
     '</span></button>'
   )
 }

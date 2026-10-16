@@ -17,15 +17,16 @@ export const sessionRootOf = (rows: ReadonlyArray<PluginRow>): string => {
 
 const when = (time: number): string => new Date(time).toISOString().replace('T', ' ').slice(0, 19)
 
-/** One line per session, newest first: the id, when it started, and where it ran. */
+/** One line per session, newest first: the id it resumes by, when it started, where it ran, its name. */
 export const renderSessionList = (summaries: ReadonlyArray<SessionSummary>): string => {
   const ordered = [...summaries].sort((left, right) => right.createdAt - left.createdAt)
   if (ordered.length === 0) return 'no sessions yet\n'
-  return (
-    ordered
-      .map((summary) => summary.id + '  ' + when(summary.createdAt) + '  ' + summary.cwd)
-      .join('\n') + '\n'
-  )
+  return ordered.map(lineOf).join('\n') + '\n'
+}
+
+const lineOf = (summary: SessionSummary): string => {
+  const head = summary.id + '  ' + when(summary.createdAt) + '  ' + summary.cwd
+  return summary.title === '' ? head : head + '  ' + summary.title
 }
 
 /** One line per hit, with the matching text under it. A search lists sessions, not conversations. */

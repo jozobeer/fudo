@@ -71,7 +71,7 @@ describe('listing a long log', () => {
     const listed = await Effect.runPromise(jsonlSessions({ root }).list())
     const elapsed = performance.now() - started
 
-    expect(listed).toEqual([{ id, cwd: '/work', createdAt: 1 }])
+    expect(listed).toEqual([{ id, cwd: '/work', createdAt: 1, title: '' }])
     expect(elapsed).toBeLessThan(1000)
     await rm(root, { recursive: true, force: true })
   })
@@ -88,7 +88,9 @@ describe('listing a long log', () => {
     const listed = await Effect.runPromise(jsonlSessions({ root }).list())
     const elapsed = performance.now() - started
 
-    expect(listed).toEqual([{ id: 'ten-thousand', cwd: '/work', createdAt: 1 }])
+    expect(listed).toEqual([
+      { id: 'ten-thousand', cwd: '/work', createdAt: 1, title: 'event number 2' },
+    ])
     expect(elapsed).toBeLessThan(1000)
     await rm(root, { recursive: true, force: true })
   })

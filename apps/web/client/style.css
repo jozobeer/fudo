@@ -134,9 +134,9 @@ body {
 }
 
 .session {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
   width: 100%;
   padding: 6px 8px;
   border: 1px solid transparent;
@@ -159,21 +159,27 @@ body {
   color: var(--text);
 }
 
-.session-id {
-  font-family: var(--mono);
-  font-size: 11px;
-}
-
-.session-where {
-  flex: 1;
+.session-name {
+  grid-column: 1;
   overflow: hidden;
-  font-size: 12px;
+  color: var(--text);
+  font-size: 12.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .session-when {
+  grid-column: 2;
   font-size: 11px;
+}
+
+.session-where {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #status .hint.error {

@@ -59,7 +59,7 @@ export const makeFakePersistence = (): FakePersistence => {
         }
         stored.set(id, {
           events: [first],
-          summary: { id, cwd: sessionHeader.cwd, createdAt: sessionHeader.createdAt },
+          summary: { id, cwd: sessionHeader.cwd, createdAt: sessionHeader.createdAt, title: '' },
         })
         return opened(id)
       }),

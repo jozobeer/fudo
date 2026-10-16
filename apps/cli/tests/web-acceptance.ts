@@ -233,6 +233,9 @@ const keepsReadingPosition = async (client: Cdp, read: () => Promise<unknown>): 
   if ((await waitFor(read, 'line-60')) === undefined) {
     throw new Error('the long reply never reached the page')
   }
+  if ((await waitFor(() => client.evaluate(activeName()), 'write a long answer')) === undefined) {
+    throw new Error('the new session never took the name of its first message')
+  }
   if ((await client.evaluate(readFromTop())) !== 0) {
     throw new Error('the conversation never scrolled')
   }
@@ -253,6 +256,10 @@ const activeSession = (): string =>
   "(() => { const row = document.querySelector('#session-list button.session.active'); return row === null ? '' : row.dataset.sessionId })()"
 
 const sessionRows = "document.querySelectorAll('#session-list button.session').length"
+
+/** The name the rail shows for the session on screen, or '' while it shows none. */
+const activeName = (): string =>
+  "(() => { const row = document.querySelector('#session-list button.session.active'); if (row === null) return ''; const name = row.querySelector('.session-name'); return name === null ? '' : name.textContent })()"
 
 /** Waits until the page reads a session other than the one it had. */
 const waitForOther = async (client: Cdp, previous: string): Promise<string | undefined> => {
@@ -291,6 +298,10 @@ const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Pr
   if (code !== true) throw new Error('the fenced block never became a code element')
   const card = await client.evaluate("document.querySelector('details.tool-card') !== null")
   if (card !== true) throw new Error('the tool result never became a card')
+  // The turn is over: the store names the session and the rail picks the name up.
+  if ((await waitFor(() => client.evaluate(activeName()), 'run the command')) === undefined) {
+    throw new Error('the rail never picked up the name of the session')
+  }
   return answer
 }
 

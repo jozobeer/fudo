@@ -9,7 +9,7 @@ import {
 } from '../src/server/sessions.ts'
 import type { SessionSummary } from '../src/shared/rpc.ts'
 
-const summaryOf = (id: string): SessionSummary => ({ id, cwd: '/work', createdAt: 1 })
+const summaryOf = (id: string): SessionSummary => ({ id, cwd: '/work', createdAt: 1, title: '' })
 
 /** A host that does nothing; these tests are about who is asked and when. */
 const hostOf = (): UiHost => ({

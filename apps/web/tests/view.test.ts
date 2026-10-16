@@ -11,8 +11,8 @@ import {
 } from '../client/state.ts'
 import { renderConversation, renderSessions, renderStatus } from '../client/view.ts'
 
-const a = { id: 'a', cwd: '/work/one', createdAt: 1 }
-const b = { id: 'b', cwd: '/work/two', createdAt: 2 }
+const a = { id: 'a', cwd: '/work/one', createdAt: 1, title: 'count the files' }
+const b = { id: 'b', cwd: '/work/two', createdAt: 2, title: '' }
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {
@@ -107,6 +107,8 @@ describe('the browser view', () => {
     expect(view).toContain('data-session-id="b"')
     expect(view).toContain('class="session active" data-session-id="b"')
     expect(view).not.toContain('class="session active" data-session-id="a"')
+    expect(view).toContain('count the files')
+    expect(view).toContain('session-name">b<')
     expect(view).toContain('two')
     expect(renderSessions(initialState)).not.toContain('data-session-id')
   })

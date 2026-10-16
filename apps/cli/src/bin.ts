@@ -1,6 +1,6 @@
 import { loadBundledProfile, loadBundledProfileNamed } from '@jozo-harness/bundle-base'
 import { type PluginRow } from '@jozo-harness/kernel'
-import { cwdOf, type SessionEvent, type SessionHeader } from '@jozo-harness/session'
+import { cwdOf, titleOf, type SessionEvent, type SessionHeader } from '@jozo-harness/session'
 import { jsonlSessions, makeSessionQuery } from '@jozo-harness/session-jsonl'
 import type { TuiIo } from '@jozo-harness/tui'
 import { Effect, Stream } from 'effect'
@@ -175,6 +175,7 @@ const printSessions = (
         id: observed.id,
         cwd: header === undefined ? '' : cwdOf(observed.events, header),
         createdAt: header?.createdAt ?? 0,
+        title: titleOf(observed.events),
       }) + renderTranscript(observed.events),
     )
     observed.dispose()

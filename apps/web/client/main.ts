@@ -98,13 +98,27 @@ const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.h
 const session = Effect.gen(function* () {
   const client = yield* RpcClient.make(UiRpcs)
 
+  // Reads the store again, so a session that just earned its name shows it.
+  const relist = () =>
+    Effect.gen(function* () {
+      const listed = yield* client.sessions()
+      yield* Effect.sync(() => {
+        state = withSessions(state, listed.items)
+        paint()
+      })
+    })
+
   // Everything one session logs, until the socket or the page moves on.
   const follow = (id: string) =>
     client.events({ sessionId: id }).pipe(
       Stream.runForEach((event) =>
-        Effect.sync(() => {
-          state = applyUiEvent(state, event)
-          paint()
+        Effect.gen(function* () {
+          yield* Effect.sync(() => {
+            state = applyUiEvent(state, event)
+            paint()
+          })
+          // A finished turn is where a session earns the name the rail shows.
+          if (event.kind === 'session' && event.event.type === 'turn/end') yield* relist()
         }),
       ),
     )

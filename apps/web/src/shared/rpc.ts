@@ -7,6 +7,8 @@ export const SessionSummarySchema = Schema.Struct({
   id: Schema.String,
   cwd: Schema.String,
   createdAt: Schema.Number,
+  /** The first thing the human typed in that session; '' when the log holds none yet. */
+  title: Schema.String,
 })
 
 /** The wire shape of one session summary; the store's own summary carries these fields. */

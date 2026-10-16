@@ -17,6 +17,7 @@ import {
   Sessions,
   cwdOf,
   lastSkillCatalog,
+  titleOf,
   type SessionId,
   type SessionSummary,
 } from '@jozo-harness/session'
@@ -816,6 +817,7 @@ const summaryOf = (agent: Agent): SessionSummary => ({
   id: agent.session.id,
   cwd: agent.session.header.cwd,
   createdAt: agent.session.header.createdAt,
+  title: titleOf(agent.session.events()),
 })
 
 /** The scoped body that builds one session: its layer, agent, tools, and UI host. */

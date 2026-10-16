@@ -48,11 +48,17 @@ describe('where the sessions live', () => {
 describe('reading the sessions back', () => {
   test('the list names each one, newest first', () => {
     const text = renderSessionList([
-      { id: 'older', cwd: '/work', createdAt: Date.UTC(2026, 0, 2, 3, 4, 5) },
-      { id: 'newer', cwd: '/home/me', createdAt: Date.UTC(2026, 1, 3, 4, 5, 6) },
+      {
+        id: 'older',
+        cwd: '/work',
+        createdAt: Date.UTC(2026, 0, 2, 3, 4, 5),
+        title: 'count the files',
+      },
+      { id: 'newer', cwd: '/home/me', createdAt: Date.UTC(2026, 1, 3, 4, 5, 6), title: '' },
     ])
 
     expect(text.split('\n')[0]).toBe('newer  2026-02-03 04:05:06  /home/me')
+    expect(text).toContain('count the files')
     expect(text).toContain('older  2026-01-02 03:04:05  /work')
     expect(renderSessionList([])).toBe('no sessions yet\n')
   })
@@ -81,7 +87,12 @@ describe('reading the sessions back', () => {
   })
 
   test('a browse opens with the session it is reading', () => {
-    const head = renderSessionHead({ id: 's-1', cwd: '/work', createdAt: 0 })
+    const head = renderSessionHead({
+      id: 's-1',
+      cwd: '/work',
+      createdAt: 0,
+      title: 'count the files',
+    })
 
     expect(head).toContain('session s-1')
     expect(head).toContain('cwd /work')

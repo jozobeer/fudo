@@ -17,6 +17,7 @@ import { upgradeHeaderLine } from './upgrade.ts'
 import { splitTornTail, type SplitLog } from './repair.ts'
 import { isMissing, notFound, persistenceError } from './errors.ts'
 import { readFirstLine } from './first-line.ts'
+import { readTitle } from './title.ts'
 import { expandHome, SESSION_FILE_NAME } from './paths.ts'
 import { join } from 'node:path'
 
@@ -214,7 +215,9 @@ export function jsonlSessions(options: JsonlSessionsOptions): SessionPersistence
         mtimeMs,
         options.schemas,
       )
-      return { id, cwd: header.cwd, createdAt: header.createdAt }
+      // The name is read from the head of the same file, under the same budget.
+      const title = yield* readTitle(fileOf(id))
+      return { id, cwd: header.cwd, createdAt: header.createdAt, title }
     })
 
   const list = (): Effect.Effect<ReadonlyArray<SessionSummary>, SessionError> =>
@@ -250,5 +253,6 @@ export * from './upgrade.ts'
 export * from './repair.ts'
 export * from './errors.ts'
 export * from './first-line.ts'
+export * from './title.ts'
 export * from './paths.ts'
 export * from './query.ts'
