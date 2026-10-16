@@ -282,7 +282,15 @@ railFootElement.addEventListener('click', (event) => {
     paint()
     return
   }
-  const theme = themeFrom(target.dataset.theme ?? null)
+  // A child session a subagent started reads like any other session row.
+  const child = target.dataset.sessionId
+  if (child !== undefined) {
+    moveTo(child)
+    return
+  }
+  const stored = target.dataset.theme
+  if (stored === undefined) return
+  const theme = themeFrom(stored)
   state = withTheme(state, theme)
   applyTheme(theme)
   localStorage.setItem(THEME_KEY, theme)

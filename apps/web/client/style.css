@@ -349,6 +349,33 @@ body {
   white-space: nowrap;
 }
 
+.run-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-child {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-child:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .rail-button {
   margin-top: 6px;
   padding: 5px 8px;

@@ -15,6 +15,7 @@ import {
   withTheme,
 } from '../client/state.ts'
 import {
+  childSessionsOf,
   renderConversation,
   renderPanel,
   renderQueue,
@@ -22,6 +23,8 @@ import {
   renderSessions,
   renderStatus,
 } from '../client/view.ts'
+
+const emptyRun = { goal: null, schedules: [], jobs: [], queued: [] }
 
 const a = { id: 'a', cwd: '/work/one', createdAt: 1, title: 'count the files' }
 const b = { id: 'b', cwd: '/work/two', createdAt: 2, title: '' }
@@ -156,6 +159,28 @@ describe('the browser view', () => {
     expect(
       renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [], queued: [] })),
     ).toContain('no goal')
+  })
+
+  test('a session a subagent started is reachable from the rail', () => {
+    const started = fold([
+      session('tool/call', { callId: 'c1', name: 'subagent', arguments: '{"task":"look it up"}' }),
+      session('tool/result', {
+        callId: 'c1',
+        isError: false,
+        content: [{ type: 'text', text: 'the answer was 42\n\n[child session: child-1]' }],
+      }),
+      session('tool/call', { callId: 'c2', name: 'bash', arguments: '{}' }),
+      session('tool/result', {
+        callId: 'c2',
+        isError: false,
+        content: [{ type: 'text', text: 'not a child\n\n[child session: child-2]' }],
+      }),
+    ])
+    expect(childSessionsOf(started.blocks)).toEqual(['child-1'])
+    const view = renderRail({ ...initialState, conversation: started, run: emptyRun })
+    expect(view).toContain('class="run-child" data-session-id="child-1"')
+    expect(view).toContain('subagent · child-1')
+    expect(childSessionsOf([])).toEqual([])
   })
 
   test('input the human typed while a turn runs waits above the composer', () => {

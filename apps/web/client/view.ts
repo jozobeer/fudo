@@ -223,6 +223,44 @@ const schedulesHtml = (schedules: RunStateView['schedules']): string =>
         .join('') +
       '</ul>'
 
+/** The child session one `subagent` result names, as the pipeline writes it. */
+const CHILD_MARKER = /\[child session: ([^\]\s]+)\]/g
+
+/** The child sessions one block names; only a subagent result names any. */
+const childrenOfBlock = (block: ConversationBlock): ReadonlyArray<string> =>
+  block.kind === 'tool' && block.name === 'subagent'
+    ? [...block.output.matchAll(CHILD_MARKER)].flatMap((match) =>
+        match[1] === undefined ? [] : [match[1]],
+      )
+    : []
+
+/**
+ * The child sessions this conversation started, oldest first, each named once.
+ * The id is the one the subagent tool wrote into its own result, so the page
+ * reads it rather than keeping a second ledger.
+ */
+export const childSessionsOf = (
+  blocks: ReadonlyArray<ConversationBlock>,
+): ReadonlyArray<string> => [...new Set(blocks.flatMap(childrenOfBlock))]
+
+const childrenHtml = (blocks: ReadonlyArray<ConversationBlock>): string => {
+  const children = childSessionsOf(blocks)
+  return children.length === 0
+    ? ''
+    : '<ul class="run-children">' +
+        children
+          .map(
+            (id) =>
+              '<li><button class="run-child" data-session-id="' +
+              escapeHtml(id) +
+              '" type="button">subagent · ' +
+              text(id.slice(0, 8)) +
+              '</button></li>',
+          )
+          .join('') +
+        '</ul>'
+}
+
 const jobsHtml = (jobs: RunStateView['jobs']): string =>
   jobs.length === 0
     ? ''
@@ -260,7 +298,10 @@ export const renderRun = (state: WebState): string => {
     '<span class="rail-label">run</span>' +
     (run === undefined
       ? '<div class="run-empty">reading…</div>'
-      : goalHtml(run.goal) + schedulesHtml(run.schedules) + jobsHtml(run.jobs))
+      : goalHtml(run.goal) +
+        schedulesHtml(run.schedules) +
+        jobsHtml(run.jobs) +
+        childrenHtml(state.conversation.blocks))
   )
 }
 
