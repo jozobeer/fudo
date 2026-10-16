@@ -20,17 +20,20 @@ import {
   type EditorState,
 } from './editor.ts'
 import type { KeyEvent } from './keys.ts'
+import { TAIL, type Scroll } from './scroll.ts'
 
 export interface TuiState {
   readonly title: string
   readonly conversation: Conversation
   readonly editor: EditorState
+  readonly scroll: Scroll
 }
 
 export const initialTuiState: TuiState = {
   title: 'jozo-harness',
   conversation: emptyConversation,
   editor: emptyEditor,
+  scroll: TAIL,
 }
 
 export interface KeyOutcome {
@@ -118,7 +121,7 @@ const submitOutcome = (state: TuiState): KeyOutcome => {
   const text = state.editor.text
   if (text.trim() === '') return unchanged(state)
   return {
-    state: { ...state, editor: recall(state.editor, text) },
+    state: { ...state, editor: recall(state.editor, text), scroll: TAIL },
     commands: [{ kind: 'submit', text }],
     exit: false,
   }
@@ -128,16 +131,20 @@ const answerOutcome = (state: TuiState, id: string): KeyOutcome => {
   const answer = state.editor.text
   if (answer.trim() === '') return unchanged(state)
   return {
-    state: { ...state, editor: recall(state.editor, answer) },
+    state: { ...state, editor: recall(state.editor, answer), scroll: TAIL },
     commands: [{ kind: 'answer', id, answer }],
     exit: false,
   }
 }
 
-export const handleEvent = (state: TuiState, event: UiEvent): TuiState => ({
-  ...state,
-  conversation: applyEvent(state.conversation, event),
-})
+/** A question the human has to answer; it must never sit off screen. */
+const waitingFor = (conversation: Conversation): boolean =>
+  conversation.approval !== undefined || conversation.ask !== undefined
+
+export const handleEvent = (state: TuiState, event: UiEvent): TuiState => {
+  const conversation = applyEvent(state.conversation, event)
+  return { ...state, conversation, scroll: waitingFor(conversation) ? TAIL : state.scroll }
+}
 
 /** Adds a notice the UI itself saw, such as a command that could not be sent. */
 export const withNotice = (state: TuiState, level: NoticeLevel, text: string): TuiState => ({

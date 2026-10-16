@@ -7,6 +7,7 @@ import {
   initialTuiState,
   handleEvent,
   handleKey,
+  TAIL,
   type TuiState,
 } from '../src/index.ts'
 
@@ -87,5 +88,46 @@ describe('tui state', () => {
     expect(outcome.state.editor.cursor).toBe(1)
     const inserted = handleKey(outcome.state, { kind: 'char', char: 'x' })
     expect(inserted.state.editor.text).toBe('axb')
+  })
+
+  test('submitting and answering return the window to the tail', () => {
+    const pinned = { kind: 'pinned', top: 0 } as const
+    expect(
+      handleKey(state({ editor: typed('do it'), scroll: pinned }), { kind: 'enter' }).state.scroll,
+    ).toEqual(TAIL)
+    const asking = state({
+      conversation: conversation({ ask: { id: 'a1', question: 'which?', options: [] } }),
+      editor: typed('the second'),
+      scroll: pinned,
+    })
+    expect(handleKey(asking, { kind: 'enter' }).state.scroll).toEqual(TAIL)
+  })
+
+  test('a blocking question pulls a pinned window back to the tail', () => {
+    const pinned = state({ scroll: { kind: 'pinned', top: 0 } })
+    const approval = handleEvent(
+      pinned,
+      session('safety/approval/requested', { callId: 'c1', tool: 'bash', reason: 'x' }),
+    )
+    const ask = handleEvent(
+      pinned,
+      session('interaction/ask/requested', { id: 'a1', question: 'which?', options: [] }),
+    )
+    expect(approval.scroll).toEqual(TAIL)
+    expect(ask.scroll).toEqual(TAIL)
+  })
+
+  test('output arriving below a pinned window leaves it where it is', () => {
+    const pinned = state({ scroll: { kind: 'pinned', top: 3 } })
+    const next = handleEvent(
+      pinned,
+      session('assistant/message', {
+        provider: 'stub',
+        model: 'm',
+        content: [{ type: 'text', text: 'more' }],
+        stream: [],
+      }),
+    )
+    expect(next.scroll).toEqual({ kind: 'pinned', top: 3 })
   })
 })

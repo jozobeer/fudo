@@ -46,6 +46,10 @@ describe('key decoder', () => {
     ])
   })
 
+  test('decodes page up and page down', () => {
+    expect(decode('\u001b[5~\u001b[6~')).toEqual([{ kind: 'pageUp' }, { kind: 'pageDown' }])
+  })
+
   test('non-ascii input survives', () => {
     expect(decode('あ')).toEqual([{ kind: 'char', char: 'あ' }])
   })

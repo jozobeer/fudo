@@ -7,6 +7,7 @@ import {
   insert,
   initialTuiState,
   render,
+  viewportOf,
   type TuiState,
 } from '../src/index.ts'
 
@@ -106,5 +107,40 @@ describe('tui render', () => {
     )
     expect(view.lines.join('\n')).not.toContain('\u001b[31m')
     expect(view.lines.join('\n')).toContain('red')
+  })
+
+  const lines = fold(
+    ['one', 'two', 'three', 'four', 'five'].map((text) =>
+      session('user/message', { text, source: 'user' }),
+    ),
+  )
+
+  test('a pinned window shows the lines above the tail', () => {
+    const tail = screen(state({ conversation: lines }), 40, 5)
+    expect(tail.lines.join('\n')).toContain('five')
+    expect(tail.lines.join('\n')).not.toContain('one')
+
+    const pinned = screen(state({ conversation: lines, scroll: { kind: 'pinned', top: 0 } }), 40, 5)
+    expect(pinned.lines.join('\n')).toContain('one')
+    expect(pinned.lines.join('\n')).toContain('three')
+    expect(pinned.lines.join('\n')).not.toContain('five')
+  })
+
+  test('the status line says how far back the window is', () => {
+    const read = (top: number): string =>
+      screen(state({ conversation: lines, scroll: { kind: 'pinned', top } }), 60, 5).lines[0] ?? ''
+    expect(read(0)).toContain('2 lines back')
+    expect(read(0)).toContain('Esc')
+    expect(read(1)).toContain('1 line back')
+    expect(screen(state({ conversation: lines }), 60, 5).lines[0]).not.toContain('line back')
+  })
+
+  test('the viewport counts the wrapped lines and the window height', () => {
+    expect(viewportOf(state({ conversation: lines }), { columns: 40, rows: 8 })).toEqual({
+      lines: 5,
+      height: 6,
+    })
+    // The smallest terminal is the same floor render uses.
+    expect(viewportOf(state(), { columns: 40, rows: 1 })).toEqual({ lines: 0, height: 1 })
   })
 })

@@ -9,6 +9,8 @@ export type KeyEvent =
   | { readonly kind: 'down' }
   | { readonly kind: 'home' }
   | { readonly kind: 'end' }
+  | { readonly kind: 'pageUp' }
+  | { readonly kind: 'pageDown' }
   | { readonly kind: 'escape' }
   | { readonly kind: 'tab' }
   | { readonly kind: 'ctrl'; readonly char: string }
@@ -36,6 +38,8 @@ const SEQUENCES: ReadonlyArray<readonly [string, KeyEvent]> = [
   [ESCAPE + '[1~', { kind: 'home' }],
   [ESCAPE + '[4~', { kind: 'end' }],
   [ESCAPE + '[3~', { kind: 'delete' }],
+  [ESCAPE + '[5~', { kind: 'pageUp' }],
+  [ESCAPE + '[6~', { kind: 'pageDown' }],
 ]
 
 const matchSequence = (pending: string): Match | 'incomplete' | undefined => {

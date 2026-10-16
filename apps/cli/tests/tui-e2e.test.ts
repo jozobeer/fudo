@@ -250,4 +250,48 @@ describe('terminal UI through the command', () => {
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })
   })
+
+  test('page up reads back through what scrolled past', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-'))
+    const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-ws-'))
+    const long = Array.from(
+      { length: 40 },
+      (_, index) => 'line-' + String(index + 1).padStart(2, '0'),
+    ).join('\n')
+    const pageUp: KeyEvent = { kind: 'pageUp' }
+    const tui = fakeTui(
+      keyStream(
+        spaced(typed('hi')),
+        spaced([enter]),
+        later(pageUp, 400),
+        spaced([pageUp, pageUp, pageUp, pageUp]),
+        later(ctrlD, 600),
+      ),
+    )
+
+    const code = await Effect.runPromise(
+      runCommand({
+        profiles: [profile(root, 'full')],
+        plugins: plugins(stubLlm([textTurn(long)])),
+        cwd: workspace,
+        route: 'stub/model',
+        tui: tui.io,
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    )
+
+    // The run also writes the leave-screen bytes; only repaints are frames of the screen.
+    const frames = tui.writes.filter((write) => write.startsWith('\u001b[H'))
+    const tail = [...frames].reverse().find((frame) => frame.includes('line-40'))
+    const last = frames[frames.length - 1] ?? ''
+    expect(code).toBe(0)
+    expect(tail).toBeDefined()
+    expect(tail).not.toContain('line-01')
+    expect(last).toContain('line-01')
+    expect(last).not.toContain('line-40')
+    expect(last).toContain('lines back')
+    await rm(root, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
+  })
 })

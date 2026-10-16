@@ -5,6 +5,7 @@ import {
   type NoticeLevel,
 } from '@jozo-harness/ui-view'
 import type { TuiState } from './state.ts'
+import { linesBelow, windowTop, type Viewport } from './scroll.ts'
 import { clipText, displayWidth, wrapText, type Size } from './wrap.ts'
 
 export interface Screen {
@@ -92,15 +93,16 @@ const conversationLines = (state: TuiState, width: number): ReadonlyArray<Displa
   ...(state.conversation.live === '' ? [] : wrapped(state.conversation.live, width, 'live')),
 ]
 
-const hintOf = (conversation: Conversation): string => {
+const hintOf = (conversation: Conversation, back: number): string => {
   if (conversation.approval !== undefined) return 'approval: y/n'
   if (conversation.ask !== undefined) return 'question: Enter'
+  if (back > 0) return (back === 1 ? '1 line back' : back + ' lines back') + ' (Esc: tail)'
   return conversation.running ? 'working…' : 'idle'
 }
 
-const statusLine = (state: TuiState, width: number): DisplayLine => {
+const statusLine = (state: TuiState, width: number, viewport: Viewport): DisplayLine => {
   const left = clipText(plainText(state.title), width)
-  const hint = hintOf(state.conversation)
+  const hint = hintOf(state.conversation, linesBelow(state.scroll, viewport))
   const gap = Math.max(1, width - displayWidth(left) - displayWidth(hint))
   return { text: clipText(left + ' '.repeat(gap) + hint, width), tone: 'title' }
 }
@@ -136,18 +138,37 @@ const inputLine = (state: TuiState, width: number): { line: DisplayLine; column:
   }
 }
 
-/** Builds a full screen: status, conversation tail, input, and a cursor position. */
+/** The smallest terminal the screen is drawn for. */
+const MIN_COLUMNS = 20
+const MIN_ROWS = 3
+
+interface Layout {
+  readonly columns: number
+  readonly rows: number
+  readonly content: ReadonlyArray<DisplayLine>
+  readonly viewport: Viewport
+}
+
+const layoutOf = (state: TuiState, size: Size): Layout => {
+  const columns = Math.max(MIN_COLUMNS, size.columns)
+  const rows = Math.max(MIN_ROWS, size.rows)
+  const content = conversationLines(state, columns)
+  return { columns, rows, content, viewport: { lines: content.length, height: rows - 2 } }
+}
+
+/** The room the conversation has, for the keys that scroll it. */
+export const viewportOf = (state: TuiState, size: Size): Viewport => layoutOf(state, size).viewport
+
+/** Builds a full screen: status, conversation window, input, and a cursor position. */
 export const render = (state: TuiState, size: Size, options?: RenderOptions): Screen => {
   const color = options?.color ?? true
-  const columns = Math.max(20, size.columns)
-  const rows = Math.max(3, size.rows)
-  const content = conversationLines(state, columns)
-  const bodyRows = rows - 2
-  const tail = content.slice(Math.max(0, content.length - bodyRows))
+  const { columns, rows, content, viewport } = layoutOf(state, size)
+  const top = windowTop(state.scroll, viewport)
+  const body = content.slice(top, top + viewport.height)
   const blank: DisplayLine = { text: '', tone: 'plain' }
-  const blanks = Array.from({ length: bodyRows - tail.length }, () => blank)
+  const blanks = Array.from({ length: viewport.height - body.length }, () => blank)
   const input = inputLine(state, columns)
-  const display = [statusLine(state, columns), ...blanks, ...tail, input.line]
+  const display = [statusLine(state, columns, viewport), ...blanks, ...body, input.line]
   return {
     lines: display.map((line) => paint({ ...line, text: clipText(line.text, columns) }, color)),
     cursor: { row: rows - 1, column: input.column },

@@ -1,7 +1,8 @@
 import { Cause, Deferred, Effect, Ref, Stream } from 'effect'
 import { sendCommand, type UiEvent, type UiHost } from '@jozo-harness/ui-protocol'
 import type { KeyEvent } from './keys.ts'
-import { render, screenText } from './render.ts'
+import { render, screenText, viewportOf } from './render.ts'
+import { scrollKey } from './scroll.ts'
 import { handleEvent, handleKey, initialTuiState, withNotice, type TuiState } from './state.ts'
 import type { TuiIo } from './terminal.ts'
 
@@ -73,6 +74,13 @@ export const runTui = (host: UiHost, io: TuiIo, options?: RunTuiOptions): Effect
             return
           }
           if (input.kind === 'resize') {
+            yield* repaint()
+            return
+          }
+          // Scrolling moves the window, not the cursor: it never reaches the editor.
+          const scrolled = scrollKey(current.scroll, input.key, viewportOf(current, io.size()))
+          if (scrolled !== undefined) {
+            yield* Ref.set(state, { ...current, scroll: scrolled })
             yield* repaint()
             return
           }
