@@ -30,8 +30,8 @@ export const tier0Tools = (
   approval?: ApprovalShape,
 ): ReadonlyArray<ToolDefinition<any, any>> => [
   makeReadTool(observed),
-  makeWriteTool(observed),
-  makeEditTool(observed),
+  makeWriteTool(observed, sandbox, approval),
+  makeEditTool(observed, sandbox, approval),
   globTool,
   grepTool,
   makeBashTool(sandbox, approval),

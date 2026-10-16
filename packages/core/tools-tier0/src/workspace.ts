@@ -1,16 +1,33 @@
 import { lstatSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { Effect } from 'effect'
+import type { SandboxMode } from '@jozo-harness/safety'
 import { ToolError } from '@jozo-harness/tools'
 
 /**
  * The one place a path becomes a path a tool may use. Everything that writes, or
- * runs somewhere, goes through here: a path is taken only when it stays under the
- * workspace and goes through no link, because a link would let the work out while
- * the path still reads as if it stayed inside.
+ * runs somewhere, goes through here. The mode draws the boundary: full access
+ * takes any path, workspace-write takes only paths under the workspace that go
+ * through no link — a link would let the work out while the path still reads as
+ * if it stayed inside — and read-only takes none of them.
+ *
+ * @param root - the workspace the call runs in.
+ * @param path - the path the caller named, absolute or relative.
+ * @param mode - the sandbox mode the call runs under.
+ * @returns the path to use, or why this mode refuses it.
  */
-export const resolveInside = (root: string, path: string): Effect.Effect<string, ToolError> => {
+export const resolveInside = (
+  root: string,
+  path: string,
+  mode: SandboxMode = 'workspace-write',
+): Effect.Effect<string, ToolError> => {
   const target = isAbsolute(path) ? resolve(path) : resolve(root, path)
+  if (mode === 'danger-full-access') return Effect.succeed(target)
+  if (mode === 'read-only') {
+    return Effect.fail(
+      new ToolError({ code: 'denied', message: 'read-only mode writes nothing: ' + path }),
+    )
+  }
   const inside = relative(root, target)
   if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) {
     return Effect.fail(

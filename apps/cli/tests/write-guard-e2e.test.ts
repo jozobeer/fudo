@@ -77,7 +77,9 @@ const profile = (root: string): string =>
     '  - id: safety',
     "    name: '@jozo-harness/safety'",
     '    config:',
-    '      preset: full',
+    // The guards this file watches are the workspace fence and the read-before-write
+    // rule; `full` would remove the fence, since the mode is the boundary.
+    '      preset: workspace-write',
     '  - id: tier0',
     "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',

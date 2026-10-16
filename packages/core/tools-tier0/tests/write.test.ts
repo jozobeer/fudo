@@ -1,4 +1,5 @@
 import { HooksLive } from '@jozo-harness/kernel'
+import { noneSandbox, type SandboxShape } from '@jozo-harness/safety'
 import {
   Tools,
   toolsLayer,
@@ -13,13 +14,22 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { makeEditTool, makeObservedFiles, makeReadTool, makeWriteTool } from '../src/index.ts'
 
+/** A sandbox that confines writes to the workspace, the way the shipped profile does. */
+const confined: SandboxShape = {
+  name: 'test-confine',
+  confines: true,
+  mode: 'workspace-write',
+  wrap: (command) =>
+    Effect.succeed({ ...command, mode: command.mode ?? 'workspace-write', denialSignatures: [] }),
+}
+
 /** One session's tools share what they have observed about the workspace. */
-const makeSession = (cwd: string) => {
+const makeSession = (cwd: string, sandbox: SandboxShape = noneSandbox) => {
   const observed = makeObservedFiles()
   const list: ReadonlyArray<ToolDefinition<any, any>> = [
     makeReadTool(observed),
-    makeWriteTool(observed),
-    makeEditTool(observed),
+    makeWriteTool(observed, sandbox),
+    makeEditTool(observed, sandbox),
   ]
   return (
     name: string,
@@ -53,14 +63,26 @@ describe('write tool', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
-  test('refuses a path outside the workspace', async () => {
+  test('a confined composition refuses a path outside the workspace', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
-    const call = makeSession(dir)
+    const call = makeSession(dir, confined)
 
     const result = await Effect.runPromise(call('write', { path: '../escape.txt', content: 'x' }))
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('escapes the workspace')
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('a composition that confines nothing writes it: the mode is the boundary', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
+    const escape = join(dir, '..', 'escape.txt')
+    const call = makeSession(dir)
+
+    const result = await Effect.runPromise(call('write', { path: 'escape.txt', content: 'x' }))
+
+    expect(result?.isError).toBe(false)
+    await rm(escape, { force: true })
     await rm(dir, { recursive: true, force: true })
   })
 

@@ -1,5 +1,7 @@
+import { noneSandbox, type ApprovalShape, type SandboxShape } from '@jozo-harness/safety'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
+import { deniedFor, escalates, escalationFields, modeOfCall } from './escalation.ts'
 import { guardEdit, look, type ObservedFiles } from './observed-files.ts'
 import { readForEdit, restoreLineEndings } from './text.ts'
 import { changedLines } from './present.ts'
@@ -19,6 +21,7 @@ const Parameters = Schema.Struct({
         'Replace every occurrence instead of refusing an ambiguous match. Defaults to false.',
     }),
   ),
+  ...escalationFields('a file operation', 'operation'),
 })
 
 export type EditArgs = Schema.Schema.Type<typeof Parameters>
@@ -44,51 +47,71 @@ const countOf = (text: string, needle: string): number => {
  * `all`, the old text must be unique. Every refusal happens before the file is
  * written, so a failed edit leaves it exactly as it was.
  */
-export const makeEditTool = (observed: ObservedFiles): ToolDefinition<EditArgs, EditValue> => ({
-  name: 'edit',
-  presentCall: (args) => ({ summary: 'edit ' + args.path + ' ' + changedLines(args) }),
-  description:
-    'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file. If it reports no match or more than one, read the file again and quote the exact text. A file this session has not read is refused: read it first.',
-  parameters: Parameters,
-  needs: ['write'],
-  output: {
-    schema: Schema.Struct({ path: Schema.String, replacements: Schema.Int }),
-    render: (_args, value) => [
-      {
-        type: 'text',
-        text: 'edited ' + value.path + ' (' + String(value.replacements) + ' replacements)',
-      },
-    ],
-  },
-  execute: (args, context) =>
-    Effect.gen(function* () {
-      const path = yield* resolveInside(context.cwd, args.path)
-      yield* guardEdit(observed, context.sessionId, path)
-      const source = yield* readForEdit(path)
-      const found = countOf(source.text, args.oldString)
-      if (found === 0) {
-        return yield* Effect.fail(
-          new ToolError({ code: 'execution', message: 'no match for the old text in ' + path }),
+export const makeEditTool = (
+  observed: ObservedFiles,
+  sandbox: SandboxShape = noneSandbox,
+  approval?: ApprovalShape,
+): ToolDefinition<EditArgs, EditValue> => {
+  const canEscalate = escalates(sandbox, approval)
+  return {
+    name: 'edit',
+    presentCall: (args) => ({ summary: 'edit ' + args.path + ' ' + changedLines(args) }),
+    description:
+      'Replaces text in one workspace file and leaves the rest of it alone. Use it for a targeted change; use write to replace a whole file. If it reports no match or more than one, read the file again and quote the exact text. A file this session has not read is refused: read it first.' +
+      (sandbox.confines
+        ? ' A path the sandbox refuses is reported as `[sandbox: file access denied under <mode> mode]`.'
+        : ''),
+    parameters: Parameters,
+    needs: ['write'],
+    output: {
+      schema: Schema.Struct({ path: Schema.String, replacements: Schema.Int }),
+      render: (_args, value) => [
+        {
+          type: 'text',
+          text: 'edited ' + value.path + ' (' + String(value.replacements) + ' replacements)',
+        },
+      ],
+    },
+    execute: (args, context) =>
+      Effect.gen(function* () {
+        const mode = yield* modeOfCall({
+          args: args,
+          callId: context.callId,
+          tool: 'edit',
+          subject: 'operation',
+          sandbox,
+          approval,
+        })
+        const path = yield* resolveInside(context.cwd, args.path, mode).pipe(
+          Effect.mapError((error) => deniedFor(error.message, mode, 'operation', canEscalate)),
         )
-      }
-      const all = args.all === true
-      if (found > 1 && !all) {
-        return yield* Effect.fail(
-          new ToolError({
-            code: 'execution',
-            message: String(found) + ' matches in ' + path + '; pass all to replace every one',
-          }),
-        )
-      }
-      const updated = all
-        ? source.text.split(args.oldString).join(args.newString)
-        : source.text.replace(args.oldString, args.newString)
-      yield* Effect.tryPromise({
-        try: () => Bun.write(path, restoreLineEndings(updated, source.lineEndings)),
-        catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
-      })
-      const written = yield* look(path)
-      if (written !== undefined) observed.observe(context.sessionId, path, written)
-      return { path, replacements: all ? found : 1 }
-    }),
-})
+        yield* guardEdit(observed, context.sessionId, path)
+        const source = yield* readForEdit(path)
+        const found = countOf(source.text, args.oldString)
+        if (found === 0) {
+          return yield* Effect.fail(
+            new ToolError({ code: 'execution', message: 'no match for the old text in ' + path }),
+          )
+        }
+        const all = args.all === true
+        if (found > 1 && !all) {
+          return yield* Effect.fail(
+            new ToolError({
+              code: 'execution',
+              message: String(found) + ' matches in ' + path + '; pass all to replace every one',
+            }),
+          )
+        }
+        const updated = all
+          ? source.text.split(args.oldString).join(args.newString)
+          : source.text.replace(args.oldString, args.newString)
+        yield* Effect.tryPromise({
+          try: () => Bun.write(path, restoreLineEndings(updated, source.lineEndings)),
+          catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
+        })
+        const written = yield* look(path)
+        if (written !== undefined) observed.observe(context.sessionId, path, written)
+        return { path, replacements: all ? found : 1 }
+      }),
+  }
+}
