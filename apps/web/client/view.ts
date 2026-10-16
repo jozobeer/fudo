@@ -223,14 +223,32 @@ const schedulesHtml = (schedules: RunStateView['schedules']): string =>
         .join('') +
       '</ul>'
 
-/** What the session works toward: the goal its log holds, and its standing schedules. */
+const jobsHtml = (jobs: RunStateView['jobs']): string =>
+  jobs.length === 0
+    ? ''
+    : '<ul class="run-jobs">' +
+      jobs
+        .map(
+          (job) =>
+            '<li class="run-job ' +
+            (job.running ? 'running' : 'done') +
+            '"><span class="run-job-state">' +
+            (job.running ? 'running' : 'done') +
+            '</span><span class="run-job-command">' +
+            text(job.command) +
+            '</span></li>',
+        )
+        .join('') +
+      '</ul>'
+
+/** What the session works toward: its goal, its standing schedules, and its background work. */
 export const renderRun = (state: WebState): string => {
   const run = state.run
   return (
     '<span class="rail-label">run</span>' +
     (run === undefined
       ? '<div class="run-empty">reading…</div>'
-      : goalHtml(run.goal) + schedulesHtml(run.schedules))
+      : goalHtml(run.goal) + schedulesHtml(run.schedules) + jobsHtml(run.jobs))
   )
 }
 

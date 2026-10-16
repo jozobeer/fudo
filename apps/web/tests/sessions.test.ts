@@ -51,7 +51,7 @@ const makeFactory = (): Fake => {
   }
 }
 
-const runStateOf = (): RunStateView => ({ goal: null, schedules: [] })
+const runStateOf = (): RunStateView => ({ goal: null, schedules: [], jobs: [] })
 
 const initial = (id: string): OpenSession => ({
   summary: summaryOf(id),

@@ -137,6 +137,10 @@ describe('the browser view', () => {
     const running = withRun(initialState, {
       goal: { objective: 'ship the UI', phase: 'active', rounds: 2, maxRounds: 8 },
       schedules: [{ id: 's-1', when: 'every 60s', prompt: 'check the build', lastFiredAt: 0 }],
+      jobs: [
+        { id: 'j-1', command: 'sleep 5', running: true },
+        { id: 'j-2', command: 'echo done', running: false },
+      ],
     })
     const view = renderRail(running)
     expect(view).toContain('ship the UI')
@@ -144,7 +148,12 @@ describe('the browser view', () => {
     expect(view).toContain('2/8')
     expect(view).toContain('every 60s')
     expect(view).toContain('check the build')
-    expect(renderRail(withRun(initialState, { goal: null, schedules: [] }))).toContain('no goal')
+    expect(view).toContain('run-job running')
+    expect(view).toContain('sleep 5')
+    expect(view).toContain('echo done')
+    expect(renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [] }))).toContain(
+      'no goal',
+    )
   })
 
   test('the settings sheet stays away until it is asked for', () => {

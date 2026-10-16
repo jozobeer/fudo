@@ -61,10 +61,18 @@ export const ScheduleViewSchema = Schema.Struct({
   lastFiredAt: Schema.Number,
 })
 
-/** What one session can say about itself right now, folded from its own log. */
+/** One background command the session started. */
+export const JobViewSchema = Schema.Struct({
+  id: Schema.String,
+  command: Schema.String,
+  running: Schema.Boolean,
+})
+
+/** What one session can say about itself right now, folded from its own log and its live work. */
 export const RunStateViewSchema = Schema.Struct({
   goal: Schema.Union([GoalViewSchema, Schema.Null]),
   schedules: Schema.Array(ScheduleViewSchema),
+  jobs: Schema.Array(JobViewSchema),
 })
 
 export type RunStateView = typeof RunStateViewSchema.Type

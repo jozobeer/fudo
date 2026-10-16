@@ -297,13 +297,14 @@ const installTier1 = (
   planMode: PlanModeShape | undefined,
   /** The rows this run was built from, so the plugin tool can list and change them. */
   rows: ReadonlyArray<PluginRow>,
+  /** The background commands of this session; the session also reports them to a UI. */
+  jobs: JobsShape,
 ) =>
   Effect.gen(function* () {
     const ask = installAsk(
       answer === undefined ? holder : { ...holder, ask: (request) => answer(request) },
       agent.session,
     )
-    const jobs = yield* makeJobs()
     const pluginHost = makePluginHost({
       rows,
       known: bundledPlugins.map((plugin) => plugin.name),
@@ -615,6 +616,8 @@ interface ProfileWiring {
   readonly skills: ReadonlyArray<string>
   /** Read only inside a branch: an absent row means the service was never built. */
   readonly context: Context.Context<any>
+  /** The background commands this session may start; a UI lists them. */
+  readonly jobs: JobsShape
 }
 
 /** Tiers and guards come from the profile's rows. */
@@ -653,6 +656,7 @@ const installFromProfile = (wiring: ProfileWiring): Effect.Effect<Preset, ToolEr
         wiring.skills,
         planMode,
         wiring.rows,
+        wiring.jobs,
       )
     }
     const composition: Preset = {
@@ -769,7 +773,11 @@ const sessionFactoryOf = (
           new WebError({ message: 'the session was built without a UI host' }),
         )
       }
-      return { summary: summaryOf(agent), host: ui, runState: () => runStateOf(agent) }
+      return {
+        summary: summaryOf(agent),
+        host: ui,
+        runState: () => runStateOf(agent, built.runtime.jobs),
+      }
     }).pipe(
       Effect.mapError((error) =>
         error instanceof WebError ? error : new WebError({ message: messageOf(error) }),
@@ -795,7 +803,7 @@ const serveWebUi = (
       initial: {
         summary: summaryOf(runtime.agent),
         host: ui,
-        runState: () => runStateOf(runtime.agent),
+        runState: () => runStateOf(runtime.agent, runtime.jobs),
       },
       factory: sessionFactoryOf(
         options,
@@ -850,6 +858,8 @@ interface SessionRuntime {
   readonly commands: CommandsShape
   /** The store this session lives in: a UI that lists sessions reads the same one. */
   readonly listSessions: () => Effect.Effect<ReadonlyArray<SessionSummary>, SessionError>
+  /** The background commands of this session; a UI lists them. */
+  readonly jobs: JobsShape
   readonly rows: ReadonlyArray<PluginRow>
   readonly route: string
   readonly effort: string
@@ -862,11 +872,16 @@ type BuiltSession =
   | { readonly kind: 'ready'; readonly runtime: SessionRuntime }
   | { readonly kind: 'refused'; readonly message: string }
 
-/** What the session can say about itself right now: its goal, and its standing schedules. */
-const runStateOf = (agent: Agent): RunStateView => {
+/** What the session can say about itself right now: its goal, its schedules, its background work. */
+const runStateOf = (agent: Agent, jobs: JobsShape): RunStateView => {
   const events = agent.session.events()
   const goal = currentGoal(events)
   return {
+    jobs: jobs.list().map((job) => ({
+      id: job.id,
+      command: job.command,
+      running: job.running,
+    })),
     goal:
       goal === undefined
         ? null
@@ -932,6 +947,8 @@ const buildSession = (
     // REPL and a UI run it through the same registry and the log keeps the record.
     const commands = makeCommands()
     yield* installBuiltinCommands(commands)
+    // The background commands of this session: the tier 1 tools start them, a UI lists them.
+    const jobs = yield* makeJobs()
     const ui = wantsUi
       ? yield* makeUiHost({ session: agent.session, agent, hooks, commands })
       : undefined
@@ -973,6 +990,7 @@ const buildSession = (
       skills,
       ...answerersOf(ui, options),
       context,
+      jobs,
     })
 
     // A session keeps the composition it was started with: the tools behind its
@@ -986,6 +1004,7 @@ const buildSession = (
         ui,
         commands,
         listSessions: () => Context.get(context, Sessions).list(),
+        jobs,
         rows,
         route,
         effort,
