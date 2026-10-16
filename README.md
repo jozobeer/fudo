@@ -52,7 +52,7 @@ jzh --dump-config                       # 読み込んだプロファイルと�
 
 #### 端末 UI
 
-会話・tool の呼び出しと結果・承認・質問を 1 画面に描く。↑/↓ は入力履歴、Ctrl-C は実行中の turn の cancel（idle なら終了）、Ctrl-D は終了。承認が要る tool は `⚠ approve <tool>? [y/n]` と出るので y / n で答える。`ask_user` の質問には入力をそのまま Enter で答える。
+会話・tool の呼び出しと結果・承認・質問を 1 画面に描く。↑/↓ は入力履歴、Ctrl-C は実行中の turn の cancel（idle なら終了）、Ctrl-D は終了。ホイールか PageUp/PageDown で会話を遡り、Esc で末尾に戻る（遡っている間は状態行に何行戻ったかが出る。マウスを要求している間のテキスト選択は Shift+ドラッグ）。承認が要る tool は `⚠ approve <tool>? [y/n]` と出るので y / n で答える。`ask_user` の質問には入力をそのまま Enter で答える。
 
 #### Web UI
 

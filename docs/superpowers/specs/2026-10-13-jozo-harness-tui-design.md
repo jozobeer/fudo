@@ -10,9 +10,9 @@ dsh のチェックアウトに TUI は無く、比べられる相手は web 側
 
 - 端末で引数なしの `jzh` が全画面 TUI を開く。1 セッション上で複数 turn を回す。
 - 描くもの: 人の入力、assistant のテキスト（stream 中含む）、tool call と結果、承認要求と回答、ask_user、turn の失敗、状態行。
-- 操作: 入力編集（履歴・カーソル）、承認の y/n、ask の回答、Ctrl-C で turn の cancel、Ctrl-D で終了、`--resume` で履歴表示、PageUp/PageDown で会話を遡る（Esc で末尾に戻る）。
+- 操作: 入力編集（履歴・カーソル）、承認の y/n、ask の回答、Ctrl-C で turn の cancel、Ctrl-D で終了、`--resume` で履歴表示、PageUp/PageDown とホイールで会話を遡る（Esc で末尾に戻る）。
 - 読んでいる位置は内容の行番号で持ち、下に届いた出力では動かない。承認と ask が来たときと、入力を送ったときは末尾に戻す（答え待ちが画面外に残らない）。
-- やらない: マウス、複数セッションの並置、添付、テーマ設定。行単位の lines 経路は非 TTY の batch mode として残す（テストと配管が使う）。
+- やらない: ホイール以外のマウス操作（クリック・ドラッグ・選択）、複数セッションの並置、添付、テーマ設定。行単位の lines 経路は非 TTY の batch mode として残す（テストと配管が使う）。
 
 ## 継ぎ目（UI と核の境界）
 
@@ -107,14 +107,16 @@ jozo-harness（TTY・引数なし）
 | Backspace / Delete | 削除 |
 | ← / → / Home / End | カーソル |
 | ↑ / ↓ | 入力履歴 |
+| PageUp / PageDown | 会話を 1 ページずつ遡る / 進む |
+| ホイール | 会話を 3 行ずつ遡る / 進む |
 | Ctrl-C | turn 実行中なら cancel、idle なら終了 |
 | Ctrl-D | 終了（0） |
 | y / n | 未回答の承認があるとき回答 |
-| Esc | 承認プロンプトを閉じる（保留のまま） |
+| Esc | 遡った窓を末尾に戻す（承認待ちの間は何もしない） |
 
 ## エラー方針
 
-- 端末の復元は finalizer で必ず行う（raw mode 解除、代替画面を出る、カーソル表示）。SIGINT でも finalizer が走る。
+- 端末の復元は finalizer で必ず行う（raw mode 解除、マウス報告の停止、代替画面を出る、カーソル表示）。SIGINT でも finalizer が走る。
 - 画面サイズが取れないときは 80x24 を既定にする。
 - キーの解読に失敗したら、そのバイト列を捨てて次のキーへ進む（UI を止めない）。
 - host の submit が失敗したら notice ブロックに出す。turn の失敗は `turn/end.reason` から notice にする。
