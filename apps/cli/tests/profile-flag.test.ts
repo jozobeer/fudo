@@ -32,6 +32,18 @@ describe('--profile', () => {
     expect(base.out).toContain('profile: headless — default')
   })
 
+  test('the effort flag reaches the dump, and nothing set leaves it to the provider', async () => {
+    const flagged = await run(['--dump-config', '--effort', 'high'])
+    const plain = await run(['--dump-config'])
+
+    expect(flagged.code).toBe(0)
+    expect(flagged.out).toContain(
+      'effort in effect: high (--effort > the settings file > a plugin row)',
+    )
+    expect(flagged.out).toContain('effort: high — flag (the --effort on the command line)')
+    expect(plain.out).toContain("effort in effect: the provider's default")
+  })
+
   test('an unknown profile fails with a clear message', async () => {
     const missing = await run(['--dump-config', '--profile', 'nope'])
 
