@@ -91,6 +91,12 @@ export function seatbeltProfile(options: SeatbeltProfileOptions): string {
 }
 
 /**
+ * What the kernel prints when seatbelt refuses a file effect. Matched against
+ * stderr case-insensitively, so only a denial is read as one.
+ */
+const DENIAL_SIGNATURES: ReadonlyArray<string> = ['operation not permitted']
+
+/**
  * Wraps commands with sandbox-exec on macOS. The mode decides what the command
  * may write: `workspace-write` adds the directory it runs in and the temp dir,
  * `read-only` adds neither, and `danger-full-access` leaves the command as it is.
@@ -103,7 +109,12 @@ export function seatbeltSandbox(options: SeatbeltOptions): SandboxShape {
     wrap: (command) => {
       const mode = command.mode ?? options.mode
       if (mode === 'danger-full-access') {
-        return Effect.succeed({ argv: command.argv, cwd: command.cwd, mode })
+        return Effect.succeed({
+          argv: command.argv,
+          cwd: command.cwd,
+          mode,
+          denialSignatures: [],
+        })
       }
       const implicit = mode === 'workspace-write' ? [command.cwd, tmpdir()] : []
       const writableRoots = [...new Set([...options.writableRoots, ...implicit])]
@@ -112,6 +123,7 @@ export function seatbeltSandbox(options: SeatbeltOptions): SandboxShape {
         argv: ['sandbox-exec', '-p', profile, '--', ...command.argv],
         cwd: command.cwd,
         mode,
+        denialSignatures: DENIAL_SIGNATURES,
       })
     },
   }

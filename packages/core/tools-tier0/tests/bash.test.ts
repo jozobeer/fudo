@@ -53,7 +53,12 @@ describe('bash tool', () => {
       confines: true,
       mode: 'workspace-write',
       wrap: (command) =>
-        Effect.succeed({ argv: ['bash', '-lc', 'echo wrapped'], cwd: command.cwd }),
+        Effect.succeed({
+          argv: ['bash', '-lc', 'echo wrapped'],
+          cwd: command.cwd,
+          mode: command.mode ?? 'workspace-write',
+          denialSignatures: [],
+        }),
     }
 
     const result = await Effect.runPromise(

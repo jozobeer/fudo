@@ -104,7 +104,20 @@ describe('seatbeltSandbox', () => {
     const wrapped = await Effect.runPromise(sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work' }))
 
     expect(sandbox.mode).toBe('danger-full-access')
-    expect(wrapped).toEqual({ argv: ['echo', 'hi'], cwd: '/work', mode: 'danger-full-access' })
+    expect(wrapped).toEqual({
+      argv: ['echo', 'hi'],
+      cwd: '/work',
+      mode: 'danger-full-access',
+      denialSignatures: [],
+    })
+  })
+
+  test('a wrapped command names the words a denial is printed with', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'workspace-write', writableRoots: [] })
+    const wrapped = await Effect.runPromise(sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work' }))
+
+    expect(wrapped.mode).toBe('workspace-write')
+    expect(wrapped.denialSignatures).toEqual(['operation not permitted'])
   })
 
   test('one command may run under a wider mode than the standing one', async () => {

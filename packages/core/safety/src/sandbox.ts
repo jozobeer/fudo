@@ -10,6 +10,19 @@ export interface SandboxCommand {
   readonly mode?: SandboxMode
 }
 
+/** What a provider hands back: what to spawn, under which mode, and how its denials read. */
+export interface ConfinedCommand {
+  readonly argv: ReadonlyArray<string>
+  readonly cwd: string
+  readonly mode: SandboxMode
+  /**
+   * The case-insensitive stderr substrings a file effect denied by this provider
+   * produces. Empty when nothing confines, so a failure for another reason is
+   * never read as a sandbox denial.
+   */
+  readonly denialSignatures: ReadonlyArray<string>
+}
+
 /** A sandbox that cannot wrap a command. Surfaced as a tool error, not a crash. */
 export class SandboxError extends Data.TaggedError('SandboxError')<{
   readonly message: string
@@ -25,7 +38,7 @@ export interface SandboxShape {
   /** The mode commands run under unless one call asks for another. */
   readonly mode: SandboxMode
   /** Returns the command to actually spawn: the original or one wrapped by the provider. */
-  readonly wrap: (command: SandboxCommand) => Effect.Effect<SandboxCommand, SandboxError>
+  readonly wrap: (command: SandboxCommand) => Effect.Effect<ConfinedCommand, SandboxError>
 }
 
 export class Sandbox extends Context.Service<Sandbox, SandboxShape>()('jozo-harness/Sandbox') {}
@@ -36,7 +49,13 @@ export const noneSandbox: SandboxShape = {
   confines: false,
   // Nothing is confined, so every command already runs with full access.
   mode: 'danger-full-access',
-  wrap: (command) => Effect.succeed(command),
+  wrap: (command) =>
+    Effect.succeed({
+      argv: command.argv,
+      cwd: command.cwd,
+      mode: command.mode ?? 'danger-full-access',
+      denialSignatures: [],
+    }),
 }
 
 export const noneSandboxLayer: Layer.Layer<Sandbox, never> = Layer.succeed(Sandbox, noneSandbox)

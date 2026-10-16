@@ -11,7 +11,23 @@ describe('noneSandbox', () => {
       }).pipe(Effect.provide(noneSandboxLayer)),
     )
 
-    expect(wrapped).toEqual({ argv: ['echo', 'hi'], cwd: '/work' })
+    expect(wrapped).toEqual({
+      argv: ['echo', 'hi'],
+      cwd: '/work',
+      mode: 'danger-full-access',
+      denialSignatures: [],
+    })
+  })
+
+  test('a provider that confines nothing names no denial dialect', async () => {
+    const wrapped = await Effect.runPromise(
+      Effect.gen(function* () {
+        const sandbox = yield* Sandbox
+        return yield* sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work' })
+      }).pipe(Effect.provide(noneSandboxLayer)),
+    )
+
+    expect(wrapped.denialSignatures).toEqual([])
   })
 
   test('resolves through a hand-built layer', async () => {
