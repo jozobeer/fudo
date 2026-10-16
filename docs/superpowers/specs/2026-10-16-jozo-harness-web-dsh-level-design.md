@@ -105,6 +105,12 @@ effort や profile など他のキーの編集、右サイドバーである。
 
 未着手は subagent と plan の提示、trajectory、そして job の出力を開く面である。
 
+- 走っている turn に入力すると、これまでは何も出なかった（composer は空になり、
+  次の turn が始まるまで見えない）。`agent/inbox/queued` を **CLI 側の
+  `projectInbox` で畳み**（inbox の規則は 1 つのまま）、run state の `queued` として
+  渡す。ページは composer の上に "queued" の行として出し、inbox のイベントごとに
+  読み直すので、claim されれば消える。
+
 ## S1 で入れたもの
 
 - `apps/web/client/markdown.ts` — 見出し・箇条書き・引用・コードフェンス・
