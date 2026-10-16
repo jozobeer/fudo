@@ -2,6 +2,7 @@ import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
 import type { SessionSummary } from '../src/shared/rpc.ts'
 import { escapeHtml } from './html.ts'
+import { THEMES } from './theme.ts'
 import { renderMarkdown } from './markdown.ts'
 import type { WebState } from './state.ts'
 
@@ -176,6 +177,21 @@ const sessionRow = (state: WebState, summary: SessionSummary): string => {
     '</span></button>'
   )
 }
+
+/** The rail's foot: the ways a page may be lit, the reader's choice marked. */
+export const renderTheme = (state: WebState): string =>
+  '<span class="rail-label">theme</span><div class="theme-choice">' +
+  THEMES.map(
+    (theme) =>
+      '<button class="theme' +
+      (theme === state.theme ? ' active' : '') +
+      '" data-theme="' +
+      theme +
+      '" type="button">' +
+      theme +
+      '</button>',
+  ).join('') +
+  '</div>'
 
 /** The left rail: every session the store holds, the one on screen marked. */
 export const renderSessions = (state: WebState): string =>

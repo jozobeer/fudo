@@ -6,6 +6,7 @@ import {
   withProblem,
   withSession,
   withSessions,
+  withTheme,
 } from '../client/state.ts'
 
 let seq = 0
@@ -73,6 +74,11 @@ describe('the browser state', () => {
     expect(moved.sessionId).toBe('b')
     expect(moved.conversation.blocks).toHaveLength(0)
     expect(moved.sessions.map((item) => item.id)).toEqual(['a', 'b'])
+  })
+
+  test('the theme a reader picks is what the page keeps', () => {
+    expect(initialState.theme).toBe('system')
+    expect(withTheme(initialState, 'dark').theme).toBe('dark')
   })
 
   test('a problem the page could not act on is shown until the next move', () => {

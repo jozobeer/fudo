@@ -12,9 +12,11 @@ import {
   withProblem,
   withSession,
   withSessions,
+  withTheme,
   type WebState,
 } from './state.ts'
-import { renderConversation, renderSessions, renderStatus } from './view.ts'
+import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
+import { renderConversation, renderSessions, renderStatus, renderTheme } from './view.ts'
 
 const conversationElement = document.getElementById('conversation')
 const statusElement = document.getElementById('status')
@@ -23,6 +25,7 @@ const input = document.getElementById('input')
 const cancelButton = document.getElementById('cancel')
 const newSessionButton = document.getElementById('new-session')
 const sessionListElement = document.getElementById('session-list')
+const railFootElement = document.getElementById('rail-foot')
 if (
   conversationElement === null ||
   statusElement === null ||
@@ -31,9 +34,17 @@ if (
   cancelButton === null ||
   newSessionButton === null ||
   sessionListElement === null ||
+  railFootElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
   throw new Error('the page is missing its skeleton')
+}
+
+/** Writes the reader's choice where the stylesheet reads it; the system's is its own. */
+const applyTheme = (theme: Theme): void => {
+  const attribute = themeAttribute(theme)
+  if (attribute === undefined) delete document.documentElement.dataset.theme
+  else document.documentElement.dataset.theme = attribute
 }
 
 let state: WebState = initialState
@@ -52,6 +63,7 @@ const paint = (): void => {
   conversationElement.innerHTML = renderConversation(state.conversation)
   statusElement.innerHTML = renderStatus(state)
   sessionListElement.innerHTML = renderSessions(state)
+  railFootElement.innerHTML = renderTheme(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
@@ -206,6 +218,17 @@ newSessionButton.addEventListener('click', () => {
   moveTo(undefined)
 })
 
+// The stored value and the button both go through the same reading.
+railFootElement.addEventListener('click', (event) => {
+  const target = event.target
+  if (!(target instanceof HTMLButtonElement)) return
+  const theme = themeFrom(target.dataset.theme ?? null)
+  state = withTheme(state, theme)
+  applyTheme(theme)
+  localStorage.setItem(THEME_KEY, theme)
+  paint()
+})
+
 sessionListElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLElement)) return
@@ -237,6 +260,8 @@ document.addEventListener('keydown', (event) => {
   send({ kind: 'approve', callId: approval.callId, approved: key === 'y' })
 })
 
+state = withTheme(state, themeFrom(localStorage.getItem(THEME_KEY)))
+applyTheme(state.theme)
 grow()
 paint()
 void Effect.runPromise(Effect.retry(program, Schedule.spaced('1 second'))).catch(() => undefined)

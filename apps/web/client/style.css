@@ -18,8 +18,9 @@
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
 }
 
+/* The system's preference, for a page nobody has told otherwise. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme='dark']) {
     color-scheme: light;
     --bg: #ffffff;
     --panel: #f7f8fa;
@@ -34,6 +35,24 @@
     --error: #b42318;
     --warn: #8a5b00;
   }
+}
+
+/* The same tokens again, for the reader who chose: CSS has no way to share a
+   block between a media query and an attribute selector. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #f7f8fa;
+  --panel-2: #eef1f6;
+  --line: #d9dee7;
+  --text: #1d222b;
+  --dim: #667085;
+  --accent: #1d64d8;
+  --accent-soft: #dbe7fb;
+  --user: #1d64d8;
+  --tool: #1d7a4d;
+  --error: #b42318;
+  --warn: #8a5b00;
 }
 
 * {
@@ -171,6 +190,44 @@ body {
 .session-when {
   grid-column: 2;
   font-size: 11px;
+}
+
+#rail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.rail-label {
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-choice {
+  display: flex;
+  gap: 4px;
+}
+
+.theme {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.theme.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .session-where {

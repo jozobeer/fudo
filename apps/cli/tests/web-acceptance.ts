@@ -324,6 +324,37 @@ const opensANewSession = async (client: Cdp): Promise<string> => {
   return first
 }
 
+/** The attribute the stylesheet keys on, or '' while the system's choice stands. */
+const themeAttributeOf = 'document.documentElement.dataset.theme ?? ""'
+const backgroundOf = 'getComputedStyle(document.body).backgroundColor'
+
+const themeButton = (theme: string): string =>
+  "document.querySelector('.theme[data-theme=" + JSON.stringify(theme) + "]').click()"
+
+/** Picks each theme the rail offers and checks the page follows, across a reload. */
+const choosesATheme = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate(themeButton('light'))
+  if ((await client.evaluate(themeAttributeOf)) !== 'light') {
+    throw new Error('the light choice never reached the document')
+  }
+  if ((await client.evaluate(backgroundOf)) !== 'rgb(255, 255, 255)') {
+    throw new Error('the light palette never applied')
+  }
+  await client.evaluate(themeButton('system'))
+  if ((await client.evaluate(themeAttributeOf)) !== '') {
+    throw new Error('the system choice left the attribute behind')
+  }
+  // The reader's choice and the session the URL names both survive a reload.
+  await client.evaluate(themeButton('dark'))
+  await client.send('Page.reload')
+  if ((await waitFor(read, 'approved and done')) === undefined) {
+    throw new Error('the reload never brought the session back')
+  }
+  if ((await client.evaluate(themeAttributeOf)) !== 'dark') {
+    throw new Error('the chosen theme did not survive a reload')
+  }
+}
+
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = Bun.spawn(
     [
@@ -355,6 +386,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     const first = await opensANewSession(client)
     await keepsReadingPosition(client, read)
     await switchBack(client, read, first)
+    await choosesATheme(client, read)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {

@@ -8,8 +8,9 @@ import {
   withDraft,
   withSession,
   withSessions,
+  withTheme,
 } from '../client/state.ts'
-import { renderConversation, renderSessions, renderStatus } from '../client/view.ts'
+import { renderConversation, renderSessions, renderStatus, renderTheme } from '../client/view.ts'
 
 const a = { id: 'a', cwd: '/work/one', createdAt: 1, title: 'count the files' }
 const b = { id: 'b', cwd: '/work/two', createdAt: 2, title: '' }
@@ -111,6 +112,14 @@ describe('the browser view', () => {
     expect(view).toContain('session-name">b<')
     expect(view).toContain('two')
     expect(renderSessions(initialState)).not.toContain('data-session-id')
+  })
+
+  test('the rail offers the three themes and marks the one in use', () => {
+    const view = renderTheme(withTheme(initialState, 'light'))
+    expect(view).toContain('data-theme="system"')
+    expect(view).toContain('data-theme="dark"')
+    expect(view).toContain('class="theme active" data-theme="light"')
+    expect(view).not.toContain('class="theme active" data-theme="dark"')
   })
 
   test('the status strip reports the connection, where it runs and the next action', () => {

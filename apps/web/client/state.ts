@@ -1,6 +1,7 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 import type { SessionSummary } from '../src/shared/rpc.ts'
+import { DEFAULT_THEME, type Theme } from './theme.ts'
 
 /** What the header says about the session behind the page. */
 export interface SessionInfo {
@@ -23,6 +24,8 @@ export interface WebState {
   readonly sessionId: string
   /** Why the last move failed; shown until the page moves again. */
   readonly problem: string
+  /** Which of the ways a page may be lit the reader chose. */
+  readonly theme: Theme
 }
 
 export const initialState: WebState = {
@@ -33,6 +36,7 @@ export const initialState: WebState = {
   sessions: [],
   sessionId: '',
   problem: '',
+  theme: DEFAULT_THEME,
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -48,6 +52,8 @@ export const withSessions = (state: WebState, items: ReadonlyArray<SessionSummar
 })
 
 export const withProblem = (state: WebState, problem: string): WebState => ({ ...state, problem })
+
+export const withTheme = (state: WebState, theme: Theme): WebState => ({ ...state, theme })
 
 /**
  * Reads one session: the conversation starts over because another log does, and
