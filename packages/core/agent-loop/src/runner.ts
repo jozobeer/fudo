@@ -317,11 +317,12 @@ const agentLoopEffect = (
         provider: route.provider,
         model: route.model,
         // Params reach the provider as written, so the cap uses the field it reads and
-        // the header records what the budget above reserved.
+        // the header records what the budget above reserved. The effort uses the same
+        // wire vocabulary the provider's own API does.
         params: {
           ...(agent.options.reasoningEffort === undefined
             ? {}
-            : { reasoningEffort: agent.options.reasoningEffort }),
+            : { reasoning_effort: agent.options.reasoningEffort }),
           ...(config.maxTokens === undefined ? {} : { max_tokens: config.maxTokens }),
         },
         tools: build.tools,

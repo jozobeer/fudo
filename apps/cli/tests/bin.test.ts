@@ -82,6 +82,12 @@ describe('main', () => {
     expect(text).toContain(
       '- planMode (the @jozo-harness/safety row): true hides the tools that change the workspace',
     )
+    expect(text).toContain('- effort (any row): the reasoning effort to ask the provider for')
+    expect(text).toContain('effort in effect:')
+    expect(text).toContain('- effort: not set, so the provider chooses')
+    expect(text).toContain(
+      'effort: not set — default (no effort is named, so the provider chooses)',
+    )
   })
 
   test('--patch overlays one row by id', async () => {

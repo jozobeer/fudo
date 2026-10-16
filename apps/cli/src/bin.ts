@@ -43,6 +43,7 @@ jzh                             terminal UI (a terminal is required)
 jzh --profile <name> --patch <file.yml>...
 jzh --config <file.yml>        settings (default: ~/.config/jzh/config.yaml)
 jzh --model <provider/model>    the route to use (jzh models lists them)
+jzh --effort <level>           the reasoning effort to ask the provider for
 jzh --dump-config
 jzh config [set K V|init]       settings: show them, write one key, start a file
 jzh models                      list the models the provider offers
@@ -65,6 +66,8 @@ interface CommandInputs {
   /** What is in effect and which file filled each credential. */
   readonly surface: SettingsSurface
   readonly route: string
+  /** The effort resolved from --effort and the settings file; '' means a row, or the provider. */
+  readonly effort: string
   readonly documents: ReadonlyArray<string>
   readonly patches: ReadonlyArray<string>
   readonly search: SearchHost | undefined
@@ -86,14 +89,20 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     const settings = yield* loadConfigFile(settingsPath)
     // One resolver answers what is in effect, for the run and for --dump-config.
     const effective = resolveSettings({
-      flags: { profile: parsed.profileFlag, model: parsed.modelFlag },
+      flags: {
+        profile: parsed.profileFlag,
+        model: parsed.modelFlag,
+        effort: parsed.effortFlag,
+      },
       settings,
       settingsPath,
       fallbackProfile: parsed.profile,
       fallbackRoute: parsed.model,
+      fallbackEffort: parsed.effort,
     })
     const profileName = effective.profile.value
     const route = effective.route.value
+    const effort = effective.effort.value
     const base = yield* readText(
       loadBundledProfile,
       (cause) => `cannot read the bundled profile: ${String(cause)}`,
@@ -113,6 +122,7 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
       settingsPath,
       surface: { effective, filled: { fromDotenv, fromSecrets } },
       route,
+      effort,
       documents: [base, named],
       patches,
       search: searchFromEnv(process.env),
@@ -212,6 +222,7 @@ const commandOptions = (parsed: ParsedArgs, io: MainIo, inputs: CommandInputs): 
   plugins: bundledPlugins,
   cwd: io.cwd,
   route: inputs.route,
+  effort: inputs.effort,
   // The jzh home: where the sessions root lives, so user-global instructions sit there too.
   jzhHome: join(homedir(), '.jzh'),
   settingsPath: inputs.settingsPath,

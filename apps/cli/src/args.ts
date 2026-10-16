@@ -21,6 +21,9 @@ export interface ParsedArgs {
   readonly model: string
   /** The raw --model, so a settings file can be overridden. */
   readonly modelFlag: string | undefined
+  readonly effort: string
+  /** The raw --effort, so a settings file can be overridden. */
+  readonly effortFlag: string | undefined
   readonly dumpConfig: boolean
   readonly json: boolean
   /** Forces the terminal UI even when stdin is not a terminal. */
@@ -43,6 +46,7 @@ const FLAGS: ReadonlyMap<string, FlagSpec> = new Map<string, FlagSpec>([
   ['--patch', { kind: 'value' }],
   ['--resume', { kind: 'value' }],
   ['--model', { kind: 'value' }],
+  ['--effort', { kind: 'value' }],
   ['--config', { kind: 'value' }],
   ['--search', { kind: 'value' }],
   ['--port', { kind: 'value' }],
@@ -144,6 +148,8 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     allowPresetChange: values.has('--allow-preset-change'),
     model: first(values, '--model') ?? '',
     modelFlag: first(values, '--model'),
+    effort: first(values, '--effort') ?? '',
+    effortFlag: first(values, '--effort'),
     dumpConfig: values.has('--dump-config'),
     json: values.has('--json'),
     tui: values.has('--tui'),

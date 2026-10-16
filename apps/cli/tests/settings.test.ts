@@ -53,6 +53,35 @@ describe('what is in effect, and why', () => {
     expect(resolved.plugins.value).toEqual([])
   })
 
+  test('the effort comes from the flag, the file, or the fallback, in that order', () => {
+    const flagged = resolve({
+      flags: { effort: 'high' },
+      settings: { effort: 'low' },
+      fallbackEffort: 'medium',
+    })
+
+    expect(flagged.effort).toEqual({
+      value: 'high',
+      source: 'flag',
+      from: 'the --effort on the command line',
+    })
+
+    const filed = resolve({ settings: { effort: 'low' }, fallbackEffort: 'medium' })
+
+    expect(filed.effort).toEqual({
+      value: 'low',
+      source: 'settings',
+      from: '/home/me/.config/jzh/config.yaml',
+    })
+  })
+
+  test('no effort anywhere is a default: the provider chooses', () => {
+    const resolved = resolve()
+
+    expect(resolved.effort.value).toBe('')
+    expect(resolved.effort.source).toBe('default')
+  })
+
   test('a settings file may hold lists, and then it is their source', () => {
     const resolved = resolve({
       settings: {

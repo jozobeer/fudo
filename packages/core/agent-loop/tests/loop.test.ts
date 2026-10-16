@@ -337,6 +337,27 @@ describe('agent loop', () => {
     expect(headers[1]?.tools.map((tool) => tool.name)).toEqual(['extra'])
   })
 
+  test('the effort an agent was given is recorded as the field the provider reads', async () => {
+    const events = await scenario([chunks(textTurn('hi'))], (ctx) =>
+      Effect.gen(function* () {
+        const agent = yield* ctx.agents.create({
+          cwd: '/work',
+          options: { route: 'fake/model', reasoningEffort: 'high' },
+        })
+        yield* agent.followup({ text: 'go', source: 'user' })
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    const header = events.session
+      .events()
+      .flatMap((event) => (event.type === 'request/header' ? [event.data] : []))[0]
+
+    // Params reach the provider as written, so the effort uses the provider's own field.
+    expect(header?.params).toEqual({ reasoning_effort: 'high' })
+  })
+
   test('a turn that changes nothing reuses the header it opened', async () => {
     const events = await scenario([chunks(textTurn('one')), chunks(textTurn('two'))], (ctx) =>
       Effect.gen(function* () {

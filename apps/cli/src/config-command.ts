@@ -17,7 +17,7 @@ export interface ConfigIo {
 
 const USAGE =
   'jzh config                       the settings file, its keys, and their values\n' +
-  'jzh config set K V               write one value (model, profile, plugins.<id>.<key>)\n' +
+  'jzh config set K V               write one value (model, effort, profile, plugins.<id>.<key>)\n' +
   'jzh config add skills <dir>      add a directory the skill tool reads\n' +
   'jzh config add plugins <name>    add a plugin row (--id names the row)\n' +
   'jzh config remove skills <dir>   drop a directory\n' +
@@ -25,12 +25,13 @@ const USAGE =
   'jzh config init                  write a starting file with every key commented out\n'
 
 /** The keys a person writes as one value; the list keys have their own commands. */
-const SCALAR_KEYS: ReadonlyArray<string> = ['model', 'profile']
+const SCALAR_KEYS: ReadonlyArray<string> = ['model', 'effort', 'profile']
 const LIST_KEYS: ReadonlyArray<string> = ['skills']
 const KNOWN_KEYS: ReadonlyArray<string> = SETTINGS_KEYS.map((note) => note.name)
 
 const GUIDE = [
-  'change a value   jzh config set model <provider/model>\n',
+  'change a value   jzh config set model <provider/model>\n' +
+    '                  jzh config set effort <level>\n',
   'add a directory  jzh config add skills <dir>\n',
   'add a plugin     jzh config add plugins <name>\n',
   'list models      jzh models\n',

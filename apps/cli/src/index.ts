@@ -89,6 +89,7 @@ import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
 import { defaultStaticRoot, serveWeb } from '@jozo-harness/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 import {
+  EFFORT_KEY,
   MODEL_KEY,
   PLAN_MODE_KEY,
   SPILL_BYTES_KEY,
@@ -109,6 +110,8 @@ export interface CommandOptions {
   readonly settingsPath?: string
   /** What that file held, so the dump can show the state. */
   readonly settings?: JozoHarnessConfig
+  /** The effort resolved from --effort and the settings file; '' means a row, or the provider. */
+  readonly effort?: string
   /** One-shot task. */
   readonly task?: string
   /** Lines of a batch session, used when stdin is not a terminal. */
@@ -176,14 +179,24 @@ const planModeOf = (config: unknown): boolean => isRecord(config) && config[PLAN
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** A profile may carry the route on a row's config, as model: provider/model. */
-const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => {
+/** The first row that names a string under this key, in row order. */
+const stringFromRows = (rows: ReadonlyArray<PluginRow>, key: string): string => {
   for (const row of rows) {
-    const route = isRecord(row.config) ? row.config[MODEL_KEY] : undefined
-    if (typeof route === 'string' && route !== '') return route
+    const value = isRecord(row.config) ? row.config[key] : undefined
+    if (typeof value === 'string' && value !== '') return value
   }
   return ''
 }
+
+/** A profile may carry the route on a row's config, as model: provider/model. */
+const routeFromRows = (rows: ReadonlyArray<PluginRow>): string => stringFromRows(rows, MODEL_KEY)
+
+/** A profile may carry the effort on a row's config, as effort: high. */
+const effortFromRows = (rows: ReadonlyArray<PluginRow>): string => stringFromRows(rows, EFFORT_KEY)
+
+/** The effort in effect: what the flag or the settings file resolved, else the first row that names one. */
+const effortInEffect = (options: CommandOptions, rows: ReadonlyArray<PluginRow>): string =>
+  options.effort === undefined || options.effort === '' ? effortFromRows(rows) : options.effort
 
 const NO_MODEL =
   'no model is set: run jzh config set model <provider/model>, or pass --model for one run (jzh models lists them)'
@@ -395,10 +408,13 @@ const createAgent = (
   options: CommandOptions,
   route: string,
   spillBytes: number | undefined,
+  effort: string,
 ) =>
   Effect.gen(function* () {
     const agentOptions: AgentOptions = {
       route,
+      // The effort the run resolved: '' leaves the choice to the provider.
+      ...(effort === '' ? {} : { reasoningEffort: effort }),
       ...(spillBytes === undefined ? {} : { maxSpillBytes: spillBytes }),
       // Spilled text belongs in the jzh home, under the session that owns it.
       ...(options.jzhHome === undefined ? {} : { spillDir: join(options.jzhHome, 'spill') }),
@@ -734,6 +750,7 @@ const runSession = (
   options: CommandOptions,
   rows: ReadonlyArray<PluginRow>,
   route: string,
+  effort: string,
   spillBytes: number | undefined,
   layer: Layer.Layer<any, PluginError, never>,
   work: Work,
@@ -755,7 +772,13 @@ const runSession = (
       yield* installMcpServers(Context.get(context, Tools), Context.get(context, McpServers))
     }
 
-    const agent = yield* createAgent(Context.get(context, Agents), options, route, spillBytes)
+    const agent = yield* createAgent(
+      Context.get(context, Agents),
+      options,
+      route,
+      spillBytes,
+      effort,
+    )
     // What a human can type at this session is not the model's business; both the
     // REPL and a UI run it through the same registry and the log keeps the record.
     const commands = makeCommands()
@@ -818,6 +841,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
     const rows = yield* profileRows(options)
     const route = options.route !== '' ? options.route : routeFromRows(rows)
+    const effort = effortInEffect(options, rows)
 
     if (options.dumpConfig === true) {
       // The profile's llm row names the variable the key comes from; the surface
@@ -835,7 +859,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
               }),
             }
       const text =
-        renderModelInEffect(route) +
+        renderModelInEffect(route, effort) +
         renderConfig(rows) +
         renderPluginKeys(options.plugins) +
         renderSurface(options.settingsPath, options.settings) +
@@ -856,7 +880,7 @@ export function runCommand(options: CommandOptions): Effect.Effect<number> {
     }
     const layer = yield* loadProfile({ plugins: options.plugins, layers: [rows] })
     const spillBytes = spillBytesOf(rows)
-    return yield* Effect.scoped(runSession(options, rows, route, spillBytes, layer, work))
+    return yield* Effect.scoped(runSession(options, rows, route, effort, spillBytes, layer, work))
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {

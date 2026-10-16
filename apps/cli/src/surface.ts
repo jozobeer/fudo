@@ -7,6 +7,7 @@ import { SEARCH_KEY_ENV } from './search-env.ts'
 
 /** Row keys the command reads from a row's config itself; no plugin declares them. */
 export const MODEL_KEY = 'model'
+export const EFFORT_KEY = 'effort'
 export const SPILL_BYTES_KEY = 'maxSpillBytes'
 export const PLAN_MODE_KEY = 'planMode'
 
@@ -21,6 +22,11 @@ export const ROW_KEYS: ReadonlyArray<RowKeyNote> = [
     name: MODEL_KEY,
     where: 'any row',
     summary: 'the route to use when --model and the settings file set none',
+  },
+  {
+    name: EFFORT_KEY,
+    where: 'any row',
+    summary: 'the reasoning effort to ask the provider for',
   },
   {
     name: SPILL_BYTES_KEY,
@@ -80,6 +86,12 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
     example: ['model: ollama-cloud/deepseek-v4.1-flash'],
   },
   {
+    name: 'effort',
+    summary: 'the reasoning effort to ask the provider for; --effort wins over it',
+    value: (settings) => settings?.effort ?? 'not set, so the provider chooses',
+    example: ['effort: high'],
+  },
+  {
     name: 'profile',
     summary: 'a bundled profile name; --profile wins over it',
     value: (settings) => settings?.profile ?? 'not set, so headless is used',
@@ -113,11 +125,14 @@ export const SETTINGS_KEYS: ReadonlyArray<SettingsNote> = [
   },
 ]
 
-/** The route the command resolved, and the layers it looked through. */
-export const renderModelInEffect = (route: string): string =>
-  route === ''
+/** The route and effort the command resolved, and the layers each looked through. */
+export const renderModelInEffect = (route: string, effort: string): string =>
+  (route === ''
     ? 'model in effect: none; a run stops with "no model is set"\n'
-    : 'model in effect: ' + route + ' (--model > the settings file > a plugin row)\n'
+    : 'model in effect: ' + route + ' (--model > the settings file > a plugin row)\n') +
+  (effort === ''
+    ? "effort in effect: the provider's default (--effort > the settings file > a plugin row)\n"
+    : 'effort in effect: ' + effort + ' (--effort > the settings file > a plugin row)\n')
 
 /** The keys no plugin schema declares. */
 export const renderRowKeys = (): string =>
@@ -149,7 +164,9 @@ const renderEnvironment = (): string =>
 const describeValue = (value: unknown): string =>
   Array.isArray(value)
     ? String(value.length) + (value.length === 1 ? ' item' : ' items')
-    : String(value)
+    : value === ''
+      ? 'not set'
+      : String(value)
 
 const credentialLine = (credential: {
   readonly name: string
@@ -189,6 +206,7 @@ export const renderEffective = (
       'in effect for a run from here:',
       setting('profile', effective.profile),
       setting('route', effective.route),
+      setting('effort', effective.effort),
       setting('skills', effective.skills),
       setting('plugins', effective.plugins),
       ...(credential === undefined ? [] : [credentialLine(credential)]),

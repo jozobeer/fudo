@@ -17,6 +17,7 @@ export interface SettingsInputs {
   readonly flags: {
     readonly profile?: string | undefined
     readonly model?: string | undefined
+    readonly effort?: string | undefined
   }
   readonly settings: JozoHarnessConfig
   readonly settingsPath: string
@@ -24,11 +25,15 @@ export interface SettingsInputs {
   readonly fallbackProfile: string
   /** The route when neither a flag nor the settings file chooses one. */
   readonly fallbackRoute: string
+  /** The effort a plugin row names, when neither a flag nor the settings file does. */
+  readonly fallbackEffort?: string | undefined
 }
 
 export interface EffectiveSettings {
   readonly profile: Resolved<string>
   readonly route: Resolved<string>
+  /** The reasoning effort to ask for; '' leaves the choice to the provider. */
+  readonly effort: Resolved<string>
   readonly skills: Resolved<ReadonlyArray<string>>
   readonly plugins: Resolved<ReadonlyArray<PluginRow>>
 }
@@ -86,6 +91,21 @@ export const resolveSettings = (inputs: SettingsInputs): EffectiveSettings => ({
       ],
     ],
     [inputs.fallbackRoute, 'the model named on the command line'],
+  ),
+  effort: first(
+    [
+      [
+        named(inputs.flags.effort) ? inputs.flags.effort : undefined,
+        'flag',
+        'the --effort on the command line',
+      ],
+      [
+        named(inputs.settings.effort) ? inputs.settings.effort : undefined,
+        'settings',
+        inputs.settingsPath,
+      ],
+    ],
+    [inputs.fallbackEffort ?? '', 'no effort is named, so the provider chooses'],
   ),
   skills: fromFile(
     inputs.settings.skills,
