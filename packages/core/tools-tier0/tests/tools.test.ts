@@ -27,6 +27,8 @@ describe('tier0Tools', () => {
   test('the sandbox the caller passes is the one bash uses', async () => {
     const tools = tier0Tools({
       name: 'test',
+      confines: true,
+      mode: 'workspace-write',
       wrap: (command) =>
         Effect.succeed({ argv: ['bash', '-lc', 'echo wrapped'], cwd: command.cwd }),
     })

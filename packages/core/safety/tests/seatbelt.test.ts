@@ -31,6 +31,13 @@ describe('seatbeltProfile', () => {
     expect(profile.split('(allow file-write*')[1] ?? '').not.toContain('(literal "/")')
   })
 
+  test('a root nothing may write to grants no write at all', () => {
+    const profile = seatbeltProfile({ writableRoots: [] })
+
+    // An empty `(allow file-write*)` would grant every path: the clause has to go.
+    expect(profile).not.toContain('file-write')
+  })
+
   test('a symlinked root is named where it points as well', () => {
     const real = mkdtempSync(join(tmpdir(), 'jozo-harness-root-'))
     const link = real + '-link'
@@ -55,10 +62,55 @@ describe('seatbeltProfile', () => {
 })
 
 describe('seatbeltSandbox', () => {
-  test('lets a command write where it runs and in the temp dir', async () => {
-    const sandbox = seatbeltSandbox({ writableRoots: [] })
+  test('workspace-write lets a command write where it runs and in the temp dir', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'workspace-write', writableRoots: [] })
     const wrapped = await Effect.runPromise(
       sandbox.wrap({ argv: ['bash', '-lc', 'echo hi'], cwd: '/work/project' }),
+    )
+    const writes = (wrapped.argv[2] ?? '').split('(allow file-write*')[1] ?? ''
+
+    expect(sandbox.mode).toBe('workspace-write')
+    expect(writes).toContain('(subpath "/work/project")')
+    expect(writes).toContain('(subpath "' + tmpdir() + '")')
+  })
+
+  test('read-only writes nowhere the command happens to run', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'read-only', writableRoots: [] })
+    const wrapped = await Effect.runPromise(
+      sandbox.wrap({ argv: ['bash', '-lc', 'echo hi'], cwd: '/work/project' }),
+    )
+    const profile = wrapped.argv[2] ?? ''
+    // The temp dir is still readable (it is a system root); it is not writable.
+    const writes = profile.split('(allow file-write*')[1] ?? ''
+
+    expect(sandbox.mode).toBe('read-only')
+    expect(writes).toBe('')
+    expect(profile).not.toContain('file-write')
+  })
+
+  test('read-only still honours a root the profile named as writable', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'read-only', writableRoots: ['/work/out'] })
+    const wrapped = await Effect.runPromise(
+      sandbox.wrap({ argv: ['bash', '-lc', 'echo hi'], cwd: '/work/project' }),
+    )
+    const writes = (wrapped.argv[2] ?? '').split('(allow file-write*')[1] ?? ''
+
+    expect(writes).toContain('(subpath "/work/out")')
+    expect(writes).not.toContain('(subpath "/work/project")')
+  })
+
+  test('danger-full-access runs the command with no sandbox at all', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'danger-full-access', writableRoots: ['/work'] })
+    const wrapped = await Effect.runPromise(sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work' }))
+
+    expect(sandbox.mode).toBe('danger-full-access')
+    expect(wrapped).toEqual({ argv: ['echo', 'hi'], cwd: '/work', mode: 'danger-full-access' })
+  })
+
+  test('one command may run under a wider mode than the standing one', async () => {
+    const sandbox = seatbeltSandbox({ mode: 'read-only', writableRoots: [] })
+    const wrapped = await Effect.runPromise(
+      sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work/project', mode: 'workspace-write' }),
     )
     const writes = (wrapped.argv[2] ?? '').split('(allow file-write*')[1] ?? ''
 
@@ -67,7 +119,7 @@ describe('seatbeltSandbox', () => {
   })
 
   test('wraps argv with sandbox-exec and keeps the cwd', async () => {
-    const sandbox = seatbeltSandbox({ writableRoots: ['/work'] })
+    const sandbox = seatbeltSandbox({ mode: 'workspace-write', writableRoots: ['/work'] })
     const wrapped = await Effect.runPromise(sandbox.wrap({ argv: ['echo', 'hi'], cwd: '/work' }))
 
     expect(wrapped.argv.slice(0, 4)).toEqual(['sandbox-exec', '-p', wrapped.argv[2] ?? '', '--'])

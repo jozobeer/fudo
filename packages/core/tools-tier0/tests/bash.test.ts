@@ -50,6 +50,8 @@ describe('bash tool', () => {
   test('runs the command the sandbox wrapped', async () => {
     const wrapping: SandboxShape = {
       name: 'test',
+      confines: true,
+      mode: 'workspace-write',
       wrap: (command) =>
         Effect.succeed({ argv: ['bash', '-lc', 'echo wrapped'], cwd: command.cwd }),
     }

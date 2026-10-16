@@ -38,6 +38,7 @@ export const sandboxLayerFor = (
       ? Layer.succeed(
           Sandbox,
           seatbeltSandbox({
+            mode: modeOf(config.preset),
             writableRoots: config.writableRoots ?? [],
             allowNetwork: true,
           }),

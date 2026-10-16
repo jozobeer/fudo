@@ -92,7 +92,9 @@ const profile = (root: string, workspace: string): string =>
     '  - id: safety',
     "    name: '@jozo-harness/safety'",
     '    config:',
-    '      preset: full',
+    // A confining mode: `full` runs commands with no sandbox at all, which is
+    // the other half of what this file watches.
+    '      preset: workspace-write',
     '      writableRoots:',
     '        - ' + workspace,
     '  - id: ask',

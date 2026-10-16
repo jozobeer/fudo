@@ -1,14 +1,21 @@
 import { realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { Effect } from 'effect'
-import type { SandboxCommand, SandboxShape } from './sandbox.ts'
+import type { SandboxShape } from './sandbox.ts'
+import type { SandboxMode } from './policy.ts'
 
-export interface SeatbeltOptions {
+/** One SBPL profile's roots, without the mode that decides them. */
+export interface SeatbeltProfileOptions {
   /** Directories the sandboxed process may write, on top of its own cwd and the temp dir. */
   readonly writableRoots: ReadonlyArray<string>
   /** Directories it may read; the system paths and every writable root are always readable. */
   readonly readableRoots?: ReadonlyArray<string>
   readonly allowNetwork?: boolean
+}
+
+export interface SeatbeltOptions extends SeatbeltProfileOptions {
+  /** The mode commands run under unless one call asks for another. */
+  readonly mode: SandboxMode
 }
 
 const quote = (value: string): string =>
@@ -56,7 +63,7 @@ const asRoots = (roots: ReadonlyArray<string>): ReadonlyArray<string> => [
 ]
 
 /** Builds the SBPL profile macOS sandbox-exec reads. Deny by default. */
-export function seatbeltProfile(options: SeatbeltOptions): string {
+export function seatbeltProfile(options: SeatbeltProfileOptions): string {
   const roots = asRoots([...(options.readableRoots ?? systemReadRoots()), ...options.writableRoots])
   const lines = [
     '(version 1)',
@@ -70,10 +77,13 @@ export function seatbeltProfile(options: SeatbeltOptions): string {
     // the shell aborts before it runs a single command.
     '  (literal "/")',
     ')',
-    '(allow file-write*',
-    subpaths(asRoots(options.writableRoots)),
-    ')',
   ]
+  // An `(allow file-write*)` with no paths after it would grant every path, so a
+  // profile that may write nowhere says nothing about writes at all.
+  const writable = asRoots(options.writableRoots)
+  if (writable.length > 0) {
+    lines.push('(allow file-write*', subpaths(writable), ')')
+  }
   if (options.allowNetwork === true) {
     lines.splice(4, 0, '(allow network*)')
   }
@@ -81,19 +91,27 @@ export function seatbeltProfile(options: SeatbeltOptions): string {
 }
 
 /**
- * Wraps commands with sandbox-exec on macOS. The workspace a command runs in and
- * the temp dir are writable without being configured: without them no command that
- * writes anything could run at all.
+ * Wraps commands with sandbox-exec on macOS. The mode decides what the command
+ * may write: `workspace-write` adds the directory it runs in and the temp dir,
+ * `read-only` adds neither, and `danger-full-access` leaves the command as it is.
  */
 export function seatbeltSandbox(options: SeatbeltOptions): SandboxShape {
   return {
     name: 'seatbelt',
-    wrap: (command: SandboxCommand) => {
-      const writableRoots = [...new Set([...options.writableRoots, command.cwd, tmpdir()])]
+    confines: true,
+    mode: options.mode,
+    wrap: (command) => {
+      const mode = command.mode ?? options.mode
+      if (mode === 'danger-full-access') {
+        return Effect.succeed({ argv: command.argv, cwd: command.cwd, mode })
+      }
+      const implicit = mode === 'workspace-write' ? [command.cwd, tmpdir()] : []
+      const writableRoots = [...new Set([...options.writableRoots, ...implicit])]
       const profile = seatbeltProfile({ ...options, writableRoots })
       return Effect.succeed({
         argv: ['sandbox-exec', '-p', profile, '--', ...command.argv],
         cwd: command.cwd,
+        mode,
       })
     },
   }

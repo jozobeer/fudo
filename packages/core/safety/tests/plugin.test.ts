@@ -23,6 +23,7 @@ const build = (config: unknown) =>
         preset: policy.preset,
         mode: policy.mode,
         sandbox: Context.get(context, Sandbox).name,
+        sandboxMode: Context.get(context, Sandbox).mode,
       }
     }),
   )
@@ -33,8 +34,10 @@ describe('safetyPlugin', () => {
 
     expect(observed.preset).toBe('read-only')
     expect(observed.mode).toBe('read-only')
-    // No sandbox key at all: the provider this platform has is what runs.
+    // No sandbox key at all: the provider this platform has is what runs, and it
+    // runs commands under the mode the preset names.
     expect(observed.sandbox).toBe('seatbelt')
+    expect(observed.sandboxMode).toBe('read-only')
   })
 
   test('a confined workspace-write stays confined', async () => {
@@ -45,18 +48,21 @@ describe('safetyPlugin', () => {
     expect(observed.preset).toBe('workspace-write')
     expect(observed.mode).toBe('workspace-write')
     expect(observed.sandbox).toBe('seatbelt')
+    expect(observed.sandboxMode).toBe('workspace-write')
   })
 
   test('running without a sandbox is an explicit choice', async () => {
     const observed = await Effect.runPromise(build({ preset: 'workspace-write', sandbox: 'none' }))
 
     expect(observed.sandbox).toBe('none')
+    expect(observed.sandboxMode).toBe('danger-full-access')
   })
 
   test('the full preset asks the provider for no confinement', async () => {
     const observed = await Effect.runPromise(build({ preset: 'full' }))
 
     expect(observed.mode).toBe('danger-full-access')
+    expect(observed.sandboxMode).toBe('danger-full-access')
   })
 
   test('asking for seatbelt where it cannot run fails instead of running loose', async () => {

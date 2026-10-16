@@ -19,4 +19,12 @@ describe('noneSandbox', () => {
 
     expect(Context.get(context, Sandbox).name).toBe('none')
   })
+
+  test('nothing is confined, so the standing mode is full access', async () => {
+    const context = await Effect.runPromise(Effect.scoped(Layer.build(noneSandboxLayer)))
+    const sandbox = Context.get(context, Sandbox)
+
+    expect(sandbox.confines).toBe(false)
+    expect(sandbox.mode).toBe('danger-full-access')
+  })
 })
