@@ -27,16 +27,28 @@ const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'finish', kind: 'stop' },
 ]
 
+/** The page must show the approval prompt, so the call asks for a wider mode. */
 const callBash: ReadonlyArray<StreamChunk> = [
   {
     type: 'block-end',
     index: 0,
-    block: { type: 'tool-call', id: 'c1', name: 'bash', arguments: '{"command":"echo ran"}' },
+    block: {
+      type: 'tool-call',
+      id: 'c1',
+      name: 'bash',
+      arguments: JSON.stringify({
+        command: 'echo ran',
+        sandbox_permissions: 'danger-full-access',
+        justification: 'the acceptance asks the page for the wider mode',
+      }),
+    },
   },
   { type: 'finish', kind: 'tool-calls' },
 ]
 
 /** Long enough that the conversation scrolls, which the follow check needs. */
+const markdownTurn = textTurn('approved and done\n\n```ts\nlet a = 1\n```')
+
 const longTurn = textTurn(
   Array.from({ length: 60 }, (_, index) => 'line-' + String(index + 1).padStart(2, '0')).join('\n'),
 )
@@ -57,7 +69,7 @@ const stubLlm: Plugin<{}, Llm, never> = {
         promptCacheControl: false,
       },
       stream: () => {
-        const scripts = [callBash, textTurn('approved and done'), longTurn, textTurn('still here')]
+        const scripts = [callBash, markdownTurn, longTurn, textTurn('still here')]
         const script = scripts[call] ?? []
         call += 1
         return Stream.fromIterable(script)
@@ -86,8 +98,8 @@ const profile = (root: string): string =>
     "    name: '@jozo-harness/safety'",
     '    config:',
     '      preset: workspace-write',
-    // The browser acceptance drives a bash call; run as they are.
-    '      sandbox: none',
+    // The page answers an escalation, so the command stands under the preset.
+    '      sandbox: seatbelt',
     '  - id: tier0',
     "    name: '@jozo-harness/tools-tier0'",
     '  - id: llm',
@@ -257,16 +269,26 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await client.send('Runtime.enable')
     const read = (): Promise<unknown> => client.evaluate('document.body.innerText')
 
+    const shown = async (): Promise<string> =>
+      String(await read())
+        .split('\n')
+        .join(' | ')
     if ((await waitFor(read, 'ready')) === undefined) {
-      throw new Error('the page never reported ready')
+      throw new Error('the page never reported ready: ' + (await shown()).slice(0, 400))
     }
     await client.evaluate(type('run the command'))
-    if ((await waitFor(read, 'approve bash')) === undefined) {
-      throw new Error('the approval never reached the page')
+    if ((await waitFor(read, 'Approve bash')) === undefined) {
+      throw new Error('the approval never reached the page: ' + (await shown()).slice(0, 400))
     }
     await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
     const answer = await waitFor(read, 'approved and done')
     if (answer === undefined) throw new Error('the reply never reached the page')
+    const code = await client.evaluate(
+      'document.querySelector(\'pre.code[data-lang="ts"]\') !== null',
+    )
+    if (code !== true) throw new Error('the fenced block never became a code element')
+    const card = await client.evaluate("document.querySelector('details.tool-card') !== null")
+    if (card !== true) throw new Error('the tool result never became a card')
 
     await keepsReadingPosition(client, read)
     await saveScreenshot(client)
