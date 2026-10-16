@@ -28,6 +28,8 @@ describe('network under a preset', () => {
   test('a fetch is asked about and refused without calling out', async () => {
     let hits = 0
     const server = Bun.serve({
+      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () => {
         hits += 1

@@ -8,6 +8,8 @@ const randomIds = (count: number): Array<string> =>
 const serveModels = (ids: ReadonlyArray<string>, status = 200) => {
   const headers: Array<string | null> = []
   const server = Bun.serve({
+    // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+    hostname: '127.0.0.1',
     port: 0,
     fetch: (request) => {
       headers.push(request.headers.get('authorization'))

@@ -31,6 +31,8 @@ const call = (
 describe('web_fetch tool', () => {
   test('reads a body from a local server', async () => {
     const server = Bun.serve({
+      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () => new Response('hello from the server', { status: 200 }),
     })
@@ -50,6 +52,8 @@ describe('web_fetch tool', () => {
 
   test('honours the byte limit', async () => {
     const server = Bun.serve({
+      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () => new Response('abcdefghij', { status: 200 }),
     })

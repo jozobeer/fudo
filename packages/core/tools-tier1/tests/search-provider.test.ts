@@ -6,6 +6,8 @@ describe('braveSearch', () => {
   test('parses the provider response', async () => {
     let seen: { url: string; token: string } = { url: '', token: '' }
     const server = Bun.serve({
+      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+      hostname: '127.0.0.1',
       port: 0,
       fetch: (request) => {
         seen = {
@@ -39,7 +41,11 @@ describe('braveSearch', () => {
   })
 
   test('a failing provider becomes a tool error', async () => {
-    const server = Bun.serve({ port: 0, fetch: () => new Response('nope', { status: 500 }) })
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: () => new Response('nope', { status: 500 }),
+    })
     const baseUrl = 'http://127.0.0.1:' + String(server.port) + '/search'
 
     const message = await Effect.runPromise(

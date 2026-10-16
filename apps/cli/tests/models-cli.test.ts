@@ -6,13 +6,17 @@ import { tmpdir } from 'node:os'
 import { parseArgs } from '../src/args.ts'
 import { main, type MainIo } from '../src/bin.ts'
 
-/** A provider that lists `ids` and records the model of every chat request. */
+/** A provider that lists `ids`, records every path it saw, and every model a chat named. */
 const serveProvider = (ids: ReadonlyArray<string>) => {
   const requested: Array<string> = []
+  const seen: Array<string> = []
   const server = Bun.serve({
+    // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
+    hostname: '127.0.0.1',
     port: 0,
     fetch: async (request) => {
       const path = new URL(request.url).pathname
+      seen.push(request.method + ' ' + path)
       if (path === '/v1/models') return Response.json({ data: ids.map((id) => ({ id })) })
       if (path === '/v1/chat/completions') {
         const body = (await request.json()) as { model: string }
@@ -21,7 +25,7 @@ const serveProvider = (ids: ReadonlyArray<string>) => {
       return new Response('stub', { status: 500 })
     },
   })
-  return { server, requested, baseUrl: `http://127.0.0.1:${server.port}/v1` }
+  return { server, requested, seen, baseUrl: `http://127.0.0.1:${server.port}/v1` }
 }
 
 /**
@@ -130,27 +134,39 @@ describe('jzh models failures', () => {
 
 describe('the model a run uses', () => {
   test('without a flag the settings file default is used', async () => {
-    const { server, requested, baseUrl } = serveProvider([])
+    const { server, requested, seen, baseUrl } = serveProvider([])
     const model = 'm-' + crypto.randomUUID().slice(0, 8)
     const { tearDown, flags } = await setUp(baseUrl, 'model: x/' + model + '\n')
-    const { io } = collect()
+    const { io, err } = collect()
 
-    await Effect.runPromise(main([...flags, 'go'], io))
+    const code = await Effect.runPromise(main([...flags, 'go'], io))
 
     server.stop(true)
     await tearDown()
+    // The stub answers 500, so the run ends at the provider. Asserting what the stub saw,
+    // and the reason it failed, is what says whether the run got there at all.
+    expect({ code, err, seen }).toEqual({
+      code: 1,
+      err: ['jzh: the turn failed: PROVIDER: provider returned HTTP 500: stub\n'],
+      seen: ['POST /v1/chat/completions'],
+    })
     expect(requested).toEqual([model])
   })
 
   test('the flag wins over the settings file', async () => {
-    const { server, requested, baseUrl } = serveProvider([])
+    const { server, requested, seen, baseUrl } = serveProvider([])
     const { tearDown, flags } = await setUp(baseUrl, 'model: x/settings-model\n')
-    const { io } = collect()
+    const { io, err } = collect()
 
-    await Effect.runPromise(main([...flags, '--model', 'x/flag-model', 'go'], io))
+    const code = await Effect.runPromise(main([...flags, '--model', 'x/flag-model', 'go'], io))
 
     server.stop(true)
     await tearDown()
+    expect({ code, err, seen }).toEqual({
+      code: 1,
+      err: ['jzh: the turn failed: PROVIDER: provider returned HTTP 500: stub\n'],
+      seen: ['POST /v1/chat/completions'],
+    })
     expect(requested).toEqual(['flag-model'])
   })
 
