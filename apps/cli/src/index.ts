@@ -42,7 +42,9 @@ import {
 } from '@jozo-harness/session'
 import { Tier0Tools, type Tier0ToolBuilder } from '@jozo-harness/tools-tier0'
 import { installBuiltinCommands } from './commands.ts'
-import { modelEndpointOf } from './models.ts'
+import { listModels, modelEndpointOf } from './models.ts'
+import { runConfig } from './config-command.ts'
+import { sessionRootOf } from './session-list.ts'
 import { credentialSource, type SettingsSurface } from './settings.ts'
 import { configPaths } from './config.ts'
 import { bundledPlugins } from './plugins.ts'
@@ -94,10 +96,11 @@ import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@jozo-harness/tui'
 import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
 import {
-  WebSessionError,
+  WebError,
   defaultStaticRoot,
   serveWeb,
   type SessionFactory,
+  type SettingsPort,
 } from '@jozo-harness/web'
 import { Cause, Context, Effect, Layer, Scope, Stream } from 'effect'
 import {
@@ -697,6 +700,43 @@ const ownsTheScreen = (work: Work): boolean => work.kind === 'tui' || work.kind 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
+/** What a page may read and change about this run: the settings file, and the provider's list. */
+const settingsPortOf = (options: CommandOptions, runtime: SessionRuntime): SettingsPort => ({
+  read: () =>
+    Effect.succeed({
+      model: runtime.route,
+      effort: runtime.effort,
+      settingsPath: options.settingsPath ?? '',
+      cwd: options.cwd,
+      sessionRoot: sessionRootOf(runtime.rows),
+    }),
+  models: () => {
+    const endpoint = modelEndpointOf(runtime.rows)
+    return endpoint === undefined
+      ? Effect.fail(new WebError({ message: 'this profile has no model list to ask for' }))
+      : listModels(endpoint, process.env).pipe(
+          Effect.mapError((error) => new WebError({ message: messageOf(error) })),
+        )
+  },
+  // The writer is the one `jzh config set` uses, so both paths write the same file the same way.
+  setModel: (model) =>
+    Effect.tryPromise({
+      try: async () => {
+        let said = ''
+        const code = await runConfig(['set', 'model', model], {
+          stdout: () => undefined,
+          stderr: (text) => {
+            said += text
+          },
+        })
+        if (code !== 0) {
+          throw new Error(said.trim() === '' ? 'the settings file refused the model' : said.trim())
+        }
+      },
+      catch: (cause) => new WebError({ message: messageOf(cause) }),
+    }),
+})
+
 /** Opens one more session for a UI that outlives its first: the same wiring, a new scope. */
 const sessionFactoryOf = (
   options: CommandOptions,
@@ -708,27 +748,23 @@ const sessionFactoryOf = (
   listSessions: SessionRuntime['listSessions'],
 ): SessionFactory => ({
   list: () =>
-    listSessions().pipe(
-      Effect.mapError((error) => new WebSessionError({ message: messageOf(error) })),
-    ),
+    listSessions().pipe(Effect.mapError((error) => new WebError({ message: messageOf(error) }))),
   open: (id) =>
     Effect.gen(function* () {
       const built = yield* buildSession(options, rows, route, effort, spillBytes, layer, true, id)
       if (built.kind === 'refused') {
-        return yield* Effect.fail(new WebSessionError({ message: built.message }))
+        return yield* Effect.fail(new WebError({ message: built.message }))
       }
       const { agent, ui } = built.runtime
       if (ui === undefined) {
         return yield* Effect.fail(
-          new WebSessionError({ message: 'the session was built without a UI host' }),
+          new WebError({ message: 'the session was built without a UI host' }),
         )
       }
       return { summary: summaryOf(agent), host: ui }
     }).pipe(
       Effect.mapError((error) =>
-        error instanceof WebSessionError
-          ? error
-          : new WebSessionError({ message: messageOf(error) }),
+        error instanceof WebError ? error : new WebError({ message: messageOf(error) }),
       ),
     ),
 })
@@ -758,6 +794,7 @@ const serveWebUi = (
         runtime.layer,
         runtime.listSessions,
       ),
+      settings: settingsPortOf(options, runtime),
       port: work.port,
       staticRoot,
       onReady: (url) => {

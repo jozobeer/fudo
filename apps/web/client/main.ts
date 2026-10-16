@@ -9,14 +9,23 @@ import {
   initialState,
   withConnection,
   withDraft,
+  withModels,
+  withPanel,
   withProblem,
   withSession,
   withSessions,
+  withSettings,
   withTheme,
   type WebState,
 } from './state.ts'
 import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
-import { renderConversation, renderSessions, renderStatus, renderTheme } from './view.ts'
+import {
+  renderConversation,
+  renderPanel,
+  renderRail,
+  renderSessions,
+  renderStatus,
+} from './view.ts'
 
 const conversationElement = document.getElementById('conversation')
 const statusElement = document.getElementById('status')
@@ -26,6 +35,7 @@ const cancelButton = document.getElementById('cancel')
 const newSessionButton = document.getElementById('new-session')
 const sessionListElement = document.getElementById('session-list')
 const railFootElement = document.getElementById('rail-foot')
+const panelElement = document.getElementById('panel')
 if (
   conversationElement === null ||
   statusElement === null ||
@@ -35,6 +45,7 @@ if (
   newSessionButton === null ||
   sessionListElement === null ||
   railFootElement === null ||
+  panelElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
   throw new Error('the page is missing its skeleton')
@@ -53,6 +64,9 @@ const commands = Effect.runSync(Queue.unbounded<UiCommand>())
 const moves = Effect.runSync(Queue.unbounded<string | undefined>())
 /** The subscription the page follows; replaced every time it moves. */
 let following: Fiber.Fiber<void, unknown> | undefined
+/** What the settings sheet asked the server for. */
+type PanelAsk = { readonly kind: 'models' } | { readonly kind: 'setModel'; readonly model: string }
+const panelAsks = Effect.runSync(Queue.unbounded<PanelAsk>())
 
 const messageOf = (error: unknown): string =>
   typeof error === 'string' ? error : error instanceof Error ? error.message : String(error)
@@ -63,7 +77,8 @@ const paint = (): void => {
   conversationElement.innerHTML = renderConversation(state.conversation)
   statusElement.innerHTML = renderStatus(state)
   sessionListElement.innerHTML = renderSessions(state)
-  railFootElement.innerHTML = renderTheme(state)
+  railFootElement.innerHTML = renderRail(state)
+  panelElement.innerHTML = renderPanel(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
@@ -162,6 +177,33 @@ const session = Effect.gen(function* () {
       client.command({ sessionId: state.sessionId, command }).pipe(Effect.ignore),
     ),
   )
+  yield* Effect.forkScoped(
+    Stream.runForEach(Stream.fromQueue(panelAsks), (ask) =>
+      Effect.gen(function* () {
+        if (ask.kind === 'models') {
+          const models = yield* client.models()
+          yield* Effect.sync(() => {
+            state = withModels(state, models)
+            paint()
+          })
+          return
+        }
+        yield* client.setModel({ model: ask.model })
+        // Read it back, so the sheet shows what the file now holds.
+        const settings = yield* client.settings()
+        yield* Effect.sync(() => {
+          state = withSettings(state, settings)
+          paint()
+        })
+      }).pipe(Effect.catch(complain)),
+    ),
+  )
+
+  const settings = yield* client.settings()
+  yield* Effect.sync(() => {
+    state = withSettings(state, settings)
+    paint()
+  })
 
   const listed = yield* client.sessions()
   yield* Effect.sync(() => {
@@ -222,11 +264,36 @@ newSessionButton.addEventListener('click', () => {
 railFootElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
+  if (target.id === 'settings') {
+    state = withPanel(state, !state.panelOpen)
+    paint()
+    return
+  }
   const theme = themeFrom(target.dataset.theme ?? null)
   state = withTheme(state, theme)
   applyTheme(theme)
   localStorage.setItem(THEME_KEY, theme)
   paint()
+})
+
+panelElement.addEventListener('click', (event) => {
+  const target = event.target
+  if (!(target instanceof HTMLButtonElement)) return
+  if (target.id === 'panel-close') {
+    state = withPanel(state, false)
+    paint()
+    return
+  }
+  if (target.id === 'ask-models') {
+    Queue.offerUnsafe(panelAsks, { kind: 'models' })
+    return
+  }
+  if (target.id === 'use-model') {
+    const choice = document.getElementById('model-choice')
+    if (choice instanceof HTMLSelectElement && choice.value !== '') {
+      Queue.offerUnsafe(panelAsks, { kind: 'setModel', model: choice.value })
+    }
+  }
 })
 
 sessionListElement.addEventListener('click', (event) => {

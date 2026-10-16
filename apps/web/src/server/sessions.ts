@@ -1,6 +1,7 @@
 import type { UiHost } from '@jozo-harness/ui-protocol'
-import { Data, Effect, Exit, Scope } from 'effect'
+import { Effect, Exit, Scope } from 'effect'
 import type { SessionSummary } from '../shared/rpc.ts'
+import type { WebError } from './errors.ts'
 
 /** One session the server can serve: the summary a page lists, and the UI face of its core. */
 export interface OpenSession {
@@ -8,26 +9,19 @@ export interface OpenSession {
   readonly host: UiHost
 }
 
-/** Why a session could not be opened. The page shows the message. */
-export class WebSessionError extends Data.TaggedError('WebSessionError')<{
-  readonly message: string
-}> {}
-
 /** What the app that owns the profiles gives the server: the store's list, and one more session. */
 export interface SessionFactory {
-  readonly list: () => Effect.Effect<ReadonlyArray<SessionSummary>, WebSessionError>
+  readonly list: () => Effect.Effect<ReadonlyArray<SessionSummary>, WebError>
   /** Opens the named session, or creates one when the id is absent. */
-  readonly open: (
-    id: string | undefined,
-  ) => Effect.Effect<OpenSession, WebSessionError, Scope.Scope>
+  readonly open: (id: string | undefined) => Effect.Effect<OpenSession, WebError, Scope.Scope>
 }
 
 /** The sessions one server serves: the one it started with, plus any the page asks for later. */
 export interface SessionRegistry {
   /** The session a page opens when it names none. */
   readonly initial: string
-  readonly list: () => Effect.Effect<ReadonlyArray<SessionSummary>, WebSessionError>
-  readonly open: (id: string | undefined) => Effect.Effect<OpenSession, WebSessionError>
+  readonly list: () => Effect.Effect<ReadonlyArray<SessionSummary>, WebError>
+  readonly open: (id: string | undefined) => Effect.Effect<OpenSession, WebError>
   /** The host of a session already open; undefined when the page names one nobody opened. */
   readonly hostOf: (id: string) => UiHost | undefined
 }
@@ -45,7 +39,7 @@ export const makeSessionRegistry = (input: {
     // The scope this registry lives in: every session it opens is closed with it.
     const own = yield* Scope.Scope
 
-    const openInOwnScope = (id: string | undefined): Effect.Effect<OpenSession, WebSessionError> =>
+    const openInOwnScope = (id: string | undefined): Effect.Effect<OpenSession, WebError> =>
       Effect.gen(function* () {
         const known = id === undefined ? undefined : opened.get(id)
         if (known !== undefined) return known

@@ -10,6 +10,7 @@ import {
   type SessionFactory,
   type SessionRegistry,
 } from './sessions.ts'
+import type { SettingsPort } from './settings.ts'
 import { staticResponse } from './static.ts'
 
 export const UI_PATH = '/ui'
@@ -22,6 +23,8 @@ export interface ServeWebOptions {
   readonly initial: OpenSession
   /** Opens the rest: a page may ask for any session the store holds. */
   readonly factory: SessionFactory
+  /** What the page may read and change about the run behind it. */
+  readonly settings: SettingsPort
   /** 0 picks a free port; the chosen one arrives through `onReady`. */
   readonly port: number
   readonly staticRoot: string
@@ -30,7 +33,7 @@ export interface ServeWebOptions {
   readonly interrupt?: Effect.Effect<void>
 }
 
-const handlersOf = (registry: SessionRegistry) =>
+const handlersOf = (registry: SessionRegistry, settings: SettingsPort) =>
   UiRpcs.toLayer({
     sessions: () =>
       registry.list().pipe(
@@ -55,6 +58,13 @@ const handlersOf = (registry: SessionRegistry) =>
       const host = registry.hostOf(sessionId)
       return host === undefined ? Stream.fail('the session is not open') : host.events
     },
+    settings: () => settings.read().pipe(Effect.mapError((error) => error.message)),
+    models: () => settings.models().pipe(Effect.mapError((error) => error.message)),
+    setModel: ({ model }) =>
+      settings.setModel(model).pipe(
+        Effect.as(true),
+        Effect.mapError((error) => error.message),
+      ),
   })
 
 const serveStatic = async (root: string, requestPath: string): Promise<Response> =>
@@ -111,7 +121,7 @@ export const serveWeb = (options: ServeWebOptions): Effect.Effect<number> =>
       // Our schemas need no decoding services, but Effect types a stream RPC's
       // service requirement as `unknown`; the layer is pinned to what it is.
       const rpc: Layer.Layer<never> = RpcServer.layer(UiRpcs).pipe(
-        Layer.provide(handlersOf(registry)),
+        Layer.provide(handlersOf(registry, options.settings)),
         Layer.provide(Layer.succeed(RpcServer.Protocol, protocol)),
       ) as unknown as Layer.Layer<never>
       yield* Effect.forkScoped(Layer.launch(rpc))

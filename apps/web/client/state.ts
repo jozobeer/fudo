@@ -1,6 +1,6 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
-import type { SessionSummary } from '../src/shared/rpc.ts'
+import type { SessionSummary, SettingsView } from '../src/shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
 
 /** What the header says about the session behind the page. */
@@ -26,6 +26,12 @@ export interface WebState {
   readonly problem: string
   /** Which of the ways a page may be lit the reader chose. */
   readonly theme: Theme
+  /** What the server says about this run; undefined until the page has read it. */
+  readonly settings: SettingsView | undefined
+  /** The provider's models, once the reader asked for them. */
+  readonly models: ReadonlyArray<string>
+  /** Whether the settings and the model list are on screen. */
+  readonly panelOpen: boolean
 }
 
 export const initialState: WebState = {
@@ -37,6 +43,9 @@ export const initialState: WebState = {
   sessionId: '',
   problem: '',
   theme: DEFAULT_THEME,
+  settings: undefined,
+  models: [],
+  panelOpen: false,
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -54,6 +63,21 @@ export const withSessions = (state: WebState, items: ReadonlyArray<SessionSummar
 export const withProblem = (state: WebState, problem: string): WebState => ({ ...state, problem })
 
 export const withTheme = (state: WebState, theme: Theme): WebState => ({ ...state, theme })
+
+export const withSettings = (state: WebState, settings: SettingsView): WebState => ({
+  ...state,
+  settings,
+})
+
+export const withModels = (state: WebState, models: ReadonlyArray<string>): WebState => ({
+  ...state,
+  models,
+})
+
+export const withPanel = (state: WebState, panelOpen: boolean): WebState => ({
+  ...state,
+  panelOpen,
+})
 
 /**
  * Reads one session: the conversation starts over because another log does, and

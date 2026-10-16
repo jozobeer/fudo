@@ -6,11 +6,20 @@ import {
   initialState,
   withConnection,
   withDraft,
+  withModels,
+  withPanel,
   withSession,
   withSessions,
+  withSettings,
   withTheme,
 } from '../client/state.ts'
-import { renderConversation, renderSessions, renderStatus, renderTheme } from '../client/view.ts'
+import {
+  renderConversation,
+  renderPanel,
+  renderRail,
+  renderSessions,
+  renderStatus,
+} from '../client/view.ts'
 
 const a = { id: 'a', cwd: '/work/one', createdAt: 1, title: 'count the files' }
 const b = { id: 'b', cwd: '/work/two', createdAt: 2, title: '' }
@@ -115,11 +124,37 @@ describe('the browser view', () => {
   })
 
   test('the rail offers the three themes and marks the one in use', () => {
-    const view = renderTheme(withTheme(initialState, 'light'))
+    const view = renderRail(withTheme(initialState, 'light'))
     expect(view).toContain('data-theme="system"')
     expect(view).toContain('data-theme="dark"')
     expect(view).toContain('class="theme active" data-theme="light"')
     expect(view).not.toContain('class="theme active" data-theme="dark"')
+    expect(view).toContain('id="settings"')
+  })
+
+  test('the settings sheet stays away until it is asked for', () => {
+    expect(renderPanel(initialState)).toBe('')
+    const open = withPanel(initialState, true)
+    expect(renderPanel(open)).toContain('reading the settings')
+  })
+
+  test('the sheet shows what the run is set to and asks before writing', () => {
+    const settings = {
+      model: 'stub/model',
+      effort: 'high',
+      settingsPath: '/home/me/.jzh/config.yml',
+      cwd: '/work',
+      sessionRoot: '/home/me/.jzh/sessions',
+    }
+    const read = withPanel(withSettings(initialState, settings), true)
+    const view = renderPanel(read)
+    expect(view).toContain('stub/model')
+    expect(view).toContain('high')
+    expect(view).toContain('/home/me/.jzh/sessions')
+    expect(view).toContain('id="ask-models"')
+    const listed = withModels(read, ['stub/model', 'stub/other'])
+    expect(renderPanel(listed)).toContain('<option value="stub/other">')
+    expect(renderPanel(listed)).toContain('id="use-model"')
   })
 
   test('the status strip reports the connection, where it runs and the next action', () => {

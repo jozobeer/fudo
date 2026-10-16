@@ -355,6 +355,26 @@ const choosesATheme = async (client: Cdp, read: () => Promise<unknown>): Promise
   }
 }
 
+/** Opens the settings sheet, checks what it says, and closes it again. */
+const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate("document.getElementById('settings').click()")
+  if ((await waitFor(read, 'Settings')) === undefined) {
+    throw new Error('the settings sheet never opened')
+  }
+  if ((await waitFor(read, 'stub/model')) === undefined) {
+    throw new Error('the sheet never showed the model this run asks')
+  }
+  // This profile has no model endpoint, and the page says so rather than hanging.
+  await client.evaluate("document.getElementById('ask-models').click()")
+  if ((await waitFor(read, 'no model list')) === undefined) {
+    throw new Error('a model list that cannot be asked for was not reported')
+  }
+  await client.evaluate("document.getElementById('panel-close').click()")
+  if ((await client.evaluate("document.getElementById('panel').innerHTML")) !== '') {
+    throw new Error('the sheet stayed on screen after it was closed')
+  }
+}
+
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = Bun.spawn(
     [
@@ -387,6 +407,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await keepsReadingPosition(client, read)
     await switchBack(client, read, first)
     await choosesATheme(client, read)
+    await readsTheSettings(client, read)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {

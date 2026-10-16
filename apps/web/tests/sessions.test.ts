@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import type { UiHost } from '@jozo-harness/ui-protocol'
 import { Effect, Stream } from 'effect'
+import { WebError } from '../src/server/errors.ts'
 import {
   makeSessionRegistry,
-  WebSessionError,
   type OpenSession,
   type SessionFactory,
 } from '../src/server/sessions.ts'
@@ -124,7 +124,7 @@ describe('the session registry', () => {
   test('a factory that cannot open the session says why and remembers nothing', async () => {
     const failing: SessionFactory = {
       list: () => Effect.succeed([]),
-      open: () => Effect.fail(new WebSessionError({ message: 'it is gone' })),
+      open: () => Effect.fail(new WebError({ message: 'it is gone' })),
     }
     const seen = await Effect.runPromise(
       Effect.scoped(

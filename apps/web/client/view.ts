@@ -1,6 +1,6 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
-import type { SessionSummary } from '../src/shared/rpc.ts'
+import type { SessionSummary, SettingsView } from '../src/shared/rpc.ts'
 import { escapeHtml } from './html.ts'
 import { THEMES } from './theme.ts'
 import { renderMarkdown } from './markdown.ts'
@@ -178,9 +178,8 @@ const sessionRow = (state: WebState, summary: SessionSummary): string => {
   )
 }
 
-/** The rail's foot: the ways a page may be lit, the reader's choice marked. */
-export const renderTheme = (state: WebState): string =>
-  '<span class="rail-label">theme</span><div class="theme-choice">' +
+const themesHtml = (state: WebState): string =>
+  '<div class="theme-choice">' +
   THEMES.map(
     (theme) =>
       '<button class="theme' +
@@ -192,6 +191,59 @@ export const renderTheme = (state: WebState): string =>
       '</button>',
   ).join('') +
   '</div>'
+
+/** The rail's foot: the ways a page may be lit, and the way to the settings. */
+export const renderRail = (state: WebState): string =>
+  '<span class="rail-label">theme</span>' +
+  themesHtml(state) +
+  '<button id="settings" class="rail-button' +
+  (state.panelOpen ? ' active' : '') +
+  '" type="button">settings</button>'
+
+const panelRow = (name: string, value: string): string =>
+  '<div class="panel-row"><span class="panel-name">' +
+  name +
+  '</span><span class="panel-value">' +
+  text(value) +
+  '</span></div>'
+
+const modelsHtml = (state: WebState): string => {
+  if (state.models.length === 0) {
+    return '<div class="panel-actions"><button id="ask-models" type="button">List models</button></div>'
+  }
+  return (
+    '<div class="panel-actions"><select id="model-choice">' +
+    state.models
+      .map((route) => '<option value="' + escapeHtml(route) + '">' + text(route) + '</option>')
+      .join('') +
+    '</select><button id="use-model" class="primary" type="button">Use for later runs</button></div>' +
+    '<div class="card-hint">the next run reads it from the settings file</div>'
+  )
+}
+
+const panelBody = (settings: SettingsView): string =>
+  panelRow('model', settings.model) +
+  panelRow('effort', settings.effort === '' ? '(the provider chooses)' : settings.effort) +
+  panelRow('cwd', settings.cwd) +
+  panelRow('sessions', settings.sessionRoot) +
+  panelRow('settings', settings.settingsPath === '' ? '(none)' : settings.settingsPath)
+
+/** The settings sheet: what this run is configured with, and the one key a page may write. */
+export const renderPanel = (state: WebState): string => {
+  if (!state.panelOpen) return ''
+  const settings = state.settings
+  const body =
+    settings === undefined
+      ? '<div class="card-hint">reading the settings…</div>'
+      : '<div class="panel-rows">' + panelBody(settings) + '</div>' + modelsHtml(state)
+  return (
+    '<section class="panel" role="dialog" aria-label="Settings">' +
+    '<header class="panel-head"><span class="panel-title">Settings</span>' +
+    '<button id="panel-close" type="button">Close</button></header>' +
+    body +
+    '</section>'
+  )
+}
 
 /** The left rail: every session the store holds, the one on screen marked. */
 export const renderSessions = (state: WebState): string =>

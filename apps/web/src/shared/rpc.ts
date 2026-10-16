@@ -44,7 +44,45 @@ export const UiEventsRpc = Rpc.make('events', {
   stream: true,
 })
 
-export const UiRpcs = RpcGroup.make(SessionsRpc, OpenRpc, UiCommandRpc, UiEventsRpc)
+/** What a page may read about the run it is talking to. */
+export const SettingsViewSchema = Schema.Struct({
+  model: Schema.String,
+  effort: Schema.String,
+  settingsPath: Schema.String,
+  cwd: Schema.String,
+  sessionRoot: Schema.String,
+})
+
+/** What a page reads about the run behind it; the schema is the one source. */
+export type SettingsView = typeof SettingsViewSchema.Type
+
+export const SettingsRpc = Rpc.make('settings', {
+  success: SettingsViewSchema,
+  error: Schema.String,
+})
+
+/** Every model the provider offers, as provider/model routes. */
+export const ModelsRpc = Rpc.make('models', {
+  success: Schema.Array(Schema.String),
+  error: Schema.String,
+})
+
+/** Writes the model into the settings file; the next run reads it there. */
+export const SetModelRpc = Rpc.make('setModel', {
+  payload: Schema.Struct({ model: Schema.String }),
+  success: Schema.Boolean,
+  error: Schema.String,
+})
+
+export const UiRpcs = RpcGroup.make(
+  SessionsRpc,
+  OpenRpc,
+  UiCommandRpc,
+  UiEventsRpc,
+  SettingsRpc,
+  ModelsRpc,
+  SetModelRpc,
+)
 
 /**
  * Drops a phantom service requirement. `StreamChunkSchema` is annotated with

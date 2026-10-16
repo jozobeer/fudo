@@ -6,7 +6,14 @@ import { Socket } from 'effect/socket'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { serveWeb, type OpenSession, type SessionFactory } from '../src/server/index.ts'
+import {
+  serveWeb,
+  WebError,
+  type OpenSession,
+  type SessionFactory,
+  type SettingsPort,
+  type SettingsView,
+} from '../src/server/index.ts'
 import { type SessionSummary, UiRpcs, withoutServices } from '../src/shared/rpc.ts'
 
 interface FakeHost {
@@ -100,7 +107,37 @@ interface Started {
   readonly stop: Deferred.Deferred<void>
 }
 
-const start = (staticRoot: string, web: FakeWeb): Effect.Effect<Started, never, Scope.Scope> =>
+const settingsView: SettingsView = {
+  model: 'stub/model',
+  effort: '',
+  settingsPath: '/work/settings.yml',
+  cwd: '/work',
+  sessionRoot: '/work/sessions',
+}
+
+/** A settings file the page may read and write, kept only in memory. */
+const makeSettings = (): { readonly port: SettingsPort; readonly wrote: Array<string> } => {
+  const wrote: Array<string> = []
+  return {
+    wrote,
+    port: {
+      read: () => Effect.succeed(settingsView),
+      models: () => Effect.succeed(['stub/model', 'stub/other']),
+      setModel: (model) =>
+        model === ''
+          ? Effect.fail(new WebError({ message: 'a model route cannot be empty' }))
+          : Effect.sync(() => {
+              wrote.push(model)
+            }),
+    },
+  }
+}
+
+const start = (
+  staticRoot: string,
+  web: FakeWeb,
+  settings: ReturnType<typeof makeSettings>,
+): Effect.Effect<Started, never, Scope.Scope> =>
   Effect.gen(function* () {
     const ready = yield* Deferred.make<string>()
     const stop = yield* Deferred.make<void>()
@@ -108,6 +145,7 @@ const start = (staticRoot: string, web: FakeWeb): Effect.Effect<Started, never, 
       serveWeb({
         initial: web.initial,
         factory: web.factory,
+        settings: settings.port,
         port: 0,
         staticRoot,
         onReady: (url) => {
@@ -131,11 +169,12 @@ describe('the web transport', () => {
     await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     await Bun.write(join(outside, 'secret.txt'), 'secret')
     const web = makeWeb('a')
+    const settings = makeSettings()
 
     const observed = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const started = yield* start(root, web)
+          const started = yield* start(root, web, settings)
           const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
 
           // The client layers own a scoped socket: they must wrap every call.
@@ -190,11 +229,12 @@ describe('the web transport', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-tabs-'))
     await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
+    const settings = makeSettings()
 
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const started = yield* start(root, web)
+          const started = yield* start(root, web, settings)
           const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
           const useTabs = Effect.gen(function* () {
             const one = yield* RpcClient.make(UiRpcs)
@@ -227,11 +267,12 @@ describe('the web transport', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-sessions-'))
     await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
+    const settings = makeSettings()
 
     const observed = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const started = yield* start(root, web)
+          const started = yield* start(root, web, settings)
           const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
           const useClient = Effect.gen(function* () {
             const client = yield* RpcClient.make(UiRpcs)
@@ -281,6 +322,42 @@ describe('the web transport', () => {
     expect(observed.onNew).toEqual([{ kind: 'cancel' }])
     expect(observed.silent).toBe(true)
     expect(observed.refused).toBe(true)
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('the page reads the settings and writes a model through them', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-settings-'))
+    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    const web = makeWeb('a')
+    const settings = makeSettings()
+
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const started = yield* start(root, web, settings)
+          const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
+          const useClient = Effect.gen(function* () {
+            const client = yield* RpcClient.make(UiRpcs)
+            const view = yield* client.settings()
+            const models = yield* client.models()
+            const written = yield* client.setModel({ model: 'stub/other' })
+            const refused = yield* client
+              .setModel({ model: '' })
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            return { view, models, written, refused }
+          }).pipe(clientLayers(wsUrl))
+          const result = yield* withoutServices(useClient)
+          yield* Deferred.succeed(started.stop, undefined)
+          return result
+        }),
+      ),
+    )
+
+    expect(observed.view).toEqual(settingsView)
+    expect(observed.models).toEqual(['stub/model', 'stub/other'])
+    expect(observed.written).toBe(true)
+    expect(settings.wrote).toEqual(['stub/other'])
+    expect(observed.refused).toBe('a model route cannot be empty')
     await rm(root, { recursive: true, force: true })
   })
 })
