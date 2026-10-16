@@ -36,6 +36,11 @@ const callBash: ReadonlyArray<StreamChunk> = [
   { type: 'finish', kind: 'tool-calls' },
 ]
 
+/** Long enough that the conversation scrolls, which the follow check needs. */
+const longTurn = textTurn(
+  Array.from({ length: 60 }, (_, index) => 'line-' + String(index + 1).padStart(2, '0')).join('\n'),
+)
+
 const stubLlm: Plugin<{}, Llm, never> = {
   name: 'stub-llm',
   config: Schema.Struct({}),
@@ -52,7 +57,7 @@ const stubLlm: Plugin<{}, Llm, never> = {
         promptCacheControl: false,
       },
       stream: () => {
-        const scripts = [callBash, textTurn('approved and done')]
+        const scripts = [callBash, textTurn('approved and done'), longTurn, textTurn('still here')]
         const script = scripts[call] ?? []
         call += 1
         return Stream.fromIterable(script)
@@ -204,6 +209,33 @@ const type = (value: string): string =>
   JSON.stringify(value) +
   "; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('composer').requestSubmit(); return true })()"
 
+/** Puts the reader at the top of the conversation and reports where they landed. */
+const readFromTop = (): string =>
+  "(() => { const box = document.getElementById('conversation'); box.scrollTop = 0; return box.scrollTop })()"
+
+const scrollTop = 'document.getElementById("conversation").scrollTop'
+
+/** A reader above the fold keeps their place while more output arrives. */
+const keepsReadingPosition = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate(type('write a long answer'))
+  if ((await waitFor(read, 'line-60')) === undefined) {
+    throw new Error('the long reply never reached the page')
+  }
+  if ((await client.evaluate(readFromTop())) !== 0) {
+    throw new Error('the conversation never scrolled')
+  }
+  await client.evaluate(type('one more'))
+  if ((await waitFor(read, 'still here')) === undefined) {
+    throw new Error('the last reply never reached the page')
+  }
+  const kept = await client.evaluate(scrollTop)
+  if (kept !== 0) {
+    throw new Error(
+      'the view was pulled to the bottom while the reader was above it: ' + String(kept),
+    )
+  }
+}
+
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = Bun.spawn(
     [
@@ -235,6 +267,8 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
     const answer = await waitFor(read, 'approved and done')
     if (answer === undefined) throw new Error('the reply never reached the page')
+
+    await keepsReadingPosition(client, read)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {
@@ -243,11 +277,22 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
   }
 }
 
+/** The server hands the browser a built bundle, so a stale dist would test the wrong page. */
+const buildWeb = async (): Promise<void> => {
+  const built = Bun.spawnSync(['bun', 'run', 'build'], {
+    cwd: join(repoRoot, 'apps/web'),
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
+  if (built.exitCode !== 0) throw new Error('the web bundle did not build')
+}
+
 const main = async (): Promise<number> => {
   const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-accept-'))
   const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-web-accept-ws-'))
   const profileDir = join(repoRoot, '.tmp/chrome-cdp')
   await rm(profileDir, { recursive: true, force: true })
+  await buildWeb()
 
   const outcome = await Effect.runPromise(
     Effect.scoped(

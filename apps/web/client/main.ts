@@ -3,6 +3,7 @@ import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
 import type { UiCommand } from '@jozo-harness/ui-protocol'
 import { UiRpcs, withoutServices } from '../src/shared/rpc.ts'
+import { followsBottom } from './scroll.ts'
 import { applyUiEvent, initialState, withDraft, withConnection, type WebState } from './state.ts'
 import { renderConversation, renderStatus } from './view.ts'
 
@@ -26,9 +27,11 @@ let state: WebState = initialState
 const commands = Effect.runSync(Queue.unbounded<UiCommand>())
 
 const paint = (): void => {
+  // Where the reader was, read before the DOM moves: only a view at the bottom follows it.
+  const follow = followsBottom(conversationElement)
   conversationElement.innerHTML = renderConversation(state.conversation)
   statusElement.innerHTML = renderStatus(state)
-  conversationElement.scrollTop = conversationElement.scrollHeight
+  if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
 const paintStatus = (): void => {

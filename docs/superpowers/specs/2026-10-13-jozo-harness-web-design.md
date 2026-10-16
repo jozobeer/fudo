@@ -38,7 +38,8 @@ S1 をローカルサーバー越しに操作するブラウザ UI。S7 と同�
 ## client
 
 - `client/state.ts` は `@jozo-harness/ui-view` の reducer を包み、`{ blocks, liveText, pendingApproval, pendingAsk, running }` を持つ。
-- `client/render.ts` は純粋に「画面モデル → HTML 文字列」を作る（unit テスト対象）。DOM へは `client/dom.ts` が差し込む。
+- `client/view.ts` は純粋に「画面モデル → HTML 文字列」を作る（unit テスト対象）。DOM へは `client/main.ts` が差し込む。
+- `client/scroll.ts` は会話が末尾にいるかを判定する。描き直しのたびに末尾へ寄せるのは、読んでいた位置が末尾だったときだけ（出力中に読み返している位置から引き戻さない）。
 - 入力欄は `<textarea>`。Enter で submit（Shift+Enter は改行）。承認は y/n ボタンとキー、ask は入力欄 Enter で回答。
 - 接続が切れたら 1 秒後に開き直す（指数 backoff はしない）。サーバ側の stream は切断で終わり、再接続時に履歴を再購読する。
 
