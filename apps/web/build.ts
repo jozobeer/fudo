@@ -1,12 +1,14 @@
 import { rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const here = import.meta.dir
+/** Where the app is written: the first argument when given, `dist` beside this file otherwise. */
+const outdir = resolve(process.argv[2] ?? join(here, 'dist'))
 
-await rm(join(here, 'dist'), { recursive: true, force: true })
+await rm(outdir, { recursive: true, force: true })
 const built = await Bun.build({
   entrypoints: [join(here, 'client/main.ts')],
-  outdir: join(here, 'dist'),
+  outdir,
   target: 'browser',
   minify: true,
   naming: 'main.js',
@@ -16,6 +18,6 @@ if (!built.success) {
   process.exit(1)
 }
 for (const name of ['index.html', 'style.css']) {
-  await Bun.write(join(here, 'dist', name), Bun.file(join(here, 'client', name)))
+  await Bun.write(join(outdir, name), Bun.file(join(here, 'client', name)))
 }
-console.log('built apps/web/dist')
+console.log('built ' + outdir)

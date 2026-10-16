@@ -2,11 +2,13 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { loadProfile } from '@jozo-harness/kernel'
 import { SESSION_FORMAT_VERSION, SessionPersistenceService } from '@jozo-harness/session'
 import { Context, Effect, Layer } from 'effect'
-import { rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { sessionJsonlPlugin } from '../src/index.ts'
 
-const tempRoot = join(import.meta.dir, '.tmp')
+/** A root this test process owns; one under the repo is shared with every other process. */
+const tempRoot = await mkdtemp(join(tmpdir(), 'jozo-harness-jsonl-plugin-'))
 
 afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true })

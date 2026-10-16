@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { agentPlugin } from '@jozo-harness/agent'
 import { agentLoopPlugin } from '@jozo-harness/agent-loop'
 import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
@@ -79,15 +79,26 @@ const textOf = (data: AssistantMessageData): string =>
   data.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
 
 describe('the browser UI through the command', () => {
+  /**
+   * The build this test serves lives in a directory of its own. The app's `dist` is one
+   * path shared by every process on the host, and a build deletes it before writing: two
+   * suites at once would take each other's files away mid-serve.
+   */
+  let staticRoot = ''
+
   beforeAll(async () => {
-    // The served files are build output; this test builds them itself.
-    const build = Bun.spawn([process.execPath, 'run', 'build'], {
+    staticRoot = await mkdtemp(join(tmpdir(), 'jozo-harness-web-dist-'))
+    const build = Bun.spawn([process.execPath, 'run', 'build.ts', staticRoot], {
       cwd: join(import.meta.dir, '../../web'),
       stdout: 'ignore',
       stderr: 'inherit',
     })
     expect(await build.exited).toBe(0)
   }, 60_000)
+
+  afterAll(async () => {
+    await rm(staticRoot, { recursive: true, force: true })
+  })
 
   test('a browser client drives a real turn and the static app is served', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-'))
@@ -104,7 +115,7 @@ describe('the browser UI through the command', () => {
               plugins,
               cwd: workspace,
               route: 'stub/model',
-              web: { port: 0 },
+              web: { port: 0, staticRoot },
               stdout: () => undefined,
               stderr: (text) => {
                 const match = /http:\/\/127\.0\.0\.1:\d+\//.exec(text)

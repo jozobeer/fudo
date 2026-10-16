@@ -117,7 +117,7 @@ export interface CommandOptions {
   /** When present, the command serves the interactive terminal UI. */
   readonly tui?: TuiIo
   /** When present, the command serves the browser UI on that port (0 picks one). */
-  readonly web?: { readonly port: number }
+  readonly web?: { readonly port: number; readonly staticRoot?: string }
   /** Completes to request a \`user\` cancellation, as SIGINT does. */
   readonly interrupt?: Effect.Effect<void>
   /** Answers an approval request; the default denies, so nothing hangs unanswered. */
@@ -475,11 +475,18 @@ type Work =
   | { readonly kind: 'task'; readonly task: string }
   | { readonly kind: 'lines'; readonly lines: Stream.Stream<string> }
   | { readonly kind: 'tui'; readonly io: TuiIo }
-  | { readonly kind: 'web'; readonly port: number }
+  | {
+      readonly kind: 'web'
+      readonly port: number
+      /** The built app to serve; the shipped build when the caller names none. */
+      readonly staticRoot: string | undefined
+    }
 
 const workOf = (options: CommandOptions): Work | undefined => {
   if (options.task !== undefined) return { kind: 'task', task: options.task }
-  if (options.web !== undefined) return { kind: 'web', port: options.web.port }
+  if (options.web !== undefined) {
+    return { kind: 'web', port: options.web.port, staticRoot: options.web.staticRoot }
+  }
   if (options.tui !== undefined) return { kind: 'tui', io: options.tui }
   if (options.lines !== undefined) return { kind: 'lines', lines: options.lines }
   return undefined
@@ -686,17 +693,22 @@ const uiHostOf = (
     : Effect.succeed(undefined)
 
 /** Starts the browser UI; it runs until interrupted. */
-const serveWebUi = (options: CommandOptions, ui: UiHost, port: number): Effect.Effect<number> =>
+const serveWebUi = (
+  options: CommandOptions,
+  ui: UiHost,
+  work: Extract<Work, { kind: 'web' }>,
+): Effect.Effect<number> =>
   Effect.gen(function* () {
-    const index = Bun.file(join(defaultStaticRoot, 'index.html'))
+    const staticRoot = work.staticRoot ?? defaultStaticRoot
+    const index = Bun.file(join(staticRoot, 'index.html'))
     if (!(yield* Effect.promise(() => index.exists()))) {
       options.stderr('jzh web: the browser app is not built: run bun run build:web\n')
       return 1
     }
     return yield* serveWeb({
       host: ui,
-      port,
-      staticRoot: defaultStaticRoot,
+      port: work.port,
+      staticRoot,
       onReady: (url) => {
         options.stderr('jzh web: ' + url + '\n')
       },
@@ -719,7 +731,7 @@ const serveUi = (
       ...(options.interrupt === undefined ? {} : { interrupt: options.interrupt }),
     })
   }
-  if (work.kind === 'web') return serveWebUi(options, ui, work.port)
+  if (work.kind === 'web') return serveWebUi(options, ui, work)
   return undefined
 }
 
