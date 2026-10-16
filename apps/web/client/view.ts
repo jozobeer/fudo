@@ -2,6 +2,7 @@ import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
 import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
 import type { Sheet } from './state.ts'
+import type { TurnView } from './trajectory.ts'
 import { escapeHtml } from './html.ts'
 import { THEMES } from './theme.ts'
 import { renderMarkdown } from './markdown.ts'
@@ -327,7 +328,10 @@ export const renderRail = (state: WebState): string =>
   themesHtml(state) +
   '<button id="settings" class="rail-button' +
   (state.sheet?.kind === 'settings' ? ' active' : '') +
-  '" type="button">settings</button>'
+  '" type="button">settings</button>' +
+  '<button id="trajectory" class="rail-button' +
+  (state.sheet?.kind === 'trajectory' ? ' active' : '') +
+  '" type="button">trajectory</button>'
 
 const panelRow = (name: string, value: string): string =>
   '<div class="panel-row"><span class="panel-name">' +
@@ -380,18 +384,57 @@ const jobBody = (sheet: Extract<Sheet, { kind: 'job' }>): string => {
   )
 }
 
-/** The sheet on the right: either what this run is set to, or one background command. */
+/** How long a turn took, as the log's own times say; '' while it is still open. */
+const durationOf = (turn: TurnView): string => {
+  if (turn.endedAt === undefined) return 'running'
+  return ((turn.endedAt - turn.startedAt) / 1000).toFixed(1) + 's'
+}
+
+const turnRow = (turn: TurnView): string =>
+  '<li class="turn' +
+  (turn.endedAt === undefined ? ' open' : '') +
+  '"><span class="turn-number">turn ' +
+  String(turn.turn) +
+  '</span><span class="turn-duration">' +
+  durationOf(turn) +
+  '</span><span class="turn-counts">' +
+  String(turn.steps) +
+  ' steps · ' +
+  String(turn.tools) +
+  ' calls</span><span class="turn-outcome">' +
+  text(turn.outcome === '' ? '—' : turn.outcome) +
+  '</span></li>'
+
+/** The ledger: what each turn did, and how long it took. */
+const trajectoryBody = (state: WebState): string =>
+  state.turns.length === 0
+    ? '<div class="card-hint">this session has not run a turn yet</div>'
+    : '<ul class="turns">' + state.turns.map(turnRow).join('') + '</ul>'
+
+const sheetTitle = (sheet: Sheet): string =>
+  sheet.kind === 'settings'
+    ? 'Settings'
+    : sheet.kind === 'trajectory'
+      ? 'Trajectory'
+      : 'Job ' + sheet.id.slice(0, 8)
+
+const sheetBody = (state: WebState, sheet: Sheet): string => {
+  if (sheet.kind === 'settings') return settingsBody(state)
+  return sheet.kind === 'trajectory' ? trajectoryBody(state) : jobBody(sheet)
+}
+
+/** The sheet on the right: what this run is set to, its turns, or one background command. */
 export const renderSheet = (state: WebState): string => {
   const sheet = state.sheet
   if (sheet === undefined) return ''
-  const title = sheet.kind === 'settings' ? 'Settings' : 'Job ' + sheet.id.slice(0, 8)
+  const title = sheetTitle(sheet)
   return (
     '<section class="panel" role="dialog" aria-label="' +
     escapeHtml(title) +
     '"><header class="panel-head"><span class="panel-title">' +
     text(title) +
     '</span><button id="panel-close" type="button">Close</button></header>' +
-    (sheet.kind === 'settings' ? settingsBody(state) : jobBody(sheet)) +
+    sheetBody(state, sheet) +
     '</section>'
   )
 }

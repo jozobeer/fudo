@@ -481,6 +481,43 @@ body {
   padding: 0 12px 10px;
 }
 
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  font-size: 12px;
+}
+
+.turn {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.turn-number {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.turn-duration,
+.turn-counts,
+.turn-outcome {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.turn.open .turn-duration {
+  color: var(--warn);
+}
+
+.turn-outcome {
+  text-align: right;
+}
+
 .job-output {
   max-height: 20rem;
   margin: 0;

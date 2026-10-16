@@ -7,6 +7,7 @@ import type {
   SettingsView,
 } from '../src/shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
+import { turnsAfter, type TurnView } from './trajectory.ts'
 
 /** What the header says about the session behind the page. */
 export interface SessionInfo {
@@ -17,9 +18,10 @@ export interface SessionInfo {
 
 const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
 
-/** What the sheet on the right shows: the run's settings, or one background command. */
+/** What the sheet on the right shows: the run's settings, one job, or the turn ledger. */
 export type Sheet =
   | { readonly kind: 'settings' }
+  | { readonly kind: 'trajectory' }
   | { readonly kind: 'job'; readonly id: string; readonly detail: JobDetailView | undefined }
 
 /** What the browser shows: the conversation, the socket, the draft, and the sessions. */
@@ -42,6 +44,8 @@ export interface WebState {
   readonly models: ReadonlyArray<string>
   /** What the sheet on the right is showing, if anything. */
   readonly sheet: Sheet | undefined
+  /** Every turn this session ran, oldest first, as the log recorded it. */
+  readonly turns: ReadonlyArray<TurnView>
   /** What the session says it works toward; undefined until the page has asked. */
   readonly run: RunStateView | undefined
 }
@@ -58,6 +62,7 @@ export const initialState: WebState = {
   settings: undefined,
   models: [],
   sheet: undefined,
+  turns: [],
   run: undefined,
 }
 
@@ -146,8 +151,13 @@ const infoAfter = (info: SessionInfo, event: UiSessionEvent): SessionInfo => {
   return read === undefined ? info : read(info, event.data)
 }
 
-export const applyUiEvent = (state: WebState, event: UiEvent): WebState => ({
-  ...state,
-  info: event.kind === 'session' ? infoAfter(state.info, event.event) : state.info,
-  conversation: applyEvent(state.conversation, event),
-})
+export const applyUiEvent = (state: WebState, event: UiEvent): WebState => {
+  // The transport may replay the boundary event: only a seq the page has not seen counts.
+  const fresh = event.kind === 'session' && event.event.seq > state.conversation.lastSeq
+  return {
+    ...state,
+    info: event.kind === 'session' ? infoAfter(state.info, event.event) : state.info,
+    turns: fresh ? turnsAfter(state.turns, event.event) : state.turns,
+    conversation: applyEvent(state.conversation, event),
+  }
+}

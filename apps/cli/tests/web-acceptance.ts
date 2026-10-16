@@ -387,6 +387,18 @@ const readsTheRun = async (read: () => Promise<unknown>): Promise<void> => {
   }
 }
 
+/** Opens the ledger, checks that it knows what ran, and closes it again. */
+const readsTheLedger = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate("document.getElementById('trajectory').click()")
+  if ((await waitFor(read, 'turn 1')) === undefined) {
+    throw new Error('the ledger never listed the first turn')
+  }
+  if ((await waitFor(read, 'completed')) === undefined) {
+    throw new Error('the ledger never said how the first turn ended')
+  }
+  await client.evaluate("document.getElementById('panel-close').click()")
+}
+
 /** Opens the settings sheet, checks what it says, and closes it again. */
 const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
   await client.evaluate("document.getElementById('settings').click()")
@@ -436,6 +448,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     }
     const answer = await answersTheApproval(client, read)
     await readsTheRun(read)
+    await readsTheLedger(client, read)
     const first = await opensANewSession(client)
     await keepsReadingPosition(client, read)
     await switchBack(client, read, first)

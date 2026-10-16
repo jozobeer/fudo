@@ -295,21 +295,45 @@ newSessionButton.addEventListener('click', () => {
   moveTo(undefined)
 })
 
-// The stored value and the button both go through the same reading.
+/** Applies and remembers the reader's choice. */
+const chooseTheme = (stored: string): void => {
+  const theme = themeFrom(stored)
+  state = withTheme(state, theme)
+  applyTheme(theme)
+  localStorage.setItem(THEME_KEY, theme)
+  paint()
+}
+
+/** Opens one background command in the sheet, with the output it has kept. */
+const openJob = (id: string): void => {
+  state = withSheet(state, { kind: 'job', id, detail: undefined })
+  Queue.offerUnsafe(panelAsks, { kind: 'job', id })
+  paint()
+}
+
+/** Opens one of the sheets the rail names, or closes it when it is the one showing. */
+const toggleSheet = (kind: 'settings' | 'trajectory'): void => {
+  state = withSheet(state, state.sheet?.kind === kind ? undefined : { kind })
+  paint()
+}
+
+/** What each button the rail draws does. */
+const railActions: Readonly<Record<string, () => void>> = {
+  settings: () => toggleSheet('settings'),
+  trajectory: () => toggleSheet('trajectory'),
+}
+
 railFootElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
-  if (target.id === 'settings') {
-    state = withSheet(state, state.sheet === undefined ? { kind: 'settings' } : undefined)
-    paint()
+  const named = railActions[target.id]
+  if (named !== undefined) {
+    named()
     return
   }
-  // A job opens in the sheet, with the output it has kept.
   const job = target.dataset.jobId
   if (job !== undefined) {
-    state = withSheet(state, { kind: 'job', id: job, detail: undefined })
-    Queue.offerUnsafe(panelAsks, { kind: 'job', id: job })
-    paint()
+    openJob(job)
     return
   }
   // A child session a subagent started reads like any other session row.
@@ -319,12 +343,7 @@ railFootElement.addEventListener('click', (event) => {
     return
   }
   const stored = target.dataset.theme
-  if (stored === undefined) return
-  const theme = themeFrom(stored)
-  state = withTheme(state, theme)
-  applyTheme(theme)
-  localStorage.setItem(THEME_KEY, theme)
-  paint()
+  if (stored !== undefined) chooseTheme(stored)
 })
 
 /** What each button in the sheet does; one entry per button the sheet draws. */

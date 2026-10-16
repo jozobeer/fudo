@@ -221,6 +221,29 @@ describe('the browser view', () => {
     expect(renderSheet(open)).toContain('reading the settings')
   })
 
+  test('the ledger lists what each turn did and how long it took', () => {
+    const state = withSheet(
+      {
+        ...initialState,
+        turns: [
+          { turn: 1, startedAt: 0, endedAt: 1500, steps: 2, tools: 1, outcome: 'completed' },
+          { turn: 2, startedAt: 1600, endedAt: undefined, steps: 1, tools: 0, outcome: '' },
+        ],
+      },
+      { kind: 'trajectory' },
+    )
+    const view = renderSheet(state)
+    expect(view).toContain('turn 1')
+    expect(view).toContain('1.5s')
+    expect(view).toContain('2 steps · 1 calls')
+    expect(view).toContain('completed')
+    expect(view).toContain('class="turn open"')
+    expect(view).toContain('running')
+    expect(renderSheet(withSheet(initialState, { kind: 'trajectory' }))).toContain(
+      'has not run a turn',
+    )
+  })
+
   test('a job opens with the output it kept, and a running one can be stopped', () => {
     const detail = { id: 'j-1', command: 'sleep 5', running: true, output: 'line one' }
     const view = renderSheet(withSheet(initialState, { kind: 'job', id: 'j-1', detail }))
