@@ -17,21 +17,43 @@ export interface TuiIo {
 const textOf = (chunk: Uint8Array | string): string =>
   typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk)
 
+/** A lone escape is the Escape key once this much quiet has followed it. */
+const ESCAPE_QUIET_MILLIS = 50
+
 const keyStream = (): Stream.Stream<KeyEvent> =>
   Stream.callback<KeyEvent>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         const decoder = new KeyDecoder()
+        let quiet: ReturnType<typeof setTimeout> | undefined
+        const stopQuiet = (): void => {
+          if (quiet === undefined) return
+          clearTimeout(quiet)
+          quiet = undefined
+        }
+        const offer = (keys: ReadonlyArray<KeyEvent>): void => {
+          for (const key of keys) Queue.offerUnsafe(queue, key)
+        }
         const onData = (chunk: Uint8Array | string): void => {
-          for (const key of decoder.push(textOf(chunk))) Queue.offerUnsafe(queue, key)
+          stopQuiet()
+          offer(decoder.push(textOf(chunk)))
+          // An escape may be the head of a sequence that is still arriving. Once
+          // nothing follows it, it was the Escape key, and the UI should hear it.
+          if (decoder.holdingEscape) {
+            quiet = setTimeout(() => {
+              quiet = undefined
+              offer(decoder.flush())
+            }, ESCAPE_QUIET_MILLIS)
+          }
         }
         process.stdin.on('data', onData)
         process.stdin.resume()
-        return onData
+        return { onData, stopQuiet }
       }),
-      (onData) =>
+      (held) =>
         Effect.sync(() => {
-          process.stdin.off('data', onData)
+          held.stopQuiet()
+          process.stdin.off('data', held.onData)
         }),
     ),
   )
