@@ -113,6 +113,7 @@ describe('the browser view', () => {
     )
     expect(ask).toContain('data-answer="x"')
     expect(ask).toContain('data-answer="y"')
+    expect(ask).toContain('class="ask-question markdown"')
     expect(renderConversation(emptyConversation)).not.toContain('data-approve')
   })
 
@@ -159,6 +160,24 @@ describe('the browser view', () => {
     expect(
       renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [], queued: [] })),
     ).toContain('no goal')
+  })
+
+  test('a question keeps its place in the conversation once it is answered', () => {
+    const asked = fold([
+      session('interaction/ask/requested', {
+        id: 'a1',
+        question: 'Leave plan mode?\n\n- one\n- two',
+        options: ['approve', 'keep planning'],
+      }),
+    ])
+    // Markdown, so a plan reads as a plan rather than one long line.
+    expect(renderConversation(asked)).toContain('<li>one</li>')
+    const settled = applyEvent(
+      asked,
+      session('interaction/ask/answered', { id: 'a1', answer: 'approve' }),
+    )
+    expect(renderConversation(settled)).toContain('answered: approve')
+    expect(renderConversation(settled)).not.toContain('data-answer')
   })
 
   test('a session a subagent started is reachable from the rail', () => {

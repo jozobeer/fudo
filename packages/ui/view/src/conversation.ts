@@ -26,6 +26,14 @@ export type ConversationBlock =
       /** The whole body the result carried; a view may expand it where the summary is one line. */
       readonly output: string
     }
+  | {
+      readonly kind: 'ask'
+      readonly id: string
+      readonly question: string
+      readonly options: ReadonlyArray<string>
+      /** The answer once the human gave one; undefined while the question waits. */
+      readonly answer: string | undefined
+    }
   | { readonly kind: 'notice'; readonly level: NoticeLevel; readonly text: string }
 
 /** Everything a UI derives from the event stream. No I/O, no timers. */
@@ -165,6 +173,28 @@ const applyTool = (state: Conversation, event: ToolEvent): Conversation => {
 }
 
 /** Events a UI shows without a model turn: approvals, questions, cwd moves. */
+const askBlock = (request: AskRequested): ConversationBlock => ({
+  kind: 'ask',
+  id: request.id,
+  question: request.question,
+  options: request.options,
+  answer: undefined,
+})
+
+/** Records the answer on the block that asked, and stops the question from waiting. */
+const settleAsk = (
+  state: Conversation,
+  answered: { readonly id: string; readonly answer: string },
+): Conversation => ({
+  ...state,
+  ask: state.ask?.id === answered.id ? undefined : state.ask,
+  blocks: state.blocks.map((block) =>
+    block.kind === 'ask' && block.id === answered.id
+      ? { ...block, answer: answered.answer }
+      : block,
+  ),
+})
+
 const applyInteraction = (state: Conversation, event: SessionEvent): Conversation => {
   switch (event.type) {
     case 'safety/approval/requested':
@@ -178,9 +208,14 @@ const applyInteraction = (state: Conversation, event: SessionEvent): Conversatio
         ? { ...state, approval: undefined }
         : state
     case 'interaction/ask/requested':
-      return notice({ ...state, ask: event.data }, 'info', '? ' + event.data.question)
+      // The question stays where it was asked: the card below is only the way to answer it now.
+      return {
+        ...state,
+        ask: event.data,
+        blocks: [...state.blocks, askBlock(event.data)],
+      }
     case 'interaction/ask/answered':
-      return state.ask?.id === event.data.id ? { ...state, ask: undefined } : state
+      return settleAsk(state, event.data)
     case 'session/cwd/changed':
       return notice(state, 'info', 'cwd: ' + event.data.cwd)
     default:

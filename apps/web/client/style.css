@@ -752,6 +752,20 @@ summary.tool-head::-webkit-details-marker {
   gap: 8px;
 }
 
+.ask-answer {
+  margin-top: 8px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.ask .markdown > :first-child {
+  margin-top: 0;
+}
+
+.ask .markdown > :last-child {
+  margin-bottom: 0;
+}
+
 .card-hint {
   margin-top: 8px;
   color: var(--dim);

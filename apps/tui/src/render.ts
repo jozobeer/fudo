@@ -83,6 +83,11 @@ const blockLines = (block: ConversationBlock, width: number): ReadonlyArray<Disp
       return wrapped(block.text, width, 'plain')
     case 'tool':
       return toolLines(block, width)
+    case 'ask':
+      return [
+        ...prefixed('? ', block.question, width, 'ask'),
+        ...(block.answer === undefined ? [] : prefixed('  = ', block.answer, width, 'dim')),
+      ]
     case 'notice':
       return prefixed('· ', block.text, width, noticeTone(block.level))
   }

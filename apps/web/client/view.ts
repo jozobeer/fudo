@@ -55,7 +55,39 @@ const toolHtml = (block: ToolBlock): string => {
   )
 }
 
-const renderBlock = (block: ConversationBlock): string => {
+/** The ways to answer a question that is still waiting. */
+const askActions = (block: Extract<ConversationBlock, { kind: 'ask' }>): string => {
+  const id = escapeHtml(block.id)
+  const options = block.options
+    .map(
+      (option) =>
+        '<button data-answer="' +
+        escapeHtml(option) +
+        '" data-ask-id="' +
+        id +
+        '">' +
+        text(option) +
+        '</button>',
+    )
+    .join('')
+  return (
+    (options === '' ? '' : '<div class="ask-options">' + options + '</div>') +
+    '<div class="card-hint">or type an answer and press Enter</div>'
+  )
+}
+
+const askHtml = (block: Extract<ConversationBlock, { kind: 'ask' }>, pending: boolean): string =>
+  '<article class="block ask"><div class="ask-question markdown">' +
+  markdown(block.question) +
+  '</div>' +
+  (block.answer === undefined
+    ? pending
+      ? askActions(block)
+      : ''
+    : '<div class="ask-answer">answered: ' + text(block.answer) + '</div>') +
+  '</article>'
+
+const renderBlock = (block: ConversationBlock, pendingAsk: string | undefined): string => {
   switch (block.kind) {
     case 'user':
       return (
@@ -73,6 +105,8 @@ const renderBlock = (block: ConversationBlock): string => {
       )
     case 'tool':
       return toolHtml(block)
+    case 'ask':
+      return askHtml(block, block.id === pendingAsk)
     case 'notice':
       return '<article class="block notice ' + block.level + '">' + text(block.text) + '</article>'
   }
@@ -80,12 +114,15 @@ const renderBlock = (block: ConversationBlock): string => {
 
 /** Rendered blocks of the conversation last painted; the array changes only when blocks do. */
 let paintedBlocks: ReadonlyArray<ConversationBlock> | undefined
+let paintedAsk: string | undefined
 let paintedHtml = ''
 
-const blocksHtml = (blocks: ReadonlyArray<ConversationBlock>): string => {
-  if (blocks !== paintedBlocks) {
-    paintedBlocks = blocks
-    paintedHtml = blocks.map(renderBlock).join('')
+const blocksHtml = (conversation: Conversation): string => {
+  const pending = conversation.ask?.id
+  if (conversation.blocks !== paintedBlocks || pending !== paintedAsk) {
+    paintedBlocks = conversation.blocks
+    paintedAsk = pending
+    paintedHtml = conversation.blocks.map((block) => renderBlock(block, pending)).join('')
   }
   return paintedHtml
 }
@@ -112,31 +149,6 @@ const approvalHtml = (conversation: Conversation): string => {
   )
 }
 
-const askHtml = (conversation: Conversation): string => {
-  const ask = conversation.ask
-  if (ask === undefined) return ''
-  const id = escapeHtml(ask.id)
-  const options = ask.options
-    .map(
-      (option) =>
-        '<button data-answer="' +
-        escapeHtml(option) +
-        '" data-ask-id="' +
-        id +
-        '">' +
-        text(option) +
-        '</button>',
-    )
-    .join('')
-  return (
-    '<section class="block ask"><div class="ask-question">' +
-    text(ask.question) +
-    '</div>' +
-    (options === '' ? '' : '<div class="ask-options">' + options + '</div>') +
-    '<div class="card-hint">Enter sends your answer</div></section>'
-  )
-}
-
 /** One HTML string for the whole conversation; the DOM layer replaces it. */
 export const renderConversation = (conversation: Conversation): string => {
   const live =
@@ -145,7 +157,7 @@ export const renderConversation = (conversation: Conversation): string => {
       : '<article class="block assistant live"><div class="body markdown">' +
         markdown(conversation.live) +
         '</div></article>'
-  return blocksHtml(conversation.blocks) + live + approvalHtml(conversation) + askHtml(conversation)
+  return blocksHtml(conversation) + live + approvalHtml(conversation)
 }
 
 const basenameOf = (path: string): string => {

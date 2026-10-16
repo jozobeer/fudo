@@ -132,11 +132,26 @@ describe('conversation', () => {
       session('interaction/ask/requested', { id: 'a1', question: 'which?', options: ['x'] }),
     ])
     expect(asked.ask).toEqual({ id: 'a1', question: 'which?', options: ['x'] })
+    expect(asked.blocks).toEqual([
+      { kind: 'ask', id: 'a1', question: 'which?', options: ['x'], answer: undefined },
+    ])
     const answered = applyEvent(
       asked,
       session('interaction/ask/answered', { id: 'a1', answer: 'x' }),
     )
     expect(answered.ask).toBeUndefined()
+    expect(answered.blocks[0]).toEqual({
+      kind: 'ask',
+      id: 'a1',
+      question: 'which?',
+      options: ['x'],
+      answer: 'x',
+    })
+    // An answer to a question nobody asked leaves the log alone.
+    expect(
+      applyEvent(answered, session('interaction/ask/answered', { id: 'other', answer: 'y' }))
+        .blocks,
+    ).toEqual(answered.blocks)
   })
 
   test('a turn failure leaves an error notice', () => {
