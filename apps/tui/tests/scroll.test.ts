@@ -49,6 +49,19 @@ describe('tui scroll', () => {
     expect(linesBelow(scroll, view(20))).toBe(15)
   })
 
+  test('a wheel notch moves the window a few lines and the ends hold', () => {
+    const up = scrollKey(TAIL, { kind: 'wheelUp' }, view(20))
+    expect(up).toEqual({ kind: 'pinned', top: 12 })
+    expect(scrollKey(up ?? TAIL, { kind: 'wheelDown' }, view(20))).toEqual(TAIL)
+    expect(scrollKey(TAIL, { kind: 'wheelDown' }, view(20))).toEqual(TAIL)
+    expect(scrollKey({ kind: 'pinned', top: 0 }, { kind: 'wheelUp' }, view(20))).toEqual({
+      kind: 'pinned',
+      top: 0,
+    })
+    // Content that fits has nowhere to go, whatever the wheel asks for.
+    expect(scrollKey(TAIL, { kind: 'wheelUp' }, view(3))).toEqual(TAIL)
+  })
+
   test('page up and page down move the window, escape returns to the tail', () => {
     const up = scrollKey(TAIL, { kind: 'pageUp' }, view(20))
     expect(up).toEqual({ kind: 'pinned', top: 10 })

@@ -53,4 +53,37 @@ describe('key decoder', () => {
   test('non-ascii input survives', () => {
     expect(decode('あ')).toEqual([{ kind: 'char', char: 'あ' }])
   })
+
+  test('decodes a wheel notch from an SGR mouse report', () => {
+    expect(decode('\u001b[<64;10;5M\u001b[<65;10;5M')).toEqual([
+      { kind: 'wheelUp' },
+      { kind: 'wheelDown' },
+    ])
+  })
+
+  test('a wheel notch with a modifier held is still a wheel notch', () => {
+    // Above the two button bits sit shift, alt and ctrl; they do not change the scroll.
+    expect(decode('\u001b[<68;3;1M')).toEqual([{ kind: 'wheelUp' }])
+    expect(decode('\u001b[<73;3;1M')).toEqual([{ kind: 'wheelDown' }])
+  })
+
+  test('a horizontal wheel notch and a click are consumed without a key', () => {
+    expect(decode('\u001b[<66;10;5M\u001b[<67;10;5M\u001b[<0;10;5M\u001b[<0;10;5ma')).toEqual([
+      { kind: 'char', char: 'a' },
+    ])
+  })
+
+  test('holds a mouse report until the rest of it arrives', () => {
+    const decoder = new KeyDecoder()
+    expect(decoder.push('\u001b[<64;10')).toEqual([])
+    expect(decoder.push(';5M')).toEqual([{ kind: 'wheelUp' }])
+  })
+
+  test('holds a lone escape until the reader says nothing follows it', () => {
+    const decoder = new KeyDecoder()
+    expect(decoder.push('\u001b')).toEqual([])
+    expect(decoder.holdingEscape).toBe(true)
+    expect(decoder.flush()).toEqual([{ kind: 'escape' }])
+    expect(decoder.holdingEscape).toBe(false)
+  })
 })

@@ -42,6 +42,9 @@ describe('the tui through a real process', () => {
     expect(err).toBe('')
     expect(out).toContain('\u001b[?1049h')
     expect(out).toContain('jozo-harness · stub/model')
+    // The wheel reaches the UI only while the terminal is told to report the mouse.
+    expect(out).toContain('\u001b[?1000h\u001b[?1006h')
+    expect(out).toContain('\u001b[?1006l\u001b[?1000l')
     expect(out).toContain('\u001b[?1049l')
     await rm(dir, { recursive: true, force: true })
   })
