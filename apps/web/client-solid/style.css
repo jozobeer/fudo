@@ -99,3 +99,270 @@
     transform: translateY(-4px);
   }
 }
+
+/*
+ * Trace first: the middle of the page is the trace, every model call and tool
+ * call a bar on its turn's time axis. The chat narrows to a column on the left,
+ * the sessions become a drawer, and the pane on the right inspects one call.
+ */
+@layer client {
+  #shell {
+    grid-template-columns: 380px minmax(0, 1fr) auto;
+  }
+
+  #sidebar {
+    position: fixed;
+    top: 39px;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: var(--rail-w);
+    box-shadow: 18px 0 40px rgb(0 0 0 / 30%);
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  body[data-drawer] #sidebar {
+    transform: none;
+    visibility: visible;
+  }
+
+  .drawer-toggle {
+    flex: none;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+
+  #main {
+    border-right: 1px solid var(--line);
+  }
+
+  #main #conversation {
+    padding: var(--s4) var(--s3) var(--s5);
+    font-size: var(--text-sm);
+  }
+
+  #main footer {
+    padding: var(--s2) var(--s3) var(--s3);
+  }
+
+  #waterfall {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--bg-sunken);
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+  }
+
+  .wf-tools {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    gap: var(--s3);
+    align-items: center;
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-sunken);
+  }
+
+  .wf-filter {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+
+  .wf-toggle {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+
+  .wf-empty {
+    padding: var(--s4);
+  }
+
+  .wf-turn {
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .wf-head {
+    position: sticky;
+    top: 41px;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: var(--s3);
+    align-items: baseline;
+    padding: 8px var(--s3) 6px;
+    background: var(--bg-sunken);
+    font-family: var(--sans);
+  }
+
+  .wf-turn-number {
+    font-weight: 700;
+    font-size: var(--text-sm);
+  }
+
+  .wf-turn-prompt {
+    overflow: hidden;
+    font-size: var(--text-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wf-turn-facts {
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .wf-turn-failed {
+    color: var(--error);
+    white-space: nowrap;
+  }
+
+  .wf-row {
+    display: grid;
+    grid-template-columns: 4.5em minmax(0, 14em) minmax(0, 1fr) 4.5em;
+    gap: var(--s2);
+    align-items: center;
+    width: 100%;
+    padding: 1px var(--s3);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--dim);
+    font: inherit;
+    text-align: left;
+  }
+
+  button.wf-row:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  .wf-row.selected {
+    background: var(--select-soft);
+    color: var(--text);
+  }
+
+  .wf-row.model {
+    opacity: 0.75;
+  }
+
+  .wf-name {
+    color: var(--text);
+  }
+
+  .wf-row.model .wf-name {
+    color: var(--dim);
+    font-style: italic;
+  }
+
+  .wf-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wf-track {
+    position: relative;
+    height: 10px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--line) 45%, transparent);
+  }
+
+  .wf-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 2px;
+    border-radius: 2px;
+    background: var(--tool);
+  }
+
+  .wf-row.model .wf-bar {
+    background: var(--select);
+  }
+
+  .wf-row.error .wf-bar,
+  .wf-row.error .wf-name {
+    color: var(--error);
+    background-color: var(--error);
+  }
+
+  .wf-row.error .wf-name {
+    background: none;
+  }
+
+  .wf-row.running .wf-bar {
+    background: repeating-linear-gradient(90deg, var(--tool) 0 4px, transparent 4px 7px);
+  }
+
+  .wf-took {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .inspect-title {
+    display: flex;
+    gap: var(--s2);
+    align-items: baseline;
+    font-family: var(--mono);
+  }
+
+  .inspect-title.error {
+    color: var(--error);
+  }
+
+  .inspect-status {
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: var(--text-xs);
+    font-weight: 400;
+  }
+
+  .inspect-thought {
+    margin: 0;
+    color: var(--dim);
+    font-size: var(--text-sm);
+    font-style: italic;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .inspector .job-output {
+    margin-top: 0;
+  }
+
+  @media (max-width: 1100px) {
+    #shell {
+      grid-template-columns: 320px minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 720px) {
+    #shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    #waterfall {
+      display: none;
+    }
+  }
+}
