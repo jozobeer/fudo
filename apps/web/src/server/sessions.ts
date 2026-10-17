@@ -34,6 +34,8 @@ export interface SessionRegistry {
   readonly stateOf: (id: string) => RunStateView | undefined
   /** The open session with this id; undefined when nobody opened it. */
   readonly sessionOf: (id: string) => OpenSession | undefined
+  /** Every session open right now, the boot session first. */
+  readonly openedIds: () => ReadonlyArray<string>
 }
 
 /**
@@ -70,5 +72,6 @@ export const makeSessionRegistry = (input: {
       hostOf: (id) => opened.get(id)?.host,
       stateOf: (id) => opened.get(id)?.runState(),
       sessionOf: (id) => opened.get(id),
+      openedIds: () => [...opened.keys()],
     }
   })

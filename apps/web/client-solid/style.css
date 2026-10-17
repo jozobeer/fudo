@@ -99,3 +99,148 @@
     transform: translateY(-4px);
   }
 }
+
+/*
+ * The cockpit: the left column is the fleet, sorted by what the reader has to
+ * do. What waits on them comes first, with the buttons that answer it; what
+ * runs says what it is doing; the rest is a list to come back to.
+ */
+@layer client {
+  :root {
+    --rail-w: 340px;
+  }
+
+  #session-list {
+    gap: var(--s5);
+  }
+
+  .board-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+  }
+
+  .board-title {
+    display: flex;
+    gap: var(--s2);
+    align-items: baseline;
+    margin: 0;
+    padding: 0 var(--s2);
+    color: var(--dim);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .board-count {
+    color: var(--dim);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #session-list .session {
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 2px 8px;
+    align-items: center;
+  }
+
+  .session-mark {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+
+  .session.running .session-mark {
+    border: 2px solid var(--tool);
+    background: none;
+  }
+
+  .session.waiting .session-mark {
+    background: var(--accent);
+  }
+
+  .session.idle .session-mark {
+    background: var(--tool);
+  }
+
+  #session-list .session-name {
+    grid-column: 2;
+  }
+
+  #session-list .session-where {
+    grid-column: 3;
+    grid-row: 1;
+    display: block;
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--dim);
+    font-size: var(--text-xs);
+  }
+
+  .session-detail {
+    grid-column: 2 / -1;
+    overflow: hidden;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .board-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s2) var(--s2) var(--s3);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--takeover-bg);
+  }
+
+  .board-card .session {
+    border-left: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .board-asked {
+    margin: 0;
+    padding: 0 10px;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .board-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s2);
+    padding: 0 10px;
+  }
+
+  .board-card .card-hint {
+    margin: 0;
+    padding: 0 10px;
+  }
+
+  .board-doing {
+    margin: 0;
+    padding: 0 10px 0 30px;
+    overflow: hidden;
+    color: var(--tool);
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #status .fleet {
+    flex: none;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+
+  #status .fleet.waiting {
+    color: var(--accent);
+    font-weight: 600;
+  }
+}

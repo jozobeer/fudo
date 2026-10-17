@@ -7,7 +7,8 @@ import { initialState, withDraft, withTheme, type Pane, type WebState } from '..
 import { Composer } from '../components/composer.tsx'
 import { ContextPane } from '../components/context-pane.tsx'
 import { Conversation } from '../components/conversation.tsx'
-import { Rail } from '../components/rail.tsx'
+import { Board } from '../components/board.tsx'
+import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
 import type { SessionStore } from '../store.ts'
 
 /** One call a component made, in the order it made them. */
@@ -17,9 +18,13 @@ type Call =
   | { readonly kind: 'moveTo'; readonly id: string | undefined }
   | { readonly kind: 'pane'; readonly pane: Pane | undefined }
   | { readonly kind: 'command'; readonly command: UiCommand }
+  | { readonly kind: 'sendTo'; readonly sessionId: string; readonly command: UiCommand }
 
 /** A store the components can be rendered against: signals in, calls out. */
-const makeStore = (overrides: Partial<WebState> = {}) => {
+const makeStore = (
+  overrides: Partial<WebState> = {},
+  watched: ReadonlyMap<string, Watched> = new Map(),
+) => {
   const [state, setState] = createSignal<WebState>({ ...initialState, ...overrides })
   const calls: Array<Call> = []
   const update = (next: (current: WebState) => WebState): void => {
@@ -27,6 +32,8 @@ const makeStore = (overrides: Partial<WebState> = {}) => {
   }
   const store: SessionStore = {
     state,
+    watched: () => watched,
+    sendTo: (sessionId, command) => calls.push({ kind: 'sendTo', sessionId, command }),
     start: () => undefined,
     stop: () => undefined,
     setDraft: (text) => {
@@ -47,25 +54,52 @@ const makeStore = (overrides: Partial<WebState> = {}) => {
 }
 
 describe('the Solid page', () => {
-  test('the rail lists the sessions and marks the one on screen', () => {
-    const { store, calls } = makeStore({
-      sessions: [
-        { id: 'aaaabbbb', cwd: '/one/work', createdAt: Date.now() - 60_000, title: 'first' },
-        { id: 'ccccdddd', cwd: '/two', createdAt: Date.now() - 7_200_000, title: '' },
-      ],
-      sessionId: 'aaaabbbb',
-    })
+  test('the board puts a session that waits first, and answers it in place', () => {
+    const asking = [
+      {
+        kind: 'session' as const,
+        event: { seq: 1, time: 1, type: 'turn/start', data: { turn: 1 } },
+      },
+      {
+        kind: 'session' as const,
+        event: {
+          seq: 2,
+          time: 2,
+          type: 'safety/approval/requested',
+          data: { callId: 'c9', tool: 'bash', reason: 'network' },
+        },
+      },
+    ].reduce(watchedAfter, emptyWatched)
+    const { store, calls } = makeStore(
+      {
+        sessions: [
+          { id: 'aaaabbbb', cwd: '/one/work', createdAt: Date.now() - 60_000, title: 'first' },
+          { id: 'ccccdddd', cwd: '/two', createdAt: Date.now() - 7_200_000, title: '' },
+        ],
+        sessionId: 'aaaabbbb',
+      },
+      new Map([['ccccdddd', asking]]),
+    )
 
-    const { container } = render(() => <Rail store={store} />)
+    const { container } = render(() => <Board store={store} />)
 
     const rows = container.querySelectorAll('button.session')
     expect(rows).toHaveLength(2)
-    expect(rows[0]?.classList.contains('active')).toBe(true)
-    expect(rows[0]?.textContent).toContain('first')
-    expect(rows[1]?.textContent).toContain('ccccdddd')
+    expect(rows[0]?.textContent).toContain('ccccdddd')
+    expect(rows[1]?.classList.contains('active')).toBe(true)
+    expect(container.querySelector('.board-asked')?.textContent).toBe('Approve bash? network')
 
+    const allow = [...container.querySelectorAll('.board-card button')].find(
+      (button) => button.textContent === 'Allow',
+    )
+    fireEvent.click(allow as Element)
+    expect(calls).toContainEqual({
+      kind: 'sendTo',
+      sessionId: 'ccccdddd',
+      command: { kind: 'approve', callId: 'c9', approved: true },
+    })
     fireEvent.click(rows[1] as Element)
-    expect(calls).toContainEqual({ kind: 'moveTo', id: 'ccccdddd' })
+    expect(calls).toContainEqual({ kind: 'moveTo', id: 'aaaabbbb' })
   })
 
   test('the conversation renders markdown, tool output, and the live step', () => {
