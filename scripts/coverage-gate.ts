@@ -1,8 +1,7 @@
 /**
  * The coverage gate: runs the suite with an lcov report and fails when the
- * totals fall under the floors below. Bun 1.4.3 reads `coverageThreshold` from
- * bunfig.toml and then fails every run without a word, so the comparison lives
- * here, where it can also say which metric fell below.
+ * totals fall under the floors below. The comparison lives here, beside the
+ * numbers, so a failure can name the metric that fell below.
  */
 
 /** The percentages the suite may not fall under. */

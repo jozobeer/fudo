@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'vitest'
 import { runCommand } from '../src/index.ts'
-/** Writes a file, making the directories above it, the way Bun.write did. */
+/** Writes a file, making the directories above it, because the file may not be there yet. */
 const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, text)

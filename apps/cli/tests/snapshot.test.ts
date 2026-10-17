@@ -290,7 +290,7 @@ describe('replaying a recording', () => {
       expect(
         difference === undefined
           ? undefined
-          : difference + '\n(update with UPDATE_SNAPSHOTS=1 bun test snapshot)',
+          : difference + '\n(update with UPDATE_SNAPSHOTS=1 pnpm test snapshot)',
       ).toBeUndefined()
     })
   }

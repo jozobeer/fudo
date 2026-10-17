@@ -39,7 +39,7 @@ const requestOf = async (request: IncomingMessage): Promise<Request> => {
 
 /**
  * Starts a one-connection-at-a-time stub on a free loopback port. The handler
- * takes a web `Request` and returns a `Response`, the shape Bun.serve took.
+ * takes a web `Request` and returns a `Response`, the shape a fetch handler takes.
  */
 export const startStubServer = async (
   handle: (request: Request) => Response | Promise<Response>,
