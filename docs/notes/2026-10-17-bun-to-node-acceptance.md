@@ -18,7 +18,7 @@ jozo-harness の道具立てを Bun から pnpm + Node + Vite+ へ移した。�
 - `git grep -n "bun:"` と `git grep -n "Bun\."` の残り: 0。
 - テスト本数は落ちていない（206 ファイル / 928 テスト → 213 ファイル / 949 テスト。増えた分は失敗経路と SEA の受け入れ）。
 - SEA バイナリ: `jzh:apps/cli/tests/compiled.test.ts` が、`--dump-config` が埋め込み profile を読むことと、`jzh web` が埋め込みページ（index.html / main.js / style.css）を 127.0.0.1 で配ることを確かめる。
-- CI は `jzh:.github/workflows/check.yml` が `pnpm install --frozen-lockfile` と `pnpm run check` を macOS ランナーで走らせる。道具は `jzh:mise.toml` の node / pnpm / rust から入る。
+- CI は `jzh:.github/workflows/check.yml` が `pnpm install --frozen-lockfile` と `pnpm run check` を macOS ランナーで走らせる。node と pnpm は `jzh:mise.toml` から、Rust は rustup が `jzh:rust-toolchain.toml` の版で入れる。
 
 ## 記録: 実行時に決めたこと
 

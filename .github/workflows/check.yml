@@ -2,7 +2,8 @@ name: check
 
 # The end-to-end tests run the sandbox the profile defaults to (seatbelt, macOS), so the
 # job runs where that exists; a host that refuses to apply it is covered by a test of its
-# own. The tools come from mise.toml, so the runner and a laptop run the same versions.
+# own. Node and pnpm come from mise.toml and Rust from rust-toolchain.toml, so the runner
+# and a laptop run the same versions.
 on:
   push:
     branches: [main]
@@ -15,5 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v4
+      # rustup is already on the runner; this takes the channel from
+      # rust-toolchain.toml, so a failed download is not buried in the check.
+      - run: rustup show
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check

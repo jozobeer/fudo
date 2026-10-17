@@ -1,7 +1,8 @@
+# Node and the package manager mise owns; Rust is rustup's, pinned in
+# rust-toolchain.toml beside this file.
 [tools]
 node = "26.8.2"
 pnpm = "11.28.5"
-rust = "1.99.0"
 "github:moznion/cccc" = "1.8.2"
 
 [env]

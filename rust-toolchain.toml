@@ -1,0 +1,7 @@
+# The Rust version this workspace builds with. rustup reads this file wherever a
+# cargo or rustc command runs, so a laptop and CI use the same compiler without
+# either one asking mise to install Rust.
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

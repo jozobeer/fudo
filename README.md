@@ -25,11 +25,12 @@
 
 ## はじめかた
 
-Node・pnpm・Rust と依存を入れる。[mise](https://mise.jdx.dev/) を使うと mise.toml が指す版が入る。
+Node と pnpm は [mise](https://mise.jdx.dev/) で、Rust は [rustup](https://rustup.rs/) で入れる。版は `mise.toml` と `rust-toolchain.toml` が指す。rustup が PATH の先頭側にいること（Homebrew の rust などを先に置くと、版の指定が無視される）。
 
 ```sh
 mise install
 pnpm install
+rustup show   # rust-toolchain.toml の版を（無ければ）入れて確認する
 ```
 
 `jzh` をコマンドとして使うには、CLI のパッケージでグローバルリンクを張り、pnpm の global bin を PATH に足す。
