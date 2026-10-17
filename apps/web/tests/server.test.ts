@@ -361,6 +361,7 @@ describe('the web transport', () => {
     expect(observed.listed).toEqual({
       initial: 'a',
       items: [{ id: 'a', cwd: '/work', createdAt: 1, title: '' }],
+      opened: ['a'],
     })
     expect(observed.again).toBe('a')
     expect(observed.made).toBe('new-2')

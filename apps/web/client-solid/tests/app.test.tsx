@@ -7,8 +7,11 @@ import { initialState, withDraft, withTheme, type Pane, type WebState } from '..
 import { Composer } from '../components/composer.tsx'
 import { ContextPane } from '../components/context-pane.tsx'
 import { Conversation } from '../components/conversation.tsx'
-import { Rail } from '../components/rail.tsx'
+import { Board } from '../components/board.tsx'
+import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
 import { Waterfall } from '../components/waterfall.tsx'
+import { LensSwitch } from '../components/lens-switch.tsx'
+import { lensFrom, type Lens } from '../lens.ts'
 import type { SessionStore } from '../store.ts'
 import { traceOf } from '../../client/trace.ts'
 
@@ -19,9 +22,13 @@ type Call =
   | { readonly kind: 'moveTo'; readonly id: string | undefined }
   | { readonly kind: 'pane'; readonly pane: Pane | undefined }
   | { readonly kind: 'command'; readonly command: UiCommand }
+  | { readonly kind: 'sendTo'; readonly sessionId: string; readonly command: UiCommand }
 
 /** A store the components can be rendered against: signals in, calls out. */
-const makeStore = (overrides: Partial<WebState> = {}) => {
+const makeStore = (
+  overrides: Partial<WebState> = {},
+  watched: ReadonlyMap<string, Watched> = new Map(),
+) => {
   const [state, setState] = createSignal<WebState>({ ...initialState, ...overrides })
   const calls: Array<Call> = []
   const update = (next: (current: WebState) => WebState): void => {
@@ -29,6 +36,8 @@ const makeStore = (overrides: Partial<WebState> = {}) => {
   }
   const store: SessionStore = {
     state,
+    watched: () => watched,
+    sendTo: (sessionId, command) => calls.push({ kind: 'sendTo', sessionId, command }),
     start: () => undefined,
     stop: () => undefined,
     setDraft: (text) => {
@@ -49,54 +58,90 @@ const makeStore = (overrides: Partial<WebState> = {}) => {
 }
 
 describe('the Solid page', () => {
-  test('the rail lists the sessions and marks the one on screen', () => {
-    const { store, calls } = makeStore({
-      sessions: [
-        { id: 'aaaabbbb', cwd: '/one/work', createdAt: Date.now() - 60_000, title: 'first' },
-        { id: 'ccccdddd', cwd: '/two', createdAt: Date.now() - 7_200_000, title: '' },
-      ],
-      sessionId: 'aaaabbbb',
-    })
+  test('the board puts a session that waits first, and answers it in place', () => {
+    const asking = [
+      {
+        kind: 'session' as const,
+        event: { seq: 1, time: 1, type: 'turn/start', data: { turn: 1 } },
+      },
+      {
+        kind: 'session' as const,
+        event: {
+          seq: 2,
+          time: 2,
+          type: 'safety/approval/requested',
+          data: { callId: 'c9', tool: 'bash', reason: 'network' },
+        },
+      },
+    ].reduce(watchedAfter, emptyWatched)
+    const { store, calls } = makeStore(
+      {
+        sessions: [
+          { id: 'aaaabbbb', cwd: '/one/work', createdAt: Date.now() - 60_000, title: 'first' },
+          { id: 'ccccdddd', cwd: '/two', createdAt: Date.now() - 7_200_000, title: '' },
+        ],
+        sessionId: 'aaaabbbb',
+      },
+      new Map([['ccccdddd', asking]]),
+    )
 
-    const { container } = render(() => <Rail store={store} />)
+    const { container } = render(() => <Board store={store} />)
 
     const rows = container.querySelectorAll('button.session')
     expect(rows).toHaveLength(2)
-    expect(rows[0]?.classList.contains('active')).toBe(true)
-    expect(rows[0]?.textContent).toContain('first')
-    expect(rows[1]?.textContent).toContain('ccccdddd')
+    expect(rows[0]?.textContent).toContain('ccccdddd')
+    expect(rows[1]?.classList.contains('active')).toBe(true)
+    expect(container.querySelector('.board-asked')?.textContent).toBe('Approve bash? network')
 
+    const allow = [...container.querySelectorAll('.board-card button')].find(
+      (button) => button.textContent === 'Allow',
+    )
+    fireEvent.click(allow as Element)
+    expect(calls).toContainEqual({
+      kind: 'sendTo',
+      sessionId: 'ccccdddd',
+      command: { kind: 'approve', callId: 'c9', approved: true },
+    })
     fireEvent.click(rows[1] as Element)
-    expect(calls).toContainEqual({ kind: 'moveTo', id: 'ccccdddd' })
+    expect(calls).toContainEqual({ kind: 'moveTo', id: 'aaaabbbb' })
   })
 
-  test('the conversation renders markdown, tool output, and the live step', () => {
-    const { store } = makeStore({
-      conversation: {
-        ...emptyConversation,
-        blocks: [
-          { kind: 'user', text: 'hello' },
-          { kind: 'assistant', text: '# Heading' },
-          {
-            kind: 'tool',
-            callId: 'c1',
-            name: 'read',
-            summary: 'a.ts',
-            status: 'done',
-            result: 'a.ts',
-            output: 'the file said so',
-          },
-        ],
-        live: 'still writing',
-      },
+  test('a turn shows the ask, folds its work into one line, and ends in the answer', () => {
+    const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
+    const { store, calls } = makeStore({
+      conversation: { ...emptyConversation, blocks: [{ kind: 'user', text: 'hello' }] },
+      trace: traceOf([
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'agent/inbox/claimed', { message: { text: 'hello', source: 'user' } }),
+        at(3, 'step/start', { step: 1 }),
+        at(4, 'tool/call', {
+          callId: 'c1',
+          name: 'edit',
+          arguments: '{"path":"a.ts"}',
+          summary: 'a.ts',
+        }),
+        at(5, 'tool/result', {
+          callId: 'c1',
+          isError: false,
+          summary: 'lines: 1 → 2',
+          content: [{ type: 'text', text: 'the file said so' }],
+        }),
+        at(6, 'step/end', { step: 1 }),
+        at(7, 'step/start', { step: 2 }),
+        at(8, 'assistant/message', { content: [{ type: 'text', text: '# Heading' }] }),
+        at(9, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ]),
     })
 
     const { container } = render(() => <Conversation store={store} />)
 
     expect(container.querySelector('.block.user .body')?.textContent).toBe('hello')
-    expect(container.querySelector('.markdown h1')?.textContent).toBe('Heading')
+    expect(container.querySelector('.process-count')?.textContent).toBe('2 steps, 1 call')
+    expect(container.querySelector('.answer h1')?.textContent).toBe('Heading')
     expect(container.querySelector('.tool-card .tool-output')?.textContent).toBe('the file said so')
-    expect(container.querySelector('.block.live')?.textContent).toContain('still writing')
+
+    fireEvent.click(container.querySelector('button.change') as Element)
+    expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'changes', path: 'a.ts' } })
   })
 
   test('an approval answers through the store, from the buttons and from y / n', () => {
@@ -183,5 +228,22 @@ describe('the Solid page', () => {
     expect(row?.querySelector('.wf-took')?.textContent).toBe('2.0s')
     fireEvent.click(row as Element)
     expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'inspect', turn: 1, callId: 'c1' } })
+  })
+
+  test('the switch marks the reading on screen and hands over the other', () => {
+    const chosen: Array<Lens> = []
+    const { container } = render(() => (
+      <LensSwitch lens="answers" onChoose={(lens) => chosen.push(lens)} />
+    ))
+
+    const pressed = container.querySelector('button[aria-pressed="true"]')
+    expect(pressed?.textContent).toBe('Answers')
+    fireEvent.click(container.querySelector('button[data-lens="timeline"]') as Element)
+    expect(chosen).toEqual(['timeline'])
+    expect([lensFrom('timeline'), lensFrom('waterfall'), lensFrom(null)]).toEqual([
+      'timeline',
+      'answers',
+      'answers',
+    ])
   })
 })

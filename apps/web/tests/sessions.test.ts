@@ -112,12 +112,17 @@ describe('the session registry', () => {
           })
           const first = yield* registry.open('a')
           const second = yield* registry.open('a')
-          return { asked: fake.asked, same: first.host === second.host }
+          return {
+            asked: fake.asked,
+            same: first.host === second.host,
+            opened: registry.openedIds(),
+          }
         }),
       ),
     )
     expect(seen.asked).toEqual(['a'])
     expect(seen.same).toBe(true)
+    expect(seen.opened).toEqual(['boot', 'a'])
   })
 
   test('creating without an id opens a new session and serves it under its own id', async () => {

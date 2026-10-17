@@ -1,4 +1,5 @@
-import { Show } from 'solid-js'
+import { Show, createMemo } from 'solid-js'
+import { boardOf } from '../../client/board.ts'
 import { hintOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
 
@@ -8,13 +9,15 @@ export const Status = (props: { store: SessionStore }) => {
   /** An approval or a question waits on the reader: the one thing the strip should shout. */
   const waiting = (): boolean =>
     state().conversation.approval !== undefined || state().conversation.ask !== undefined
+  /** How the whole fleet stands, so a wait in another session is seen from any of them. */
+  const fleet = createMemo(() => boardOf(state().sessions, props.store.watched()))
   const hintClass = (): string =>
     'hint' + (state().problem !== '' ? ' error' : waiting() ? ' attention' : '')
   return (
     <>
       <button
         id="drawer-toggle"
-        class="drawer-toggle"
+        class={'drawer-toggle' + (fleet().waiting.length > 0 ? ' waiting' : '')}
         type="button"
         aria-label="sessions"
         aria-controls="sidebar"
@@ -30,6 +33,12 @@ export const Status = (props: { store: SessionStore }) => {
         </span>
       </Show>
       <span class={hintClass()}>{hintOf(state())}</span>
+      <Show when={fleet().waiting.length > 0}>
+        <span class="fleet waiting">{String(fleet().waiting.length) + ' waiting on you'}</span>
+      </Show>
+      <Show when={fleet().running.length > 0}>
+        <span class="fleet">{String(fleet().running.length) + ' running'}</span>
+      </Show>
     </>
   )
 }
