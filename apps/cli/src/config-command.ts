@@ -1,5 +1,6 @@
 import { loadBundledProfile, loadBundledProfileNamed } from '@jozo-harness/bundle-base'
 import { mergeRows, parseProfile, type Plugin, type PluginRow } from '@jozo-harness/kernel'
+import { parse, stringify } from 'yaml'
 import { Effect, Schema } from 'effect'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -177,7 +178,7 @@ type ParsedYaml = { readonly ok: true; readonly value: unknown } | { readonly ok
 
 const parseYaml = (raw: string): ParsedYaml => {
   try {
-    return { ok: true, value: Bun.YAML.parse(raw) }
+    return { ok: true, value: parse(raw) }
   } catch {
     return { ok: false }
   }
@@ -225,7 +226,8 @@ const checkedConfig = async (
   if (decoded._tag === 'Failure') {
     return { ok: false, problem: key + ' does not take ' + raw + ': ' + decoded.failure.message }
   }
-  const text = Bun.YAML.stringify(parsed.value).trim()
+  // The value goes after `key:` on one line, so collections are written in flow style.
+  const text = stringify(parsed.value, { collectionStyle: 'flow' }).trim()
   return text.includes('\n')
     ? { ok: false, problem: 'the value of ' + key + ' must fit on one line' }
     : { ok: true, text }

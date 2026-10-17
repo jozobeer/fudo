@@ -1,3 +1,4 @@
+import { parse } from 'yaml'
 import { Effect } from 'effect'
 
 /** One change to the settings file, told as text in and text out. */
@@ -52,7 +53,7 @@ const scalar = (value: string): string =>
 
 const readScalar = (raw: string): string | undefined => {
   try {
-    const parsed = Bun.YAML.parse(raw)
+    const parsed = parse(raw)
     return typeof parsed === 'string' ? parsed : undefined
   } catch {
     return undefined

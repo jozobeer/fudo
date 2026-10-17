@@ -4,6 +4,7 @@ import { cwdOf, titleOf, type SessionEvent, type SessionHeader } from '@jozo-har
 import { jsonlSessions, makeSessionQuery } from '@jozo-harness/session-jsonl'
 import type { TuiIo } from '@jozo-harness/tui'
 import { Effect, Stream } from 'effect'
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { type SearchHost } from '@jozo-harness/tools-tier1'
@@ -113,7 +114,7 @@ const loadInputs = (parsed: ParsedArgs, io: MainIo): Effect.Effect<CommandInputs
     )
     const patches = yield* Effect.forEach(parsed.patches, (path) =>
       readText(
-        () => Bun.file(path).text(),
+        () => readFile(path, 'utf8'),
         (cause) => `cannot read patch ${path}: ${String(cause)}`,
       ),
     )

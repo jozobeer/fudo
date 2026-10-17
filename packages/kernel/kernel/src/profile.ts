@@ -52,12 +52,22 @@ export function mergeRows(
 
 const configError = (message: string): PluginError => new PluginError({ code: 'config', message })
 
+/**
+ * A yaml parse failure on one line: the parser's message without its code
+ * frame, with the position it reported kept as "(line N, column M)".
+ */
+export const yamlFailure = (cause: unknown): string => {
+  const text = cause instanceof Error ? cause.message : String(cause)
+  const first = text.split('\n')[0] ?? ''
+  return first.replace(/ at line (\d+), column (\d+):$/, ' (line $1, column $2)')
+}
+
 /** Parses one YAML profile document. */
 export function parseProfile(text: string): Effect.Effect<Profile, PluginError> {
   return Effect.gen(function* () {
     const raw = yield* Effect.try({
       try: () => parse(text) as unknown,
-      catch: (cause) => configError(`profile is not valid YAML: ${String(cause)}`),
+      catch: (cause) => configError(`profile is not valid YAML: ${yamlFailure(cause)}`),
     })
     return yield* Schema.decodeUnknownEffect(ProfileSchema)(raw).pipe(
       Effect.mapError((issue) =>

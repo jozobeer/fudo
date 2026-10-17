@@ -85,7 +85,7 @@ export function runAsProcess(argv: ReadonlyArray<string>): void {
     })
 }
 
-if (import.meta.main) runAsProcess(Bun.argv.slice(2))
+if (import.meta.main) runAsProcess(process.argv.slice(2))
 
 /** Completes when the process receives SIGINT; the running turn is cancelled. */
 export function interruptOnSignal(): Effect.Effect<void> {

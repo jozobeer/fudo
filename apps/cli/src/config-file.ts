@@ -1,5 +1,7 @@
 import { existsSync } from 'node:fs'
-import { PluginError, PluginRowSchema, type PluginRow } from '@jozo-harness/kernel'
+import { readFile } from 'node:fs/promises'
+import { parse } from 'yaml'
+import { PluginError, PluginRowSchema, yamlFailure, type PluginRow } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 
 /** The settings file: defaults for the command line plus extra plugin rows. */
@@ -25,8 +27,8 @@ const configError = (message: string): PluginError => new PluginError({ code: 'c
 export function parseConfigText(text: string): Effect.Effect<JozoHarnessConfig, PluginError> {
   return Effect.gen(function* () {
     const raw = yield* Effect.try({
-      try: () => Bun.YAML.parse(text) as unknown,
-      catch: (cause) => configError('settings are not valid YAML: ' + String(cause)),
+      try: () => parse(text) as unknown,
+      catch: (cause) => configError('settings are not valid YAML: ' + yamlFailure(cause)),
     })
     // An empty document, or one holding only comments, is no settings at all.
     if (raw === null || raw === undefined) return {}
@@ -41,7 +43,7 @@ export function loadConfigFile(path: string): Effect.Effect<JozoHarnessConfig, P
   return Effect.gen(function* () {
     if (!existsSync(path)) return {}
     const text = yield* Effect.tryPromise({
-      try: () => Bun.file(path).text(),
+      try: () => readFile(path, 'utf8'),
       catch: (cause) => configError('cannot read ' + path + ': ' + String(cause)),
     })
     return yield* parseConfigText(text)

@@ -24,6 +24,7 @@
     "@jozo-harness/tui": "workspace:*",
     "@jozo-harness/ui-host": "workspace:*",
     "@jozo-harness/web": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "4.0.3",
+    "yaml": "2.9.1"
   }
 }
