@@ -1,13 +1,7 @@
 import { For, Index, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
 import { renderMarkdown } from '../../client/markdown.ts'
-import {
-  toolsOf,
-  traceOf,
-  type TraceStep,
-  type TraceTool,
-  type TraceTurn,
-} from '../../client/trace.ts'
+import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../client/trace.ts'
 import { spanOf } from '../edits.ts'
 import type { SessionStore } from '../store.ts'
 
@@ -149,7 +143,7 @@ const Turn = (props: { turn: TraceTurn; live: string; now: number; store: Sessio
  * reader opened stays open while the turn grows.
  */
 export const Turns = (props: { store: SessionStore }) => {
-  const turns = createMemo(() => traceOf(props.store.state().log))
+  const turns = createMemo(() => props.store.state().trace)
   const now = createNow()
   return (
     <Index each={turns()}>

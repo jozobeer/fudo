@@ -13,6 +13,7 @@ import { Waterfall } from '../components/waterfall.tsx'
 import { LensSwitch } from '../components/lens-switch.tsx'
 import { lensFrom, type Lens } from '../lens.ts'
 import type { SessionStore } from '../store.ts'
+import { traceOf } from '../../client/trace.ts'
 
 /** One call a component made, in the order it made them. */
 type Call =
@@ -109,7 +110,7 @@ describe('the Solid page', () => {
     const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
     const { store, calls } = makeStore({
       conversation: { ...emptyConversation, blocks: [{ kind: 'user', text: 'hello' }] },
-      log: [
+      trace: traceOf([
         at(1, 'turn/start', { turn: 1 }),
         at(2, 'agent/inbox/claimed', { message: { text: 'hello', source: 'user' } }),
         at(3, 'step/start', { step: 1 }),
@@ -129,7 +130,7 @@ describe('the Solid page', () => {
         at(7, 'step/start', { step: 2 }),
         at(8, 'assistant/message', { content: [{ type: 'text', text: '# Heading' }] }),
         at(9, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-      ],
+      ]),
     })
 
     const { container } = render(() => <Conversation store={store} />)
@@ -211,13 +212,13 @@ describe('the Solid page', () => {
   test('the trace draws each call on its turn, and a call opens in the inspector', () => {
     const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
     const { store, calls } = makeStore({
-      log: [
+      trace: traceOf([
         at(1, 'turn/start', { turn: 1 }),
         at(2, 'step/start', { step: 1 }),
         at(3, 'tool/call', { callId: 'c1', name: 'bash', arguments: '{}', summary: 'pnpm test' }),
         at(5, 'tool/result', { callId: 'c1', isError: true, summary: 'exit 1', content: [] }),
         at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-      ],
+      ]),
     })
 
     const { container } = render(() => <Waterfall store={store} />)
