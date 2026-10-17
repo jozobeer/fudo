@@ -23,7 +23,6 @@ import {
   checkpointOf,
   cwdOf,
   deriveMessages,
-  IMAGE_REFERENCE_TOKENS,
   lastRequestHeader,
   lastRuntimeContext,
   messageBudgetOf,
@@ -132,7 +131,6 @@ const agentLoopEffect = (
       thresholdRatio: config.thresholdRatio ?? DEFAULT_COMPACT_THRESHOLD_RATIO,
       headroomTokens: config.headroomTokens ?? DEFAULT_COMPACT_HEADROOM_TOKENS,
       reserveTokens: config.maxTokens ?? 0,
-      imageTokens: llm.capabilities.imageTokens ?? IMAGE_REFERENCE_TOKENS,
     }
     const compact: CompactOptions = {
       retainTokens:
