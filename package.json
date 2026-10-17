@@ -6,10 +6,10 @@
     "typecheck": "tsc && tsc -p apps/web/client",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
-    "coverage:gate": "bun run scripts/coverage-gate.ts",
-    "doc:gate": "bun run scripts/doc-gate.ts",
-    "duplication": "bun run scripts/duplication-gate.ts",
-    "ab": "bun run scripts/ab/run.ts",
+    "coverage:gate": "node scripts/coverage-gate.ts",
+    "doc:gate": "node scripts/doc-gate.ts",
+    "duplication": "node scripts/duplication-gate.ts",
+    "ab": "node scripts/ab/run.ts",
     "lint": "vp lint --deny-warnings",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@types/bun": "1.4.3",
     "@types/node": "26.6.5",
+    "jscpd": "5.4.1",
     "typescript": "7.0.2",
     "vite-plus": "1.3.0"
   },

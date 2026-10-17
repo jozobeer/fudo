@@ -4,7 +4,7 @@
  *
  * Run it from the repo root with both harnesses configured:
  *
- *   bun run scripts/ab/run.ts
+ *   node scripts/ab/run.ts
  *
  * Both harnesses are pointed at the same Ollama Cloud model. jozo-harness reads the key
  * from ~/.config/jzh/secrets.env on its own; dsh is given it here (from the
@@ -14,10 +14,12 @@
  * reported, not hidden.
  */
 
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { zstdDecompressSync } from 'node:zlib'
 import { dshMetrics, jozoHarnessMetrics, type AbEvent, type AbMetrics } from './metrics.ts'
 import { tableOf, type Cell } from './table.ts'
 import { TASKS, type AbTask } from './tasks.ts'
@@ -106,9 +108,9 @@ const jsonl = (text: string): ReadonlyArray<AbEvent> =>
     }
   })
 
-/** The dsh log is zstd-compressed; Bun decodes it without a helper process. */
+/** The dsh log is zstd-compressed; node:zlib decodes it without a helper process. */
 const zstdJsonl = (path: string): ReadonlyArray<AbEvent> =>
-  jsonl(new TextDecoder().decode(Bun.zstdDecompressSync(readFileSync(path))))
+  jsonl(new TextDecoder().decode(zstdDecompressSync(readFileSync(path))))
 
 /** A log that cannot be counted spoils its own run, not the runs still to come. */
 const countedOf = (count: () => AbMetrics): AbMetrics | Error => {
@@ -136,15 +138,18 @@ const spawn = (
   env: Record<string, string>,
   timeout: number,
 ): { code: number | undefined; output: string } => {
-  const run = Bun.spawnSync([...argv], {
+  const [command, ...rest] = argv
+  const run = spawnSync(command ?? '', rest, {
     cwd,
     env,
-    stdout: 'pipe',
-    stderr: 'pipe',
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout,
     killSignal: 'SIGKILL',
   })
-  return { code: run.exitCode, output: run.stdout.toString() + run.stderr.toString() }
+  return {
+    code: run.status ?? undefined,
+    output: (run.stdout?.toString() ?? '') + (run.stderr?.toString() ?? ''),
+  }
 }
 
 const jozoHarnessPatch = (sessions: string): string =>
@@ -177,7 +182,7 @@ const runJozoHarness = async (
   const started = Date.now()
   const { code, output } = spawn(
     [
-      'bun',
+      process.execPath,
       join(root, 'apps', 'cli', 'src', 'run.ts'),
       '--patch',
       patch,

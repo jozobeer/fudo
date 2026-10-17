@@ -8,6 +8,7 @@
  * session past the line, where a task over files can be answered by reading less.
  */
 
+import { readFile } from 'node:fs/promises'
 import type { AbTask } from './tasks.ts'
 
 const LINES = 4_000
@@ -24,9 +25,7 @@ export const longPrompt: AbTask = {
   files: {},
   timeoutMs: 600_000,
   done: async (workspace) => {
-    const text = await Bun.file(workspace + '/done.md')
-      .text()
-      .catch(() => '')
+    const text = await readFile(workspace + '/done.md', 'utf8').catch(() => '')
     return text.includes('status: ok')
   },
 }

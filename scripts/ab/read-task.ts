@@ -9,6 +9,7 @@
  * the line has to be crossed.
  */
 
+import { readFile } from 'node:fs/promises'
 import type { AbTask } from './tasks.ts'
 
 const FILE_COUNT = 16
@@ -46,9 +47,7 @@ export const readReport: AbTask = {
   files: files(),
   timeoutMs: 1_200_000,
   done: async (workspace) => {
-    const report = await Bun.file(workspace + '/report.md')
-      .text()
-      .catch(() => '')
+    const report = await readFile(workspace + '/report.md', 'utf8').catch(() => '')
     return Array.from({ length: FILE_COUNT }, (_, index) => markerOf(index)).every((marker) =>
       report.includes(marker),
     )

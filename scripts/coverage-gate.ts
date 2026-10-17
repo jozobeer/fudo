@@ -14,18 +14,21 @@ interface Totals {
   functions: { hit: number; found: number }
 }
 
+import { spawnSync } from 'node:child_process'
+
 const { mkdtemp, readFile, readdir, rm } = await import('node:fs/promises')
 const { tmpdir } = await import('node:os')
 const { join } = await import('node:path')
 
 const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-coverage-'))
-const run = Bun.spawnSync(
-  ['bun', 'test', '--coverage', '--coverage-reporter=lcov', '--coverage-dir', directory],
-  { stdio: ['inherit', 'inherit', 'inherit'], cwd: process.cwd() },
+const run = spawnSync(
+  'bun',
+  ['test', '--coverage', '--coverage-reporter=lcov', '--coverage-dir', directory],
+  { stdio: 'inherit', cwd: process.cwd() },
 )
-if (run.exitCode !== 0) {
+if (run.status !== 0) {
   await rm(directory, { recursive: true, force: true })
-  process.exit(run.exitCode ?? 1)
+  process.exit(run.status ?? 1)
 }
 
 const totals: Totals = {

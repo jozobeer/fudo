@@ -7,6 +7,7 @@
  * comparing them with its own reference, never with anything in the workspace.
  */
 
+import { spawnSync } from 'node:child_process'
 import type { AbTask } from './tasks.ts'
 
 interface RuleKind {
@@ -238,12 +239,19 @@ const answersOf = (
     `}`,
     `console.log(JSON.stringify(answers))`,
   ].join('\n')
-  const run = Bun.spawnSync(
-    ['bun', '-e', script, JSON.stringify(inputs), JSON.stringify(RULES.map((rule) => rule.id))],
-    { cwd: workspace, stdout: 'pipe', stderr: 'pipe', timeout: 60_000 },
+  const run = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      script,
+      JSON.stringify(inputs),
+      JSON.stringify(RULES.map((rule) => rule.id)),
+    ],
+    { cwd: workspace, stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000 },
   )
   try {
-    return JSON.parse(run.stdout.toString()) as Record<string, ReadonlyArray<number | null>>
+    return JSON.parse(run.stdout?.toString() ?? '') as Record<string, ReadonlyArray<number | null>>
   } catch {
     return {}
   }

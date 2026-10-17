@@ -4,6 +4,7 @@
  * never from what the model said about itself.
  */
 
+import { readFile } from 'node:fs/promises'
 import { findDisagreement } from './find-task.ts'
 import { longPrompt } from './prompt-task.ts'
 import { readReport } from './read-task.ts'
@@ -21,10 +22,7 @@ export interface AbTask {
   readonly done: (workspace: string) => Promise<boolean>
 }
 
-const textOf = async (path: string): Promise<string> =>
-  Bun.file(path)
-    .text()
-    .catch(() => '')
+const textOf = async (path: string): Promise<string> => readFile(path, 'utf8').catch(() => '')
 
 export const TASKS: ReadonlyArray<AbTask> = [
   {

@@ -10,6 +10,7 @@
  * from what the model said about itself.
  */
 
+import { readFile } from 'node:fs/promises'
 import type { AbTask } from './tasks.ts'
 
 const FILE_COUNT = 40
@@ -72,9 +73,7 @@ export const findDisagreement: AbTask = {
   files: files(),
   timeoutMs: 1_200_000,
   done: async (workspace) => {
-    const answer = await Bun.file(workspace + '/answer.md')
-      .text()
-      .catch(() => '')
+    const answer = await readFile(workspace + '/answer.md', 'utf8').catch(() => '')
     return (
       answer.includes(faultyName) &&
       answer.includes(faultyCrate) &&
