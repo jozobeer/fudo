@@ -151,8 +151,25 @@ const approvalHtml = (conversation: Conversation): string => {
   )
 }
 
+/** What a session that has not been asked anything says. */
+const welcomeHtml = (): string =>
+  '<section class="welcome"><h2>New session</h2>' +
+  '<p class="welcome-lead">Nothing has been said yet. Type below and press Enter.</p>' +
+  '<ul class="welcome-hints">' +
+  '<li><code>/help</code> lists what a session answers; <code>/status</code> says where it stands</li>' +
+  '<li>a shell command asks before it runs</li>' +
+  '<li>the rail carries what the session works toward, and the sheets carry its turns, jobs and settings</li>' +
+  '</ul></section>'
+
+const isEmpty = (conversation: Conversation): boolean =>
+  conversation.blocks.length === 0 &&
+  conversation.live === '' &&
+  conversation.approval === undefined &&
+  conversation.ask === undefined
+
 /** One HTML string for the whole conversation; the DOM layer replaces it. */
 export const renderConversation = (conversation: Conversation): string => {
+  if (isEmpty(conversation)) return welcomeHtml()
   const live =
     conversation.live === ''
       ? ''
@@ -167,14 +184,18 @@ const basenameOf = (path: string): string => {
   return parts[parts.length - 1] ?? path
 }
 
-const clockOf = (time: number): string => {
-  const at = new Date(time)
-  const hours = String(at.getHours()).padStart(2, '0')
-  const minutes = String(at.getMinutes()).padStart(2, '0')
-  return hours + ':' + minutes
+/** How long ago a session started, the way a rail usually says it. */
+export const whenOf = (at: number, now: number): string => {
+  const minutes = Math.floor((now - at) / 60_000)
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return String(minutes) + 'm'
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return String(hours) + 'h'
+  if (hours < 48) return 'yesterday'
+  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-const sessionRow = (state: WebState, summary: SessionSummary): string => {
+const sessionRow = (state: WebState, summary: SessionSummary, now: number): string => {
   const active = summary.id === state.sessionId ? ' active' : ''
   const short = summary.id.slice(0, 8)
   return (
@@ -185,7 +206,7 @@ const sessionRow = (state: WebState, summary: SessionSummary): string => {
     '" type="button"><span class="session-name">' +
     text(summary.title === '' ? short : summary.title) +
     '</span><span class="session-when">' +
-    clockOf(summary.createdAt) +
+    whenOf(summary.createdAt, now) +
     '</span><span class="session-where">' +
     text(short + ' · ' + basenameOf(summary.cwd)) +
     '</span></button>'
@@ -440,8 +461,16 @@ export const renderSheet = (state: WebState): string => {
 }
 
 /** The left rail: every session the store holds, the one on screen marked. */
-export const renderSessions = (state: WebState): string =>
-  state.sessions.map((summary) => sessionRow(state, summary)).join('')
+export const renderSessions = (state: WebState, now: number = Date.now()): string =>
+  state.sessions.map((summary) => sessionRow(state, summary, now)).join('')
+
+/** The seat at the composer: which model answers, and the way to the sheet that changes it. */
+export const renderSeat = (state: WebState): string =>
+  state.info.model === ''
+    ? ''
+    : '<button id="seat-model" class="seat-chip" type="button" title="the model this run uses">' +
+      text(state.info.model) +
+      '</button>'
 
 const hintOf = (state: WebState): string => {
   if (state.problem !== '') return state.problem
@@ -461,7 +490,6 @@ export const renderStatus = (state: WebState): string => {
     '"></span>' +
     '<span class="title">jozo-harness</span>' +
     (info.cwd === '' ? '' : '<span class="where">' + text(info.cwd) + '</span>') +
-    (info.model === '' ? '' : '<span class="model">' + text(info.model) + '</span>') +
     '<span class="hint' +
     (state.problem === '' ? '' : ' error') +
     '">' +

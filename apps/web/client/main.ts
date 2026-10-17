@@ -25,6 +25,7 @@ import {
   renderSheet,
   renderQueue,
   renderRail,
+  renderSeat,
   renderSessions,
   renderStatus,
 } from './view.ts'
@@ -39,6 +40,7 @@ const sessionListElement = document.getElementById('session-list')
 const railFootElement = document.getElementById('rail-foot')
 const panelElement = document.getElementById('panel')
 const queueElement = document.getElementById('queue')
+const seatElement = document.getElementById('seat')
 if (
   conversationElement === null ||
   statusElement === null ||
@@ -50,6 +52,7 @@ if (
   railFootElement === null ||
   panelElement === null ||
   queueElement === null ||
+  seatElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
   throw new Error('the page is missing its skeleton')
@@ -88,6 +91,7 @@ const paint = (): void => {
   railFootElement.innerHTML = renderRail(state)
   panelElement.innerHTML = renderSheet(state)
   queueElement.innerHTML = renderQueue(state)
+  seatElement.innerHTML = renderSeat(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
 
@@ -366,6 +370,12 @@ const sheetActions: Readonly<Record<string, () => void>> = {
     }
   },
 }
+
+// The seat names the model; pressing it opens the sheet that changes it.
+seatElement.addEventListener('click', (event) => {
+  const target = event.target
+  if (target instanceof HTMLButtonElement && target.id === 'seat-model') toggleSheet('settings')
+})
 
 panelElement.addEventListener('click', (event) => {
   const target = event.target

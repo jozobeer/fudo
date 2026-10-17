@@ -838,6 +838,55 @@ footer {
   background: var(--panel);
 }
 
+.welcome {
+  max-width: 46rem;
+  margin: 12vh auto 0;
+}
+
+.welcome h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.welcome-lead {
+  margin: 0 0 14px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.welcome-hints {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.welcome-hints code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.seat-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.seat-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 #queue:empty {
   display: none;
 }

@@ -19,7 +19,9 @@ import {
   renderConversation,
   renderQueue,
   renderRail,
+  renderSeat,
   renderSheet,
+  whenOf,
   renderSessions,
   renderStatus,
 } from '../client/view.ts'
@@ -219,6 +221,31 @@ describe('the browser view', () => {
     expect(renderSheet(initialState)).toBe('')
     const open = withSheet(initialState, { kind: 'settings' })
     expect(renderSheet(open)).toContain('reading the settings')
+  })
+
+  test('a session nobody has asked anything shows what the page can do', () => {
+    const welcome = renderConversation(emptyConversation)
+    expect(welcome).toContain('New session')
+    expect(welcome).toContain('/help')
+    expect(welcome).toContain('asks before it runs')
+    const said = fold([session('user/message', { text: 'hi', source: 'user' })])
+    expect(renderConversation(said)).not.toContain('welcome-hints')
+  })
+
+  test('the rail says how long ago each session started', () => {
+    const now = 1_700_000_000_000
+    expect(whenOf(now - 30_000, now)).toBe('now')
+    expect(whenOf(now - 5 * 60_000, now)).toBe('5m')
+    expect(whenOf(now - 3 * 3_600_000, now)).toBe('3h')
+    expect(whenOf(now - 30 * 3_600_000, now)).toBe('yesterday')
+    expect(whenOf(now - 240 * 3_600_000, now)).not.toMatch(/^(now|\d+[mh]|yesterday)$/)
+  })
+
+  test('the composer seat names the model that answers', () => {
+    expect(renderSeat(initialState)).toBe('')
+    const known = { ...initialState, info: { cwd: '/work', model: 'stub/model', turns: 1 } }
+    expect(renderSeat(known)).toContain('stub/model')
+    expect(renderSeat(known)).toContain('id="seat-model"')
   })
 
   test('the ledger lists what each turn did and how long it took', () => {
