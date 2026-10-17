@@ -100,7 +100,7 @@ describe('jzh models', () => {
 
     const code = await Effect.runPromise(main(['models', ...flags], io))
 
-    server.stop(true)
+    await server.stop(true)
     await tearDown()
     // The pair, so a failure says why: this one flaked once in forty runs of the suite.
     expect({ code, err }).toEqual({ code: 0, err: [] })
@@ -116,7 +116,7 @@ describe('jzh models', () => {
 describe('jzh models failures', () => {
   test('an unreachable provider is reported as one line and exits 1', async () => {
     const { server, baseUrl } = serveProvider([])
-    server.stop(true)
+    await server.stop(true)
     const { tearDown, flags } = await setUp(baseUrl)
     const { io, out, err } = collect()
 
@@ -141,7 +141,7 @@ describe('the model a run uses', () => {
 
     const code = await Effect.runPromise(main([...flags, 'go'], io))
 
-    server.stop(true)
+    await server.stop(true)
     await tearDown()
     // The stub answers 500, so the run ends at the provider. Asserting what the stub saw,
     // and the reason it failed, is what says whether the run got there at all.
@@ -160,7 +160,7 @@ describe('the model a run uses', () => {
 
     const code = await Effect.runPromise(main([...flags, '--model', 'x/flag-model', 'go'], io))
 
-    server.stop(true)
+    await server.stop(true)
     await tearDown()
     expect({ code, err, seen }).toEqual({
       code: 1,
@@ -177,7 +177,7 @@ describe('the model a run uses', () => {
 
     const code = await Effect.runPromise(main([...flags, 'go'], io))
 
-    server.stop(true)
+    await server.stop(true)
     await tearDown()
     expect(code).toBe(1)
     expect(err).toEqual([

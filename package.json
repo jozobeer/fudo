@@ -1,33 +1,29 @@
 {
   "name": "@jozo-harness/root",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*/*"
-  ],
   "type": "module",
   "scripts": {
-    "typecheck": "tsc",
-    "typecheck:web": "tsc -p apps/web/client",
+    "typecheck": "tsc && tsc -p apps/web/client",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "coverage:gate": "bun run scripts/coverage-gate.ts",
     "doc:gate": "bun run scripts/doc-gate.ts",
     "duplication": "bun run scripts/duplication-gate.ts",
     "ab": "bun run scripts/ab/run.ts",
-    "lint": "oxlint --deny-warnings",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
+    "lint": "vp lint --deny-warnings",
+    "fmt": "vp fmt",
+    "fmt:check": "vp fmt --check",
     "complexity": "cccc --top-cognitive 10 --table --exclude '**/dist/**' apps packages",
-    "check:static": "bun run fmt:check && bun run lint && bun run typecheck && bun run typecheck:web && bun run doc:gate && bun run duplication && bun run complexity",
-    "check": "bun run check:static && bun run coverage:gate",
+    "check:static": "vp check && vp run lint && vp run typecheck && vp run doc:gate && vp run duplication && vp run complexity && vp run rust:check",
+    "check": "vp run check:static && vp run coverage:gate",
     "prepare": "git config core.hooksPath .githooks",
     "build:web": "cd apps/web && bun run build"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",
-    "oxfmt": "0.72.0",
-    "oxlint": "1.87.0",
-    "typescript": "7.0.2"
-  }
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2",
+    "vite-plus": "1.3.0"
+  },
+  "packageManager": "pnpm@11.28.5"
 }

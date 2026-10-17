@@ -40,7 +40,10 @@ const asError = (
   value: unknown,
 ): { readonly code: number; readonly message: string } | undefined =>
   isRecord(value)
-    ? { code: Number(value.code ?? 0), message: String(value.message ?? '') }
+    ? {
+        code: Number(value.code ?? 0),
+        message: typeof value.message === 'string' ? value.message : '',
+      }
     : undefined
 
 /** A response line, or nothing when the line is a notification or is malformed. */

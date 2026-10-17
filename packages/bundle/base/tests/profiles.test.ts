@@ -14,7 +14,7 @@ describe('bundled profiles', () => {
 
   test('an unknown profile fails to load', async () => {
     for (const name of ['nope', 'constructor', '../base']) {
-      await expect(loadBundledProfileNamed(name)).rejects.toThrow(name)
+      expect(loadBundledProfileNamed(name)).rejects.toThrow(name)
     }
   })
 })

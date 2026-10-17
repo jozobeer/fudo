@@ -30,8 +30,8 @@ describe('the tui through a real process', () => {
         stderr: 'pipe',
       },
     )
-    child.stdin.write('\u0004')
-    child.stdin.end()
+    void child.stdin.write('\u0004')
+    void child.stdin.end()
     const [out, err, code] = await Promise.all([
       new Response(child.stdout).text(),
       new Response(child.stderr).text(),

@@ -103,8 +103,8 @@ describe('the browser UI through the command', () => {
   test('a browser client drives a real turn and the static app is served', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-web-ws-'))
-    const ready = await Effect.runSync(Deferred.make<string>())
-    const stop = await Effect.runSync(Deferred.make<void>())
+    const ready = Effect.runSync(Deferred.make<string>())
+    const stop = Effect.runSync(Deferred.make<void>())
 
     const observed = await Effect.runPromise(
       Effect.scoped(

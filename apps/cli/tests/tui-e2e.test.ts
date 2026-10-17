@@ -134,7 +134,7 @@ const plugins = (
 const char = (value: string): KeyEvent => ({ kind: 'char', char: value })
 const enter: KeyEvent = { kind: 'enter' }
 const ctrlD: KeyEvent = { kind: 'ctrl', char: 'd' }
-const typed = (text: string): ReadonlyArray<KeyEvent> => [...text].map(char)
+const typed = (text: string): ReadonlyArray<KeyEvent> => Array.from(text).map(char)
 
 const later = (key: KeyEvent, millis: number): Stream.Stream<KeyEvent> =>
   Stream.fromEffect(Effect.sleep(millis)).pipe(Stream.map(() => key))

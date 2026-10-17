@@ -11,7 +11,7 @@ import {
 } from '../src/index.ts'
 
 const type = (text: string, from: EditorState = emptyEditor): EditorState =>
-  [...text].reduce((state, char) => insert(state, char), from)
+  Array.from(text).reduce((state, char) => insert(state, char), from)
 
 describe('editor', () => {
   test('inserting and backspacing keeps the cursor with the text', () => {

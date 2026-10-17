@@ -1,0 +1,5 @@
+# The Rust side of the tree. pnpm-workspace.yaml leaves crates/ out, and
+# `vp run rust:check` drives cargo from the same place as the other gates.
+[workspace]
+resolver = "3"
+members = ["crates/*"]

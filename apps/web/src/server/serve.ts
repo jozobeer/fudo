@@ -134,7 +134,9 @@ export const serveWeb = (options: ServeWebOptions): Effect.Effect<number> =>
 
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          server.stop(true)
+          // Bun's stop() is a promise here; the scope cannot wait, and the
+          // socket is closed either way.
+          void server.stop(true)
         }),
       )
       // Our schemas need no decoding services, but Effect types a stream RPC's

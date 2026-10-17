@@ -17,7 +17,7 @@ const conversation = (partial: Partial<Conversation>): Conversation => ({
 })
 const state = (partial: Partial<TuiState> = {}): TuiState => ({ ...initialTuiState, ...partial })
 const typed = (text: string) =>
-  [...text].reduce((editor, char) => insert(editor, char), emptyEditor)
+  Array.from(text).reduce((editor, char) => insert(editor, char), emptyEditor)
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {

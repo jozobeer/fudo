@@ -1,7 +1,0 @@
-[install]
-exact = true
-
-# Coverage is a gate, not a report, and the gate lives in
-# scripts/coverage-gate.ts: Bun 1.4.3 reads `coverageThreshold` from here and
-# then fails every run without a word, whatever the number is. The floors are
-# there, next to the comparison that explains which one fell below.

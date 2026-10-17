@@ -1,0 +1,5 @@
+# The workspace root. pnpm 11 reads this file, not the `workspaces` field in
+# package.json, and the crates/ tree is deliberately left out: cargo owns it.
+packages:
+  - 'apps/*'
+  - 'packages/*/*'

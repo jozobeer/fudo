@@ -32,6 +32,10 @@ const adapter = (response: Response) =>
     fetch: (() => Promise.resolve(response)) as unknown as typeof fetch,
   })
 
+/** The body a request sent, read back as the JSON text the adapter wrote. */
+const bodyOf = (init: RequestInit): string =>
+  typeof init.body === 'string' ? init.body : (JSON.stringify(init.body) ?? '')
+
 const collect = (response: Response) => Stream.runCollect(adapter(response).stream(request))
 
 describe('openAiAdapter', () => {
@@ -51,7 +55,7 @@ describe('openAiAdapter', () => {
       },
       fetch: ((url: string, init: RequestInit) => {
         bodies.push(String(url))
-        bodies.push(String(init.body))
+        bodies.push(bodyOf(init))
         return Promise.resolve(new Response(fixture, { status: 200 }))
       }) as unknown as typeof fetch,
     })
@@ -82,7 +86,7 @@ describe('openAiAdapter', () => {
         promptCacheControl: false,
       },
       fetch: ((_url: string, init: RequestInit) => {
-        bodies.push(String(init.body))
+        bodies.push(bodyOf(init))
         return Promise.resolve(new Response(fixture, { status: 200 }))
       }) as unknown as typeof fetch,
     })

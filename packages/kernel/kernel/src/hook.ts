@@ -34,7 +34,7 @@ export type Waterfall<F extends (...args: any[]) => Effect.Effect<any, any, any>
 /** Hooks known to the kernel. Packages add their own by declaration merging. */
 export interface HookMap {}
 
-export type HookName = keyof HookMap & string
+export type HookName = keyof HookMap
 
 type HookFunction<H> =
   H extends Hook<HookKind, infer F> ? (F extends (...args: any[]) => any ? F : never) : never

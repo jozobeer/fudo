@@ -1,0 +1,7 @@
+# Cargo refuses a virtual manifest with no members, so the workspace carries one
+# placeholder until the first real crate lands.
+[package]
+name = "jozo-harness-placeholder"
+version = "0.0.0"
+edition = "2024"
+publish = false

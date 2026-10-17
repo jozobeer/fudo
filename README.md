@@ -10,35 +10,35 @@
 |---|---|
 | `apps/cli` | `jzh` 本体。引数の解釈、設定と鍵の読み込み、profile の組み立て、`config` / `auth` / `models` / `sessions` / `web` の入口 |
 | `apps/tui` | 端末 UI。会話と承認・質問を 1 画面に描く |
-| `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client/` を `bun run build:web` で `dist` に束ねる |
+| `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client/` を `pnpm run build:web` で `dist` に束ねる |
 | `packages/kernel/kernel` | profile の解析・マージと plugin のローダ、hook |
 | `packages/core/*` | agent と turn（`agent` / `agent-loop`）、session とそのログ（`session` / `session-jsonl`）、tool（`tools` / `tools-tier0` / `tools-tier1`）、許可と sandbox（`safety`）、system prompt（`system-prompt`）、scope |
 | `packages/llm/*` | provider に依らない LLM の型（`llm`）と OpenAI 互換 adapter（`llm-openai`） |
 | `packages/ui/*` | UI とコアの間の rpc の約束（`protocol`）、ログを会話に畳む共有の描画（`view`）、承認と質問の待ち合わせ（`host`） |
 | `packages/bundle/base` | 同梱の `base` / `headless` / `repl` profile |
 | `packages/test-support/replay` | 記録した SSE を再生する adapter（テストと snapshot 用） |
-| `scripts/` | `bun run check` の中身（doc / duplication / coverage の gate）と dsh との A/B |
+| `scripts/` | `pnpm run check` の中身（doc / duplication / coverage の gate）と dsh との A/B |
 
 `tools-tier1` が既定でモデルに渡すのは todo、`ask_user`、skill、`web_fetch`、`read_image`、job、goal、schedule、`working_directory`、`plugin` 行の編集である（MCP のツールは `@jozo-harness/mcp` の行があるとき、`web_search` は検索プロバイダを設定したときだけ加わる）。subagent と team は `subagents` を有効にした構成でのみ加わり、いまの CLI にはそれを有効にする指定が無い。TUI と Web は同じ `@jozo-harness/ui-view` を通してログを読むので、片方で書かれたログをもう片方でも同じ形で描ける。
 
 ## はじめかた
 
-Bun と依存を入れる。[mise](https://mise.jdx.dev/) を使うと mise.toml が指す版の Bun が入る。
+Node・pnpm・Rust と依存を入れる。[mise](https://mise.jdx.dev/) を使うと mise.toml が指す版が入る。
 
 ```sh
 mise install
-bun install
+pnpm install
 ```
 
-`jzh` をコマンドとして使うには、CLI のパッケージでグローバルリンクを張り、`~/.bun/bin` を PATH に足す。
+`jzh` をコマンドとして使うには、CLI のパッケージでグローバルリンクを張り、pnpm の global bin を PATH に足す。
 
 ```sh
-(cd apps/cli && bun link)   # ~/.bun/bin/jzh がこのリポジトリを指す
-export PATH="$HOME/.bun/bin:$PATH"  # fish なら fish_add_path ~/.bun/bin
+(cd apps/cli && pnpm link --global)   # pnpm bin -g が指す場所に jzh が入る
+export PATH="$(pnpm bin -g):$PATH"    # fish なら fish_add_path (pnpm bin -g)
 jzh --help
 ```
 
-リンクは作業ツリーを直接指すので、ソースの編集は次の実行からそのまま効く。外すときは `(cd apps/cli && bun unlink)` を実行する。
+リンクは作業ツリーを直接指すので、ソースの編集は次の実行からそのまま効く。外すときは `(cd apps/cli && pnpm unlink --global)` を実行する。
 
 ### API キー
 
@@ -78,7 +78,7 @@ jzh --dump-config                       # 読み込んだプロファイルと�
 ブラウザ側を先に束ねる。初回と `apps/web/client/` を変えたときに走らせる。
 
 ```sh
-bun run build:web     # apps/web/dist に束ねる
+pnpm run build:web    # apps/web/dist に束ねる
 jzh web              # http://127.0.0.1:<port>/ を stderr に出す（--port で固定）
 ```
 
@@ -88,11 +88,13 @@ jzh web              # http://127.0.0.1:<port>/ を stderr に出す（--port �
 
 ## 開発
 
-変更したら `bun run check` を通す。fmt → lint → typecheck → doc gate → 重複検出 → complexity → テスト（coverage の床つき）の順に走る。`bun install` が pre-push hook を有効にし、push 前に test 以外の静的チェック（`bun run check:static`）が走る。同じ `bun run check` を GitHub Actions（[.github/workflows/check.yml](.github/workflows/check.yml)、macOS）が push と PR ごとに走らせるので、手元の hook は速いままにしてある。
+変更したら `pnpm run check` を通す。fmt → lint → typecheck → doc gate → 重複検出 → complexity → テスト（coverage の床つき）の順に走る。`pnpm install` が pre-push hook を有効にし、push 前に test 以外の静的チェック（`pnpm run check:static`）が走る。同じ `pnpm run check` を GitHub Actions（[.github/workflows/check.yml](.github/workflows/check.yml)、macOS）が push と PR ごとに走らせるので、手元の hook は速いままにしてある。
 
 ```sh
-bun run check
+pnpm run check
 ```
+
+fmt・lint・型検査は Vite+ が `vp check` で束ねる（テストと gate まで含むのは `pnpm run check`）。設定は `vite.config.ts` の `fmt` / `lint` / `run` に閉じてあるので、Vite+ が邪魔をしたらその下の道具（Vitest / oxlint / oxfmt / tsdown）を devDependencies に足して直接呼ぶ道に切り替えられる。
 
 ## 参考元
 

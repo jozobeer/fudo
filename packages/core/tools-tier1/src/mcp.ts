@@ -84,8 +84,8 @@ export const startMcpServer = (
                   if (response.error !== undefined) reject(new Error(response.error.message))
                   else resolve(response.result)
                 })
-                server.stdin.write(encodeRequest(id, method, params))
-                server.stdin.flush()
+                void server.stdin.write(encodeRequest(id, method, params))
+                void server.stdin.flush()
               }),
           ).pipe(
             Effect.mapError(

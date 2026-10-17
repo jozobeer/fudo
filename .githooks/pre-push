@@ -1,2 +1,2 @@
 #!/bin/sh
-exec bun run check:static
+exec pnpm run check:static

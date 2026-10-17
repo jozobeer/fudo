@@ -35,7 +35,7 @@ describe('listModels', () => {
       listModels({ provider: 'acme', baseUrl, apiKeyEnv: 'ACME_KEY' }, {}),
     )
 
-    server.stop(true)
+    await server.stop(true)
     expect(routes).toEqual(ids.map((id) => 'acme/' + id).sort())
   })
 
@@ -47,7 +47,7 @@ describe('listModels', () => {
     await Effect.runPromise(listModels(endpoint, { ACME_KEY: key }))
     await Effect.runPromise(listModels(endpoint, { ACME_KEY: '' }))
 
-    server.stop(true)
+    await server.stop(true)
     expect(headers).toEqual(['Bearer ' + key, null])
   })
 
@@ -58,7 +58,7 @@ describe('listModels', () => {
       Effect.flip(listModels({ provider: 'acme', baseUrl, apiKeyEnv: 'ACME_KEY' }, {})),
     )
 
-    server.stop(true)
+    await server.stop(true)
     expect(error.message).toContain('HTTP 401')
     expect(error.message).toContain(baseUrl + '/models')
   })
@@ -70,7 +70,7 @@ describe('listModels', () => {
       Effect.flip(listModels({ provider: 'acme', baseUrl, apiKeyEnv: 'ACME_KEY' }, {})),
     )
 
-    server.stop(true)
+    await server.stop(true)
     expect(error.message).toContain('no models')
   })
 })
