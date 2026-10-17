@@ -3,9 +3,15 @@ import type { UiEvent } from '@jozo-harness/ui-protocol'
 import {
   applyUiEvent,
   initialState,
+  withConnection,
+  withDraft,
+  withModels,
+  withPane,
   withProblem,
+  withRun,
   withSession,
   withSessions,
+  withSettings,
   withTheme,
 } from '../src/ui/state.ts'
 
@@ -100,5 +106,32 @@ describe('the browser state', () => {
     const failed = withProblem(withSession(initialState, a), 'the session is gone')
     expect(failed.problem).toBe('the session is gone')
     expect(withSession(failed, b).problem).toBe('')
+  })
+
+  test('every move the page makes lands in the field it names', () => {
+    const settings = {
+      model: 'stub/model',
+      effort: 'low',
+      settingsPath: '/home/.config/jzh/config.yml',
+      cwd: '/work/one',
+      sessionRoot: '/home/.jzh/sessions',
+    }
+    const run = { goal: null, schedules: [], jobs: [], queued: ['hold this'] }
+    const connected = withConnection(initialState, true)
+    const drafted = withDraft(connected, 'half typed')
+    const shown = withSettings(drafted, settings)
+    const listed = withModels(shown, ['stub/model'])
+    const inspecting = withPane(listed, { kind: 'inspect', turn: 1, callId: 'c1' })
+    const state = withRun(inspecting, run)
+
+    expect(state.connected).toBe(true)
+    expect(state.draft).toBe('half typed')
+    expect(state.settings).toEqual(settings)
+    expect(state.models).toEqual(['stub/model'])
+    expect(state.pane).toEqual({ kind: 'inspect', turn: 1, callId: 'c1' })
+    expect(state.run).toEqual(run)
+    // None of the moves names the conversation or the trace, so both stay as they were.
+    expect(state.conversation).toBe(initialState.conversation)
+    expect(state.trace).toBe(initialState.trace)
   })
 })

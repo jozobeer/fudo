@@ -4,7 +4,7 @@
   "type": "module",
   "exports": "./src/server/index.ts",
   "scripts": {
-    "build": "vp build && vp -C client-solid build"
+    "build": "vp -C client-solid build"
   },
   "dependencies": {
     "@jozo-harness/ui-protocol": "workspace:*",

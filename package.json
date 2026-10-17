@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc && tsc -p apps/web/client && tsc -p apps/web/client-solid",
+    "typecheck": "tsc && tsc -p apps/web/client-solid",
     "test": "vp test",
     "test:coverage": "vp test --coverage",
     "coverage:gate": "node scripts/coverage-gate.ts",
@@ -17,7 +17,7 @@
     "check:static": "vp check && vp run lint && vp run typecheck && vp run doc:gate && vp run duplication && vp run complexity && vp run rust:check",
     "check": "vp run check:static && vp -C apps/web/client-solid test && vp run coverage:gate",
     "prepare": "git config core.hooksPath .githooks",
-    "build:web": "vp -C apps/web build && vp -C apps/web/client-solid build"
+    "build:web": "vp -C apps/web/client-solid build"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

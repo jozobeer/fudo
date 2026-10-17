@@ -89,11 +89,14 @@ describe('the browser UI through the command', () => {
 
   beforeAll(async () => {
     staticRoot = await mkdtemp(join(tmpdir(), 'jozo-harness-web-dist-'))
-    const build = spawn(['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build', '--outDir', staticRoot], {
-      cwd: join(import.meta.dirname, '../../..'),
-      stdout: 'ignore',
-      stderr: 'inherit',
-    })
+    const build = spawn(
+      ['pnpm', 'exec', 'vp', '-C', 'apps/web/client-solid', 'build', '--outDir', staticRoot],
+      {
+        cwd: join(import.meta.dirname, '../../..'),
+        stdout: 'ignore',
+        stderr: 'inherit',
+      },
+    )
     expect(await build.exited).toBe(0)
   }, 60_000)
 

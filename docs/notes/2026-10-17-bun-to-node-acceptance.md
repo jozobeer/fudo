@@ -5,7 +5,7 @@ jozo-harness の道具立てを Bun から pnpm + Node + Vite+ へ移した。�
 ## 何がどうなったか
 
 - パッケージマネージャは pnpm。`jzh:pnpm-workspace.yaml` がワークスペースを定義し、`jzh:.npmrc` が版を固定する。`bun.lock` と `bunfig.toml` は無い。
-- 道具立ては Vite+（`vp`）。fmt / lint / 型検査は `vp check`、テストは Vitest（`vp test`）、タスクは `vp run`、ブラウザの束ねは `vp -C apps/web build`、単一バイナリは `vp -C apps/cli pack`。設定は `jzh:vite.config.ts` に閉じてある。
+- 道具立ては Vite+（`vp`）。fmt / lint / 型検査は `vp check`、テストは Vitest（`vp test`）、タスクは `vp run`、ブラウザの束ねは `vp -C apps/web/client-solid build`、単一バイナリは `vp -C apps/cli pack`。設定は `jzh:vite.config.ts` に閉じてある。
 - ランタイムは Node。ソースとテストは `Bun.*` を呼ばず、`node:fs` / `node:child_process`（薄いラッパー `jzh:packages/kernel/process/src/index.ts`）/ `node:sqlite` / `node:zlib` / `node:path` の glob / `yaml` を使う。
 - テストは 213 ファイルが Vitest で走る（移行前は 206 ファイルが bun:test）。
 - 単一バイナリは Node SEA。profile とビルド済みページを資産として焼き込み、`jzh --dump-config` と `jzh web` が木の外でも動く。
