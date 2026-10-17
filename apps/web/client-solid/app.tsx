@@ -4,9 +4,10 @@ import { ContextPane } from './components/context-pane.tsx'
 import { Conversation } from './components/conversation.tsx'
 import { Board } from './components/board.tsx'
 import { Status } from './components/status.tsx'
+import { Waterfall } from './components/waterfall.tsx'
 import { createSessionStore, type SessionStore } from './store.ts'
 
-/** The page: the strip, and three columns with the composer under the middle one. */
+/** The page: the strip, the sessions drawer, the chat, the trace, and the inspector. */
 export const App = (props: { store?: SessionStore }) => {
   const store = props.store ?? createSessionStore()
   onMount(() => {
@@ -26,6 +27,7 @@ export const App = (props: { store?: SessionStore }) => {
           <Conversation store={store} />
           <Composer store={store} />
         </div>
+        <Waterfall store={store} />
         <aside id="context" aria-label="Context">
           <ContextPane store={store} />
         </aside>

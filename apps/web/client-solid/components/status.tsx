@@ -15,6 +15,16 @@ export const Status = (props: { store: SessionStore }) => {
     'hint' + (state().problem !== '' ? ' error' : waiting() ? ' attention' : '')
   return (
     <>
+      <button
+        id="drawer-toggle"
+        class="drawer-toggle"
+        type="button"
+        aria-label="sessions"
+        aria-controls="sidebar"
+        onClick={() => document.body.toggleAttribute('data-drawer')}
+      >
+        ☰
+      </button>
       <span class={'dot ' + (state().connected ? 'on' : 'off')} />
       <Show when={state().info.cwd !== ''}>
         {/* The strip clips the head of a long path; bdi keeps the path itself left to right. */}

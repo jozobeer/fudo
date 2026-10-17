@@ -9,6 +9,7 @@ import { ContextPane } from '../components/context-pane.tsx'
 import { Conversation } from '../components/conversation.tsx'
 import { Board } from '../components/board.tsx'
 import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
+import { Waterfall } from '../components/waterfall.tsx'
 import type { SessionStore } from '../store.ts'
 
 /** One call a component made, in the order it made them. */
@@ -203,5 +204,26 @@ describe('the Solid page', () => {
     )
     fireEvent.click(turns as Element)
     expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'trajectory' } })
+  })
+
+  test('the trace draws each call on its turn, and a call opens in the inspector', () => {
+    const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
+    const { store, calls } = makeStore({
+      log: [
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'step/start', { step: 1 }),
+        at(3, 'tool/call', { callId: 'c1', name: 'bash', arguments: '{}', summary: 'pnpm test' }),
+        at(5, 'tool/result', { callId: 'c1', isError: true, summary: 'exit 1', content: [] }),
+        at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ],
+    })
+
+    const { container } = render(() => <Waterfall store={store} />)
+
+    expect(container.querySelector('.wf-turn-failed')?.textContent).toBe('1 failed')
+    const row = container.querySelector('button.wf-row.tool.error')
+    expect(row?.querySelector('.wf-took')?.textContent).toBe('2.0s')
+    fireEvent.click(row as Element)
+    expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'inspect', turn: 1, callId: 'c1' } })
   })
 })
