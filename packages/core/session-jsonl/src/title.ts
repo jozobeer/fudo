@@ -1,6 +1,7 @@
 import { type SessionError, titleOfRecord } from '@jozo-harness/session'
 import { Effect } from 'effect'
 import { persistenceError } from './errors.ts'
+import { readHead } from './head.ts'
 
 export { TITLE_MAX_CHARS } from '@jozo-harness/session'
 
@@ -30,7 +31,7 @@ export const readTitle = (
 ): Effect.Effect<string, SessionError> =>
   Effect.gen(function* () {
     const text = yield* Effect.tryPromise({
-      try: () => Bun.file(path).slice(0, maxBytes).text(),
+      try: () => readHead(path, maxBytes),
       catch: (cause) => persistenceError(`cannot read ${path}`, cause),
     })
     for (const line of text.split('\n')) {

@@ -6,9 +6,9 @@ import {
   type SessionId,
   type SessionPersistence,
 } from '@jozo-harness/session'
-import { Database } from 'bun:sqlite'
+import { DatabaseSync } from 'node:sqlite'
 import { Effect } from 'effect'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isMissing, notFound, persistenceError } from './errors.ts'
 import { expandHome, SESSION_FILE_NAME } from './paths.ts'
@@ -127,6 +127,18 @@ const indexRowOf = (line: string): IndexRow | undefined => {
   return text === '' ? undefined : { seq, type, text }
 }
 
+/** Runs `work` in one transaction, rolling back when it throws. */
+const transaction = (database: DatabaseSync, work: () => void): void => {
+  database.exec('BEGIN')
+  try {
+    work()
+    database.exec('COMMIT')
+  } catch (error) {
+    database.exec('ROLLBACK')
+    throw error
+  }
+}
+
 const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS file_revisions (session_id TEXT PRIMARY KEY, mtime_ms REAL NOT NULL, size INTEGER NOT NULL)',
   "CREATE VIRTUAL TABLE IF NOT EXISTS event_text USING fts5(session_id UNINDEXED, seq UNINDEXED, type UNINDEXED, text, tokenize = 'unicode61')",
@@ -180,11 +192,11 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
   const fileOf = (id: SessionId): string => join(root, id, SESSION_FILE_NAME)
   // The index opens on the first search or sync: reading a session never
   // creates the file, and a run that only browses leaves the root as it was.
-  let database: Database | undefined
-  const db = (): Database => {
+  let database: DatabaseSync | undefined
+  const db = (): DatabaseSync => {
     if (database === undefined) {
-      database = new Database(options.indexPath ?? join(root, INDEX_FILE_NAME))
-      database.run(SCHEMA)
+      database = new DatabaseSync(options.indexPath ?? join(root, INDEX_FILE_NAME))
+      database.exec(SCHEMA)
     }
     return database
   }
@@ -247,24 +259,25 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
     revision: SessionRevision,
   ): void => {
     const store = db()
-    store.transaction(() => {
-      store.run('DELETE FROM event_text WHERE session_id = ?', [id])
+    transaction(store, () => {
+      store.prepare('DELETE FROM event_text WHERE session_id = ?').run(id)
       const insert = store.prepare(
         'INSERT INTO event_text (session_id, seq, type, text) VALUES (?, ?, ?, ?)',
       )
       for (const row of rows) insert.run(id, row.seq, row.type, row.text)
-      store.run(
-        'INSERT INTO file_revisions (session_id, mtime_ms, size) VALUES (?, ?, ?) ' +
-          'ON CONFLICT(session_id) DO UPDATE SET mtime_ms = excluded.mtime_ms, size = excluded.size',
-        [id, revision.mtimeMs, revision.size],
-      )
-    })()
+      store
+        .prepare(
+          'INSERT INTO file_revisions (session_id, mtime_ms, size) VALUES (?, ?, ?) ' +
+            'ON CONFLICT(session_id) DO UPDATE SET mtime_ms = excluded.mtime_ms, size = excluded.size',
+        )
+        .run(id, revision.mtimeMs, revision.size)
+    })
   }
 
   const readIndexRows = (id: SessionId): Effect.Effect<ReadonlyArray<IndexRow>, SessionError> =>
     Effect.gen(function* () {
       const text = yield* Effect.tryPromise({
-        try: () => Bun.file(fileOf(id)).text(),
+        try: () => readFile(fileOf(id), 'utf8'),
         catch: (cause) => persistenceError(`cannot read session ${id}`, cause),
       })
       return text.split('\n').flatMap((line) => {
@@ -275,7 +288,7 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
 
   const knownRevision = (id: SessionId): SessionRevision | undefined => {
     const row = asRecord(
-      db().query('SELECT mtime_ms, size FROM file_revisions WHERE session_id = ?').get(id),
+      db().prepare('SELECT mtime_ms, size FROM file_revisions WHERE session_id = ?').get(id),
     )
     const mtimeMs = row?.['mtime_ms']
     const size = row?.['size']
@@ -304,7 +317,7 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
       const present = new Set(summaries.map((summary) => summary.id))
       const store = db()
       const stored = store
-        .query('SELECT session_id FROM file_revisions')
+        .prepare('SELECT session_id FROM file_revisions')
         .all()
         .flatMap((row) => {
           const id = asRecord(row)?.['session_id']
@@ -312,8 +325,8 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
         })
       const removed = stored.filter((id) => !present.has(id))
       for (const id of removed) {
-        store.run('DELETE FROM event_text WHERE session_id = ?', [id])
-        store.run('DELETE FROM file_revisions WHERE session_id = ?', [id])
+        store.prepare('DELETE FROM event_text WHERE session_id = ?').run(id)
+        store.prepare('DELETE FROM file_revisions WHERE session_id = ?').run(id)
       }
       return { indexed, removed, skipped }
     })
@@ -328,7 +341,7 @@ export function makeSessionQuery(options: SessionQueryOptions): SessionQuery {
       const rows = yield* Effect.try({
         try: () =>
           db()
-            .query(SEARCH_SQL)
+            .prepare(SEARCH_SQL)
             .all(phraseOf(text), limit ?? options.limit ?? SEARCH_LIMIT),
         catch: (cause) => persistenceError('cannot search the session index', cause),
       }).pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<unknown>))

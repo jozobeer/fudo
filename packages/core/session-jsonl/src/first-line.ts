@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import { stat } from 'node:fs/promises'
 import { persistenceError } from './errors.ts'
+import { readHead } from './head.ts'
 import type { SessionError } from '@jozo-harness/session'
 
 /** How much of a log is read to find its first line. */
@@ -21,7 +22,7 @@ export const readFirstLine = (
       catch: (cause) => persistenceError(`cannot look at ${path}`, cause),
     })
     const text = yield* Effect.tryPromise({
-      try: () => Bun.file(path).slice(0, maxBytes).text(),
+      try: () => readHead(path, maxBytes),
       catch: (cause) => persistenceError(`cannot read ${path}`, cause),
     })
     const newline = text.indexOf('\n')
