@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { THEMES, themeAttribute, themeFrom } from '../client/theme.ts'
 
 describe('the theme a page reads', () => {

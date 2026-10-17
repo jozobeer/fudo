@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -103,7 +103,7 @@ describe('main', () => {
   })
 
   test('--patch overlays one row by id', async () => {
-    const dir = join(import.meta.dir, '.tmp')
+    const dir = join(import.meta.dirname, '.tmp')
     await mkdir(dir, { recursive: true })
     const path = join(dir, `patch-${crypto.randomUUID()}.yml`)
     await writeFileDeep(

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { loadBundledProfile } from '@jozo-harness/bundle-base'
 import { parseProfile } from '@jozo-harness/kernel'
 import { Effect } from 'effect'

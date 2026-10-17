@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { BlockAssembler } from '@jozo-harness/llm'
 import { decodeOpenAiStream } from '../src/index.ts'
 

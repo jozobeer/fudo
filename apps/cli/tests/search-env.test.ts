@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { SEARCH_KEY_ENV, searchFromEnv } from '../src/index.ts'
 
 describe('searchFromEnv', () => {

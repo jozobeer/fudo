@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { startStubServer } from '../src/index.ts'
 
 describe('startStubServer', () => {
@@ -24,7 +24,7 @@ describe('startStubServer', () => {
 
     await server.stop()
 
-    expect(fetch(server.origin + '/')).rejects.toThrow()
+    await expect(fetch(server.origin + '/')).rejects.toThrow()
   })
 
   test('a body a POST carried reaches the handler', async () => {

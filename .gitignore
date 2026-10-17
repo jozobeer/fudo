@@ -2,7 +2,7 @@ node_modules/
 coverage/
 .env
 .tmp/
-.bun-cache/
 .pnpm-store/
 target/
 apps/web/dist/
+apps/cli/dist/

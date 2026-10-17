@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -127,8 +127,8 @@ describe('jzh models failures', () => {
     expect(code).toBe(1)
     expect(out).toEqual([])
     expect(err).toHaveLength(1)
-    expect(err[0]).toStartWith('jzh: cannot list models from ' + baseUrl + '/models: ')
-    expect(err[0]).toEndWith('\n')
+    expect(err[0]?.startsWith('jzh: cannot list models from ' + baseUrl + '/models: ')).toBe(true)
+    expect(err[0]?.endsWith('\n')).toBe(true)
     expect(err[0]?.split('\n')).toHaveLength(2)
   })
 })

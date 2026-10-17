@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { expandHome } from '../src/index.ts'
 
 describe('expandHome', () => {

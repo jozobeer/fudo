@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { agentPlugin } from '@jozo-harness/agent'
 import { agentLoopPlugin } from '@jozo-harness/agent-loop'
 import { kernelPlugin, type Plugin } from '@jozo-harness/kernel'
@@ -90,7 +90,7 @@ describe('the browser UI through the command', () => {
   beforeAll(async () => {
     staticRoot = await mkdtemp(join(tmpdir(), 'jozo-harness-web-dist-'))
     const build = spawn(['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build', '--outDir', staticRoot], {
-      cwd: join(import.meta.dir, '../../..'),
+      cwd: join(import.meta.dirname, '../../..'),
       stdout: 'ignore',
       stderr: 'inherit',
     })

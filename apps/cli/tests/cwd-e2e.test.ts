@@ -13,7 +13,7 @@ import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runCommand } from '../src/index.ts'
 
 const call = (name: string, args: unknown): ReadonlyArray<StreamChunk> => [

@@ -13,7 +13,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runCommand } from '../src/index.ts'
 /** Writes a file, making the directories above it, the way Bun.write did. */
 const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {

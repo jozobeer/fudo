@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { turnsAfter, type TurnView } from '../client/trajectory.ts'
 

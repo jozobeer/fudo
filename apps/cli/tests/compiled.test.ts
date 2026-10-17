@@ -1,14 +1,15 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { spawn } from '@jozo-harness/process'
 
-const entry = join(import.meta.dir, '../src/run.ts')
+const root = join(import.meta.dirname, '../../..')
 let dir = ''
 let binary = ''
 
 const runBinary = async (argv: ReadonlyArray<string>) => {
-  const child = Bun.spawn([binary, ...argv], {
+  const child = spawn([binary, ...argv], {
     cwd: dir,
     env: { ...process.env, XDG_CONFIG_HOME: dir },
     stdout: 'pipe',
@@ -25,12 +26,14 @@ const runBinary = async (argv: ReadonlyArray<string>) => {
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), 'jzh-compiled-'))
   binary = join(dir, 'jzh')
-  const build = Bun.spawn([process.execPath, 'build', '--compile', entry, '--outfile', binary], {
+  const build = spawn(['pnpm', 'exec', 'vp', '-C', 'apps/cli', 'pack'], {
+    cwd: root,
     stdout: 'ignore',
     stderr: 'inherit',
   })
   expect(await build.exited).toBe(0)
-}, 60_000)
+  await copyFile(join(root, 'apps/cli/dist/jzh'), binary)
+}, 120_000)
 
 afterAll(async () => {
   await rm(dir, { recursive: true, force: true })

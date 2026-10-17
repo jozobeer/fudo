@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { LlmFailure, type LlmRequest } from '@jozo-harness/llm'
 import { Effect, Stream } from 'effect'
 import { openAiAdapter } from '../src/index.ts'
@@ -129,5 +129,52 @@ describe('openAiAdapter', () => {
     })
     const error = await Effect.runPromise(Effect.flip(Stream.runCollect(failing.stream(request))))
     expect(error.code).toBe('TRANSPORT')
+  })
+
+  test('a body that cannot be read fails as a transport error', async () => {
+    const streaming = openAiAdapter({
+      baseUrl: 'https://example.test/v1',
+      apiKey: () => 'key',
+      capabilities: {
+        toolChoice: false,
+        reasoningEffort: null,
+        images: 'none',
+        promptCacheControl: false,
+      },
+      fetch: (() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.reject(new Error('body gone')),
+        })) as unknown as typeof fetch,
+    })
+
+    const error = await Effect.runPromise(Effect.flip(Stream.runCollect(streaming.stream(request))))
+
+    expect(error).toBeInstanceOf(LlmFailure)
+    expect(error.code).toBe('TRANSPORT')
+  })
+
+  test('a failed status reports itself even when its body cannot be read', async () => {
+    const streaming = openAiAdapter({
+      baseUrl: 'https://example.test/v1',
+      apiKey: () => 'key',
+      capabilities: {
+        toolChoice: false,
+        reasoningEffort: null,
+        images: 'none',
+        promptCacheControl: false,
+      },
+      fetch: (() =>
+        Promise.resolve({
+          ok: false,
+          status: 503,
+          text: () => Promise.reject(new Error('body gone')),
+        })) as unknown as typeof fetch,
+    })
+
+    const error = await Effect.runPromise(Effect.flip(Stream.runCollect(streaming.stream(request))))
+
+    expect(error.message).toContain('503')
   })
 })

@@ -1,7 +1,7 @@
 import { HooksLive } from '@jozo-harness/kernel'
 import { Sessions, sessionsLayer, type SessionEvent } from '@jozo-harness/session'
 import { Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'

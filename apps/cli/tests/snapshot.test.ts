@@ -21,7 +21,7 @@ import {
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runCommand } from '../src/index.ts'
 
 /** Where the recorded outcomes live, one file per scenario. */

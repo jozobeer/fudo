@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { Llm } from '@jozo-harness/llm'
 import { llmOpenAiPlugin } from '@jozo-harness/llm-openai'

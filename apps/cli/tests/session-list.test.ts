@@ -1,6 +1,6 @@
 import type { PluginRow } from '@jozo-harness/kernel'
 import type { SessionEvent } from '@jozo-harness/session'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {

@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runAuth, type AuthIo } from '../src/index.ts'
 
 const collector = (value: string): { io: AuthIo; out: Array<string>; err: Array<string> } => {

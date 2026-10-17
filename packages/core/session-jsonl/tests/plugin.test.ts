@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'vitest'
 import { loadProfile } from '@jozo-harness/kernel'
 import { SESSION_FORMAT_VERSION, SessionPersistenceService } from '@jozo-harness/session'
 import { Context, Effect, Layer } from 'effect'

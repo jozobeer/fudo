@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { BlockAssembler, Llm } from '@jozo-harness/llm'
 import { Context, Effect, Layer, Stream } from 'effect'

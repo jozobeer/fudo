@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Schema } from 'effect'
 import { FLAG_NAMES } from '../src/args.ts'
 import { ConfigFileSchema } from '../src/config-file.ts'

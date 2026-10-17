@@ -14,7 +14,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { spawn } from '@jozo-harness/process'
 import { runCommand } from '../src/index.ts'
 
@@ -159,7 +159,7 @@ describe('the sandbox a profile did not ask for', () => {
   test.skipIf(!applies)('keeps a command inside its workspace', async () => {
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const outside = resolve(
-      import.meta.dir,
+      import.meta.dirname,
       '..',
       '..',
       '..',

@@ -13,7 +13,7 @@ import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { main } from '../src/bin.ts'
 import { runCommand } from '../src/index.ts'
 

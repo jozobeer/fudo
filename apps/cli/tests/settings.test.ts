@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { credentialSource, resolveSettings } from '../src/settings.ts'
 
 const resolve = (overrides: Partial<Parameters<typeof resolveSettings>[0]> = {}) =>

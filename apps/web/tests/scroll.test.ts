@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { FOLLOW_SLACK, followsBottom } from '../client/scroll.ts'
 
 /** A scroll box where the content overflows by exactly `below` pixels. */

@@ -13,7 +13,7 @@ import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runCommand, type CommandOptions } from '../src/index.ts'
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [

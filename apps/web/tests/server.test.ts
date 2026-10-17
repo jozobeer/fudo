@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { UiCommand, UiEvent, UiHost } from '@jozo-harness/ui-protocol'
 import { Deferred, Effect, Exit, Fiber, Option, Queue, Stream, type Scope } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
@@ -452,6 +452,47 @@ describe('the web transport', () => {
     expect(observed.written).toBe(true)
     expect(settings.wrote).toEqual(['stub/other'])
     expect(observed.refused).toBe('a model route cannot be empty')
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('a missing job and unreadable settings come back as the errors the page shows', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-errors-'))
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    const web = makeWeb('a')
+    const failing: SettingsPort = {
+      read: () => Effect.fail(new WebError({ message: 'no settings here' })),
+      models: () => Effect.fail(new WebError({ message: 'no models here' })),
+      setModel: () => Effect.fail(new WebError({ message: 'no writing here' })),
+    }
+
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const started = yield* start(root, web, { port: failing, wrote: [] })
+          const wsUrl = 'ws://' + started.origin.replace(/^http:\/\//, '') + '/ui'
+          const useClient = Effect.gen(function* () {
+            const client = yield* RpcClient.make(UiRpcs)
+            const stopped = yield* client
+              .stopJob({ sessionId: 'a', id: 'nope' })
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            const settings = yield* client
+              .settings()
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            const models = yield* client
+              .models()
+              .pipe(Effect.catch((message) => Effect.succeed(message)))
+            return { stopped, settings, models }
+          }).pipe(clientLayers(wsUrl))
+          const result = yield* withoutServices(useClient)
+          yield* Deferred.succeed(started.stop, undefined)
+          return result
+        }),
+      ),
+    )
+
+    expect(observed.stopped).toBe('no such job')
+    expect(observed.settings).toBe('no settings here')
+    expect(observed.models).toBe('no models here')
     await rm(root, { recursive: true, force: true })
   })
 })

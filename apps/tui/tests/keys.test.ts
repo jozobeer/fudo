@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { KeyDecoder } from '../src/index.ts'
 
 const decode = (text: string) => new KeyDecoder().push(text)

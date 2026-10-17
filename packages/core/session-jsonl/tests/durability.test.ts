@@ -1,5 +1,5 @@
 import { SESSION_FORMAT_VERSION, SessionError } from '@jozo-harness/session'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'

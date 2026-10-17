@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -9,7 +9,7 @@ const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<v
   await writeFile(path, text)
 }
 
-const entry = join(import.meta.dir, '../src/run.ts')
+const entry = join(import.meta.dirname, '../src/run.ts')
 
 describe('the tui through a real process', () => {
   test('--tui paints the screen and ctrl-d restores the terminal', async () => {
@@ -27,7 +27,7 @@ describe('the tui through a real process', () => {
       ].join('\n'),
     )
     const child = spawn(
-      [process.execPath, 'run', entry, '--tui', '--model', 'stub/model', '--patch', patch],
+      [process.execPath, entry, '--tui', '--model', 'stub/model', '--patch', patch],
       {
         cwd: dir,
         env: { ...process.env, XDG_CONFIG_HOME: dir },

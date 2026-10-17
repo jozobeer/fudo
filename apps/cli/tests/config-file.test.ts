@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { loadConfigFile, parseConfigText } from '../src/index.ts'
 import { main, type MainIo } from '../src/bin.ts'
 /** Writes a file, making the directories above it, the way Bun.write did. */

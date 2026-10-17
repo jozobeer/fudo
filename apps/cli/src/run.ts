@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { processTuiIo, type TuiIo } from '@jozo-harness/tui'
 import { Deferred, Effect, Stream } from 'effect'
 import { parseArgs } from './args.ts'

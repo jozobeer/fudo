@@ -16,6 +16,16 @@ export default defineConfig({
       typeCheck: true,
     },
   },
+  test: {
+    // The workspace's own tests, wherever a package keeps them. The built
+    // browser app and scratch trees hold none.
+    include: [
+      'apps/*/tests/**/*.test.ts',
+      'packages/*/*/tests/**/*.test.ts',
+      'scripts/**/*.test.ts',
+    ],
+    coverage: { provider: 'v8' },
+  },
   run: {
     tasks: {
       // cargo owns crates/; pnpm is told to leave the directory alone by

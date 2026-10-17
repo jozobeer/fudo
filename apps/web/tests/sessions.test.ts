@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { UiHost } from '@jozo-harness/ui-protocol'
 import { Effect, Stream } from 'effect'
 import { WebError } from '../src/server/errors.ts'

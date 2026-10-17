@@ -15,15 +15,19 @@ interface Totals {
 }
 
 import { spawnSync } from 'node:child_process'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const { mkdtemp, readFile, readdir, rm } = await import('node:fs/promises')
 const { tmpdir } = await import('node:os')
-const { join } = await import('node:path')
+
+/** Where the workspace keeps the binaries of its own dependencies. */
+const BIN = join(fileURLToPath(new URL('..', import.meta.url)), 'node_modules', '.bin')
 
 const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-coverage-'))
 const run = spawnSync(
-  'bun',
-  ['test', '--coverage', '--coverage-reporter=lcov', '--coverage-dir', directory],
+  join(BIN, 'vp'),
+  ['test', '--coverage', '--coverage.reporter=lcov', '--coverage.reportsDirectory', directory],
   { stdio: 'inherit', cwd: process.cwd() },
 )
 if (run.status !== 0) {

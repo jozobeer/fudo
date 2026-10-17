@@ -14,7 +14,7 @@ import { Effect } from 'effect'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { runCommand } from '../src/index.ts'
 
 /** The key the shipped profile names; without it this lane asks nobody. */
