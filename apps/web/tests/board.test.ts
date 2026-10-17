@@ -51,16 +51,16 @@ describe('the board', () => {
   })
 
   test('a finished session keeps the first line of its answer, and a replayed event counts once', () => {
-    const end = at(5, 'turn/end', { turn: 1, reason: { kind: 'completed' } })
+    const step = at(2, 'step/start', { step: 1 })
     const done = follow(
       at(1, 'turn/start', { turn: 1 }),
-      at(2, 'step/start', { step: 1 }),
+      step,
+      step,
       at(3, 'assistant/message', { content: [{ type: 'text', text: 'fixed it\nmore' }] }),
       at(4, 'interaction/ask/requested', { id: 'q', question: 'which?', options: [] }),
-      end,
-      end,
+      at(5, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     )
-    expect(done.log).toHaveLength(5)
+    expect(done.trace.map((turn) => turn.steps.length)).toEqual([1])
     expect(entryOf(summary('a'), done)).toMatchObject({
       status: 'idle',
       said: 'fixed it',

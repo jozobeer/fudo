@@ -1,7 +1,7 @@
-import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
+import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 import type { SessionSummary } from '../src/shared/rpc.ts'
-import { toolsOf, traceOf, type TraceTurn } from './trace.ts'
+import { toolsOf, traceAfter, type TraceTurn } from './trace.ts'
 
 type ApprovalRequested = NonNullable<Conversation['approval']>
 type AskRequested = NonNullable<Conversation['ask']>
@@ -9,17 +9,17 @@ type AskRequested = NonNullable<Conversation['ask']>
 /** One session the page follows live, folded the way the conversation folds it. */
 export interface Watched {
   readonly conversation: Conversation
-  readonly log: ReadonlyArray<UiSessionEvent>
+  readonly trace: ReadonlyArray<TraceTurn>
 }
 
-export const emptyWatched: Watched = { conversation: emptyConversation, log: [] }
+export const emptyWatched: Watched = { conversation: emptyConversation, trace: [] }
 
 /** Folds one event; the transport may replay the boundary event, so only a fresh seq counts. */
 export const watchedAfter = (watched: Watched, event: UiEvent): Watched => {
   const fresh = event.kind === 'session' && event.event.seq > watched.conversation.lastSeq
   return {
     conversation: applyEvent(watched.conversation, event),
-    log: fresh ? [...watched.log, event.event] : watched.log,
+    trace: fresh ? traceAfter(watched.trace, event.event) : watched.trace,
   }
 }
 
@@ -84,8 +84,7 @@ const lastTurnFacts = (last: TraceTurn | undefined) => {
 /** The row for one session; a session nobody follows reads as closed. */
 export const entryOf = (summary: SessionSummary, watched: Watched | undefined): BoardEntry => {
   if (watched === undefined) return closedEntry(summary)
-  const turns = traceOf(watched.log)
-  const facts = lastTurnFacts(turns[turns.length - 1])
+  const facts = lastTurnFacts(watched.trace[watched.trace.length - 1])
   const waiting = waitingOf(watched.conversation)
   return {
     ...facts,
@@ -93,7 +92,7 @@ export const entryOf = (summary: SessionSummary, watched: Watched | undefined): 
     status: statusOf(watched, waiting),
     waiting,
     since: facts.since ?? summary.createdAt,
-    turns: turns.length,
+    turns: watched.trace.length,
   }
 }
 
