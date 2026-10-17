@@ -77,10 +77,12 @@ export const recoverAmbiguousEdit: AbTask = {
     "so last returns the list's final element, and 0 when the list is empty. Do not change first: " +
     'it already returns the first element and must keep doing so.',
   files: { [LIST_PATH]: ambiguousList() },
-  regime:
-    'If the harnesses differ, it shows as failedEdits of at least one followed by a repeat read of ' +
-    'the same file, or as a first that returns the last element when the ambiguity was applied to ' +
-    'the wrong match; no difference in either metric means both refuse the ambiguous edit and both ' +
-    'recover, so this task then says nothing about which harness is better.',
+  regime: {
+    difference:
+      'failedEdits of at least one followed by a reReads count that repeats the same file shows the ' +
+      'refused edit and the recovery, and failedEdits without that repeat shows the ambiguous edit ' +
+      'was applied to the wrong match instead of being read again.',
+    flat: 'A tie in failedEdits and reReads with an empty wrongListHelpers means both harnesses refused the ambiguous edit and both recovered, so a flat result here says nothing about which harness is better.',
+  },
   done: async (workspace) => (await wrongListHelpers(workspace)).length === 0,
 }
