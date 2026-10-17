@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
 import type { SpillWriter } from './spill.ts'
@@ -60,7 +60,7 @@ export const makeSpillWriter = (options: SpillStoreOptions): SpillWriter => {
   const directory = join(options.root, options.sessionId)
   const writer = async (path: string, text: string): Promise<void> => {
     await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-    await Bun.write(path, text)
+    await writeFile(path, text)
   }
   return (callId, text) =>
     Effect.promise(async () => {

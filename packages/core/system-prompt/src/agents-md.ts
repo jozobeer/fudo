@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect, type Scope } from 'effect'
 import type { SystemPromptShape } from './system-prompt.ts'
@@ -96,10 +96,15 @@ interface ReadResult {
 
 const readIfPresent = (path: string, maxSourceBytes: number): Effect.Effect<ReadResult> =>
   Effect.gen(function* () {
-    const file = Bun.file(path)
-    if (!(yield* Effect.promise(() => file.exists()))) return {}
-    if (file.size > maxSourceBytes) return { tooLarge: path }
-    return { file: { path, text: yield* Effect.promise(() => file.text()) } }
+    const info = yield* Effect.promise(() =>
+      stat(path).then(
+        (value) => value,
+        () => undefined,
+      ),
+    )
+    if (info === undefined) return {}
+    if (info.size > maxSourceBytes) return { tooLarge: path }
+    return { file: { path, text: yield* Effect.promise(() => readFile(path, 'utf8')) } }
   })
 
 /** The project root: the nearest directory holding the marker, or the filesystem root. */

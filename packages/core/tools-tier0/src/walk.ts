@@ -1,6 +1,6 @@
-import { readdir, stat } from 'node:fs/promises'
+import { readFile, readdir, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
-import { join } from 'node:path'
+import { join, matchesGlob } from 'node:path'
 import { Effect } from 'effect'
 
 /** Path order, the tie-break of every ordering. */
@@ -54,8 +54,7 @@ const IGNORE_FILES = ['.gitignore', '.ignore'] as const
 
 const textIfPresent = (path: string): Effect.Effect<ReadonlyArray<string>> =>
   Effect.promise(() =>
-    Bun.file(path)
-      .text()
+    readFile(path, 'utf8')
       .then((text) => text.split('\n'))
       .catch(() => []),
   )
@@ -112,7 +111,7 @@ export interface WalkRequest {
 
 interface Walk {
   readonly limit: number
-  readonly glob: Bun.Glob | undefined
+  readonly pattern: string | undefined
   readonly ignored: IgnoredPaths
   readonly found: Array<string>
 }
@@ -129,7 +128,8 @@ const skipDirectory = (walk: Walk, name: string, relative: string): boolean =>
   IGNORED_DIRECTORIES.has(name) || walk.ignored.ignores(relative, true)
 
 const acceptsFile = (walk: Walk, relative: string): boolean =>
-  !walk.ignored.ignores(relative, false) && (walk.glob === undefined || walk.glob.match(relative))
+  !walk.ignored.ignores(relative, false) &&
+  (walk.pattern === undefined || matchesGlob(relative, walk.pattern))
 
 const relativeOf = (prefix: string, name: string): string =>
   prefix === '' ? name : prefix + '/' + name
@@ -200,7 +200,7 @@ export const walkFiles = (request: WalkRequest): Effect.Effect<ReadonlyArray<str
   Effect.gen(function* () {
     const walk: Walk = {
       limit: request.limit,
-      glob: request.pattern === undefined ? undefined : new Bun.Glob(request.pattern),
+      pattern: request.pattern,
       ignored: makeIgnoredPaths(yield* readIgnoreRules(request.cwd)),
       found: [],
     }

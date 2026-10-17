@@ -1,6 +1,7 @@
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 import { discoverSkills, parseSkillDocument } from './skills.ts'
+import { readIfPresent } from './read-text.ts'
 
 const Parameters = Schema.Struct({
   name: Schema.String.annotate({
@@ -17,13 +18,6 @@ export interface SkillValue {
 }
 
 const NAME = /^[a-z0-9][a-z0-9-]*$/
-
-const readIfPresent = (path: string): Effect.Effect<string | undefined> =>
-  Effect.gen(function* () {
-    const file = Bun.file(path)
-    if (!(yield* Effect.promise(() => file.exists()))) return undefined
-    return yield* Effect.promise(() => file.text())
-  })
 
 const availableIn = (names: ReadonlyArray<string>): string =>
   names.length === 0 ? '' : ' (available: ' + names.join(', ') + ')'

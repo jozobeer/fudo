@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { Schema, Effect } from 'effect'
 import { ToolError, writeSpill, type ToolDefinition } from '@jozo-harness/tools'
 import { takePage } from './page.ts'
@@ -75,12 +76,7 @@ const matchesIn = (file: string, text: string, expression: RegExp): ReadonlyArra
 
 /** A file's text, or undefined when it is binary or not UTF-8; either way it has no lines to match. */
 const searchableText = async (path: string): Promise<string | undefined> => {
-  const bytes = await Bun.file(path)
-    .arrayBuffer()
-    .then(
-      (buffer) => new Uint8Array(buffer),
-      () => undefined,
-    )
+  const bytes: Uint8Array | undefined = await readFile(path).catch(() => undefined)
   if (bytes === undefined || isBinary(bytes)) return undefined
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes)

@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises'
 import { noneSandbox, type ApprovalShape, type SandboxShape } from '@jozo-harness/safety'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
@@ -105,7 +106,7 @@ export const makeEditTool = (
           ? source.text.split(args.oldString).join(args.newString)
           : source.text.replace(args.oldString, args.newString)
         yield* Effect.tryPromise({
-          try: () => Bun.write(path, restoreLineEndings(updated, source.lineEndings)),
+          try: () => writeFile(path, restoreLineEndings(updated, source.lineEndings)),
           catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
         })
         const written = yield* look(path)

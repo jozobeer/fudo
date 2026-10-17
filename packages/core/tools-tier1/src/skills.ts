@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Effect } from 'effect'
+import { readIfPresent } from './read-text.ts'
 
 /** A skill name is lower-case letters, digits, and dashes. It never holds a path. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/
@@ -66,13 +67,6 @@ export function parseSkillDocument(text: string): SkillDocument | undefined {
       .trim(),
   }
 }
-
-const readIfPresent = (path: string): Effect.Effect<string | undefined> =>
-  Effect.gen(function* () {
-    const file = Bun.file(path)
-    if (!(yield* Effect.promise(() => file.exists()))) return undefined
-    return yield* Effect.promise(() => file.text())
-  })
 
 const directoriesOf = (root: string): Effect.Effect<ReadonlyArray<string>> =>
   Effect.promise(() =>

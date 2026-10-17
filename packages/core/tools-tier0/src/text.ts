@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { Effect } from 'effect'
 import { ToolError } from '@jozo-harness/tools'
 
@@ -5,7 +6,7 @@ import { ToolError } from '@jozo-harness/tools'
 export const readUtf8 = (path: string): Effect.Effect<string, ToolError> =>
   Effect.gen(function* () {
     const bytes = yield* Effect.tryPromise({
-      try: () => Bun.file(path).arrayBuffer(),
+      try: () => readFile(path),
       catch: () => new ToolError({ code: 'execution', message: 'cannot read ' + path }),
     })
     return yield* Effect.try({
@@ -41,7 +42,7 @@ export interface EditText {
 export const readForEdit = (path: string): Effect.Effect<EditText, ToolError> =>
   Effect.gen(function* () {
     const bytes = yield* Effect.tryPromise({
-      try: () => Bun.file(path).arrayBuffer(),
+      try: () => readFile(path),
       catch: () => new ToolError({ code: 'execution', message: 'cannot read ' + path }),
     })
     const buffer = new Uint8Array(bytes)

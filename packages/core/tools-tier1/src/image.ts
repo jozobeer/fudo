@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
 
@@ -61,7 +62,7 @@ export const readImageTool: ToolDefinition<ReadImageArgs, ReadImageValue> = {
       }
       const path = args.path.startsWith('/') ? args.path : context.cwd + '/' + args.path
       const bytes = yield* Effect.tryPromise({
-        try: async () => new Uint8Array(await Bun.file(path).arrayBuffer()),
+        try: () => readFile(path),
         catch: () => new ToolError({ code: 'execution', message: 'cannot read ' + path }),
       })
       return {

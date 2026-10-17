@@ -1,5 +1,5 @@
 import { dirname } from 'node:path'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { noneSandbox, type ApprovalShape, type SandboxShape } from '@jozo-harness/safety'
 import { Schema, Effect } from 'effect'
 import { ToolError, type ToolDefinition } from '@jozo-harness/tools'
@@ -67,7 +67,7 @@ export const makeWriteTool = (
         yield* Effect.tryPromise({
           try: async () => {
             await mkdir(dirname(path), { recursive: true })
-            await Bun.write(path, content)
+            await writeFile(path, content)
           },
           catch: () => new ToolError({ code: 'execution', message: 'cannot write ' + path }),
         })
