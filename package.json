@@ -17,7 +17,7 @@
     "check:static": "vp check && vp run lint && vp run typecheck && vp run doc:gate && vp run duplication && vp run complexity && vp run rust:check",
     "check": "vp run check:static && vp run coverage:gate",
     "prepare": "git config core.hooksPath .githooks",
-    "build:web": "cd apps/web && bun run build"
+    "build:web": "vp -C apps/web build"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",

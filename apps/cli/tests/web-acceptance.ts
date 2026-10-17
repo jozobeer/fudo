@@ -472,8 +472,8 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
 
 /** The server hands the browser a built bundle, so a stale dist would test the wrong page. */
 const buildWeb = async (): Promise<void> => {
-  const built = Bun.spawnSync(['bun', 'run', 'build'], {
-    cwd: join(repoRoot, 'apps/web'),
+  const built = Bun.spawnSync(['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build'], {
+    cwd: repoRoot,
     stdout: 'inherit',
     stderr: 'inherit',
   })

@@ -1,3 +1,4 @@
+import { readFile, stat } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 
 const TYPES: ReadonlyMap<string, string> = new Map([
@@ -40,7 +41,10 @@ export const staticResponse = async (
 ): Promise<Response | undefined> => {
   const path = staticPath(root, requestPath)
   if (path === undefined) return undefined
-  const file = Bun.file(path)
-  if (!(await file.exists())) return undefined
-  return new Response(file, { headers: { 'content-type': typeOf(path) } })
+  const info = await stat(path).then(
+    (value) => value,
+    () => undefined,
+  )
+  if (info === undefined || !info.isFile()) return undefined
+  return new Response(await readFile(path), { headers: { 'content-type': typeOf(path) } })
 }

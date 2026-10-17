@@ -1,4 +1,6 @@
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 import { Effect, Layer, Stream } from 'effect'
 import { RpcSerialization, RpcServer } from 'effect/rpc'
 import { sendCommand } from '@jozo-harness/ui-protocol'
@@ -86,8 +88,41 @@ const handlersOf = (registry: SessionRegistry, settings: SettingsPort) =>
       ),
   })
 
-const serveStatic = async (root: string, requestPath: string): Promise<Response> =>
-  (await staticResponse(root, requestPath)) ?? new Response('not found', { status: 404 })
+/** One frame from the socket, in the two shapes the protocol decodes. */
+const payloadOf = (data: RawData): Uint8Array | string => {
+  if (typeof data === 'string') return data
+  if (Array.isArray(data)) return new Uint8Array(Buffer.concat(data))
+  return data instanceof ArrayBuffer ? new Uint8Array(data) : data
+}
+
+/** The path a request asked for, without its query. */
+const pathOf = (request: IncomingMessage): string =>
+  new URL(request.url ?? '/', 'http://127.0.0.1').pathname
+
+const endWith = (response: ServerResponse, status: number, body: string): void => {
+  response.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' })
+  response.end(body)
+}
+
+/** Answers one HTTP request: the socket path refuses plain HTTP, everything else is a file. */
+const respondTo = async (
+  request: IncomingMessage,
+  response: ServerResponse,
+  staticRoot: string,
+): Promise<void> => {
+  const path = pathOf(request)
+  if (path === UI_PATH) {
+    endWith(response, 426, 'websocket required')
+    return
+  }
+  const answer = await staticResponse(staticRoot, path)
+  if (answer === undefined) {
+    endWith(response, 404, 'not found')
+    return
+  }
+  response.writeHead(answer.status, Object.fromEntries(answer.headers))
+  response.end(Buffer.from(await answer.arrayBuffer()))
+}
 
 /**
  * Serves the sessions of one profile: the browser app, the RPC socket, and
@@ -101,43 +136,48 @@ export const serveWeb = (options: ServeWebOptions): Effect.Effect<number> =>
         factory: options.factory,
       })
       const { protocol, attach } = yield* makeWebProtocol
-      const connections = new Map<unknown, Connection>()
+      const connections = new Map<WebSocket, Connection>()
 
-      const server = Bun.serve({
-        port: options.port,
-        hostname: '127.0.0.1',
-        fetch: (request, self) => {
-          const path = new URL(request.url).pathname
-          if (path === UI_PATH) {
-            return self.upgrade(request)
-              ? undefined
-              : new Response('websocket required', { status: 426 })
-          }
-          return serveStatic(options.staticRoot, path)
-        },
-        websocket: {
-          open: (ws) => {
-            connections.set(
-              ws,
-              attach((text) => ws.send(text)),
-            )
-          },
-          message: (ws, data) => {
-            connections.get(ws)?.message(data)
-          },
-          close: (ws) => {
-            connections.get(ws)?.close()
-            connections.delete(ws)
-          },
-        },
+      const server = createServer((request, response) => {
+        void respondTo(request, response, options.staticRoot).catch(() => {
+          response.destroy()
+        })
+      })
+      const sockets = new WebSocketServer({ noServer: true })
+      server.on('upgrade', (request, socket, head) => {
+        if (pathOf(request) !== UI_PATH) {
+          socket.destroy()
+          return
+        }
+        sockets.handleUpgrade(request, socket, head, (client) => {
+          const connection = attach((text) => client.send(text))
+          connections.set(client, connection)
+          client.on('message', (data) => connection.message(payloadOf(data)))
+          client.on('close', () => {
+            connection.close()
+            connections.delete(client)
+          })
+        })
       })
 
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          // Bun's stop() is a promise here; the scope cannot wait, and the
-          // socket is closed either way.
-          void server.stop(true)
+          for (const client of sockets.clients) client.terminate()
+          sockets.close()
+          // A keep-alive connection would hold the listener open past the scope.
+          server.closeAllConnections()
+          server.close()
         }),
+      )
+      const port = yield* Effect.promise(
+        () =>
+          new Promise<number>((resolve, reject) => {
+            server.once('error', reject)
+            server.listen(options.port, '127.0.0.1', () => {
+              const address = server.address()
+              resolve(typeof address === 'object' && address !== null ? address.port : options.port)
+            })
+          }),
       )
       // Our schemas need no decoding services, but Effect types a stream RPC's
       // service requirement as `unknown`; the layer is pinned to what it is.
@@ -146,7 +186,7 @@ export const serveWeb = (options: ServeWebOptions): Effect.Effect<number> =>
         Layer.provide(Layer.succeed(RpcServer.Protocol, protocol)),
       ) as unknown as Layer.Layer<never>
       yield* Effect.forkScoped(Layer.launch(rpc))
-      options.onReady('http://127.0.0.1:' + String(server.port) + '/')
+      options.onReady('http://127.0.0.1:' + String(port) + '/')
       return options.interrupt === undefined
         ? yield* Effect.never
         : yield* options.interrupt.pipe(Effect.as(130))
