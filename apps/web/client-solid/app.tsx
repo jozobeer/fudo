@@ -4,11 +4,11 @@ import { ContextPane } from './components/context-pane.tsx'
 import { Conversation } from './components/conversation.tsx'
 import { Rail } from './components/rail.tsx'
 import { Status } from './components/status.tsx'
-import { createSessionStore } from './store.ts'
+import { createSessionStore, type SessionStore } from './store.ts'
 
 /** The page: the strip, and three columns with the composer under the middle one. */
-export const App = () => {
-  const store = createSessionStore()
+export const App = (props: { store?: SessionStore }) => {
+  const store = props.store ?? createSessionStore()
   onMount(() => {
     store.start()
     onCleanup(() => store.stop())

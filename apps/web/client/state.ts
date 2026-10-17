@@ -49,6 +49,8 @@ export interface WebState {
   readonly turns: ReadonlyArray<TurnView>
   /** What the session says it works toward; undefined until the page has asked. */
   readonly run: RunStateView | undefined
+  /** Every event this session logged, oldest first, for views that fold it their own way. */
+  readonly log: ReadonlyArray<UiSessionEvent>
 }
 
 export const initialState: WebState = {
@@ -65,6 +67,7 @@ export const initialState: WebState = {
   pane: { kind: 'run' },
   turns: [],
   run: undefined,
+  log: [],
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -114,6 +117,8 @@ export const withSession = (state: WebState, summary: SessionSummary): WebState 
     info: emptyInfo,
     problem: '',
     run: undefined,
+    turns: [],
+    log: [],
   }
 }
 
@@ -159,6 +164,7 @@ export const applyUiEvent = (state: WebState, event: UiEvent): WebState => {
     ...state,
     info: event.kind === 'session' ? infoAfter(state.info, event.event) : state.info,
     turns: fresh ? turnsAfter(state.turns, event.event) : state.turns,
+    log: fresh ? [...state.log, event.event] : state.log,
     conversation: applyEvent(state.conversation, event),
   }
 }
