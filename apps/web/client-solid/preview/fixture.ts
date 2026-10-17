@@ -102,9 +102,9 @@ const grep = (pattern: string, hits: number): Call => ({
   result: String(hits) + ' matches',
 })
 
-const edit = (path: string, before: number, after: number): Call => ({
+const edit = (path: string, before: number, after: number, from = '', to = ''): Call => ({
   name: 'edit',
-  args: { path, old_string: '…', new_string: '…' },
+  args: { path, old_string: from, new_string: to },
   summary: path,
   result: 'lines: ' + String(before) + ' → ' + String(after),
 })
@@ -234,8 +234,23 @@ const ledgerSession = (start: number): ReadonlyArray<UiSessionEvent> => {
   }
   number += 1
   step(log, number, 'Only a fresh seq should reach the ledger.', '', [
-    edit('apps/web/client/state.ts', 164, 166),
-    edit('apps/web/client/state.ts', 166, 167),
+    edit(
+      'apps/web/client/state.ts',
+      164,
+      166,
+      '    turns: turnsAfter(state.turns, event.event),',
+      [
+        "  const fresh = event.kind === 'session' && event.event.seq > state.conversation.lastSeq",
+        '    turns: fresh ? turnsAfter(state.turns, event.event) : state.turns,',
+      ].join('\n'),
+    ),
+    edit(
+      'apps/web/client/state.ts',
+      166,
+      167,
+      '  // every event reaches the ledger',
+      '  // The transport may replay the boundary event: only a seq the page has not seen counts.',
+    ),
     bash('pnpm vitest run apps/web/tests/trajectory.test.ts', 'exit 0', PASS_OUTPUT, false, 3800),
   ])
   number += 1
