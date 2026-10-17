@@ -417,6 +417,44 @@ describe('agent loop', () => {
     expect(reason(events)).toEqual([{ kind: 'cancelled', cause: 'user' }])
   })
 
+  test('a cancel before the turn takes the message drops it, and the agent settles', async () => {
+    const events = await scenario([forever([])], (ctx) =>
+      Effect.gen(function* () {
+        const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+        yield* agent.followup({ text: 'go', source: 'user' })
+        yield* agent.cancel('user')
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    expect(events.inbox.pending).toBe(false)
+    expect(types(events)).not.toContain('turn/start')
+  })
+
+  test('the next message after a cancel runs a turn, and its failure is not the cancel', async () => {
+    const events = await scenario(
+      [
+        forever([{ type: 'block-start', index: 0, blockType: 'text' }]),
+        fails(new LlmFailure({ code: 'INVALID_REQUEST', message: 'bad' })),
+      ],
+      (ctx) =>
+        Effect.gen(function* () {
+          const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+          yield* agent.followup({ text: 'go', source: 'user' })
+          for (let index = 0; index < 50 && agent.status !== 'running'; index += 1)
+            yield* Effect.yieldNow
+          yield* agent.cancel('user')
+          yield* agent.whenIdle
+          yield* agent.followup({ text: 'once more', source: 'user' })
+          yield* agent.whenIdle
+          return agent
+        }),
+    )
+
+    expect(reason(events).map((ended) => ended.kind)).toEqual(['cancelled', 'error'])
+  })
+
   test('cancel during a tool call pairs the call with a synthesized result', async () => {
     const slow: ToolDefinition<{}, { readonly ok: boolean }> = {
       name: 'slow',

@@ -22,14 +22,14 @@ const claimOne = (messages: Array<UserMessage>, message: UserMessage): void => {
 }
 
 /**
- * Folds `agent/inbox/queued` and `agent/inbox/claimed` into the still-pending
- * input. Live agents and restored logs use the same fold.
+ * Folds `agent/inbox/queued` against `agent/inbox/claimed` and `agent/inbox/dropped`
+ * into the still-pending input. Live agents and restored logs use the same fold.
  */
 export function projectInbox(events: ReadonlyArray<SessionEvent>): InboxState {
   const pending = noPending()
   for (const event of events) {
     if (event.type === 'agent/inbox/queued') pending[event.data.target].push(event.data.message)
-    else if (event.type === 'agent/inbox/claimed')
+    else if (event.type === 'agent/inbox/claimed' || event.type === 'agent/inbox/dropped')
       claimOne(pending[event.data.target], event.data.message)
   }
   return { nextTurn: pending['next-turn'], nextStep: pending['next-step'] }
@@ -42,6 +42,8 @@ export interface Inbox {
   queue(target: InboxTarget, message: UserMessage): Effect.Effect<void, SessionError>
   /** Drains the step queue and, when `takeTurn`, one turn message. Step messages come first. */
   claim(takeTurn: boolean): Effect.Effect<ReadonlyArray<UserMessage>, SessionError>
+  /** Gives up everything pending, as a cancel does with input no turn has taken. */
+  drop(): Effect.Effect<void, SessionError>
 }
 
 /** Builds an inbox over one session. The log is the only source of pending input. */
@@ -75,6 +77,17 @@ export function makeInbox(session: Session): Inbox {
           yield* claimEvent('next-turn', turnMessage)
         }
         return claimed
+      }),
+
+    drop: () =>
+      Effect.gen(function* () {
+        const current = state()
+        for (const message of current.nextStep) {
+          yield* session.append('agent/inbox/dropped', { target: 'next-step', message })
+        }
+        for (const message of current.nextTurn) {
+          yield* session.append('agent/inbox/dropped', { target: 'next-turn', message })
+        }
       }),
   }
 }

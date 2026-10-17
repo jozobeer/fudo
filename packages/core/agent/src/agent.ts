@@ -4,9 +4,11 @@ import { makeInbox } from './inbox.ts'
 import type { UserMessage } from './events.ts'
 import type { Agent, AgentCancelCause, AgentDriver, AgentOptions, AgentStatus } from './types.ts'
 
-/** Mutable slot the registry fills with the running fiber. */
+/** Mutable slot the registry fills with the running fiber, and with how to start another. */
 export interface AgentHandle {
   fiber: Fiber.Fiber<void, never> | undefined
+  /** Forks a runner into the agent's scope and keeps its fiber here. */
+  start: Effect.Effect<void>
 }
 
 export interface MakeAgentOptions {
@@ -100,7 +102,13 @@ export function makeAgent(input: MakeAgentOptions): Effect.Effect<Agent> {
           cancelCause = cause
           if (input.handle.fiber === undefined) return
           yield* setStatus('cancelling')
+          // The interrupt waits for the turn's finalizer, which records this cause.
           yield* Fiber.interrupt(input.handle.fiber)
+          cancelCause = undefined
+          // Input no turn took goes with the cancelled work, so nothing waits on a runner
+          // that is gone; a failed append is no reason to leave the agent without one.
+          yield* inbox.drop().pipe(Effect.catchCause(() => Effect.void))
+          yield* input.handle.start
           yield* setStatus('idle')
         }),
       whenIdle,

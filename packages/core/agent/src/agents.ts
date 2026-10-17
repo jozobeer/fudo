@@ -1,5 +1,5 @@
 import { Hooks } from '@jozo-harness/kernel'
-import { Context, Effect, Exit, Layer, Scope, type Fiber } from 'effect'
+import { Context, Effect, Exit, Layer, Scope } from 'effect'
 import type { SessionId } from '@jozo-harness/session'
 import { Sessions } from '@jozo-harness/session'
 import { makeAgent, type AgentHandle } from './agent.ts'
@@ -50,7 +50,7 @@ export function agentsService(
                 })
               : yield* sessions.open(options.resume)
           const scope = yield* Scope.make()
-          const handle: AgentHandle = { fiber: undefined }
+          const handle: AgentHandle = { fiber: undefined, start: Effect.void }
           const agent = yield* makeAgent({
             id: session.id,
             session,
@@ -68,11 +68,13 @@ export function agentsService(
             onSuccess: () => Effect.void,
           })
 
-          const fiber: Fiber.Fiber<void, never> = yield* Effect.forkIn(
-            runner.run(agent).pipe(Effect.ensuring(agent.driver.setStatus('idle'))),
-            scope,
-          )
-          handle.fiber = fiber
+          handle.start = Effect.gen(function* () {
+            handle.fiber = yield* Effect.forkIn(
+              runner.run(agent).pipe(Effect.ensuring(agent.driver.setStatus('idle'))),
+              scope,
+            )
+          })
+          yield* handle.start
           registered.set(agent.id, { agent, scope, handle })
           return agent
         }),

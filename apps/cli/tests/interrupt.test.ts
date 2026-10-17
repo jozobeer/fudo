@@ -38,7 +38,11 @@ const profile = (root: string): string =>
   ].join('\n')
 
 describe('interrupt', () => {
-  test('a cancellation request stops the turn and exits 130', async () => {
+  // Before the turn takes the task, or while it runs: either way the run ends as cancelled.
+  test.each([
+    ['before the turn takes the task', Effect.void],
+    ['while the turn runs', Effect.sleep('20 millis')],
+  ])('a cancellation request %s stops the run and exits 130', async (_when, interrupt) => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-interrupt-'))
     const silent: Plugin<{}, Llm, never> = {
       name: 'stub-llm',
@@ -74,7 +78,7 @@ describe('interrupt', () => {
         cwd: '/work',
         route: 'stub/model',
         task: 'go',
-        interrupt: Effect.sleep('20 millis'),
+        interrupt,
         stdout: () => undefined,
         stderr: () => undefined,
       }),

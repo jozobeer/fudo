@@ -20,6 +20,7 @@ declare module '@jozo-harness/session/events' {
   interface SessionEventMap {
     'agent/inbox/queued': { readonly target: InboxTarget; readonly message: UserMessage }
     'agent/inbox/claimed': { readonly target: InboxTarget; readonly message: UserMessage }
+    'agent/inbox/dropped': { readonly target: InboxTarget; readonly message: UserMessage }
   }
 }
 
@@ -38,10 +39,11 @@ const InboxEventDataSchema = Schema.Struct({
 export const inboxEventSchemas: SessionEventSchemaMap = new Map<string, Schema.Schema<unknown>>([
   ['agent/inbox/queued', InboxEventDataSchema],
   ['agent/inbox/claimed', InboxEventDataSchema],
+  ['agent/inbox/dropped', InboxEventDataSchema],
 ])
 
 // Logs written here stay readable by every provider, not only by callers that
 // pass the map explicitly.
 registerSessionEventSchemas(inboxEventSchemas)
 // The inbox is durable queue state: the message it carries is appended separately.
-registerLogOnlySessionEvents(['agent/inbox/queued', 'agent/inbox/claimed'])
+registerLogOnlySessionEvents(['agent/inbox/queued', 'agent/inbox/claimed', 'agent/inbox/dropped'])
