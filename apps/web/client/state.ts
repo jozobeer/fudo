@@ -20,6 +20,7 @@ const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
 
 /** What the right pane shows: what the session runs toward, its settings, its turns, or one job. */
 export type Pane =
+  | { readonly kind: 'changes'; readonly path: string | undefined }
   | { readonly kind: 'run' }
   | { readonly kind: 'settings' }
   | { readonly kind: 'trajectory' }
