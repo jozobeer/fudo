@@ -1,5 +1,4 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { fileURLToPath } from 'node:url'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 import { Effect, Layer, Stream } from 'effect'
 import { RpcSerialization, RpcServer } from 'effect/rpc'
@@ -17,9 +16,6 @@ import { staticResponse } from './static.ts'
 
 export const UI_PATH = '/ui'
 
-/** Where the built browser app sits when no other root is given. */
-export const defaultStaticRoot = fileURLToPath(new URL('../../dist/', import.meta.url))
-
 export interface ServeWebOptions {
   /** The session a page opens when it names none. */
   readonly initial: OpenSession
@@ -29,6 +25,7 @@ export interface ServeWebOptions {
   readonly settings: SettingsPort
   /** 0 picks a free port; the chosen one arrives through `onReady`. */
   readonly port: number
+  /** Where the browser app to serve sits; the caller owns where its tree keeps it. */
   readonly staticRoot: string
   readonly onReady: (url: string) => void
   /** Completes to stop the server, as SIGINT does. */

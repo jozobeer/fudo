@@ -1,4 +1,4 @@
-import { Effect, Fiber, Queue, Stream } from 'effect'
+import { Cause, Effect, Fiber, Queue, Stream } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
 import type { UiCommand } from '@jozo-harness/ui-protocol'
@@ -20,24 +20,47 @@ import {
   type Pane,
   type WebState,
 } from '../src/ui/state.ts'
-import { THEME_KEY, themeAttribute, themeFrom, type Theme } from '../src/ui/theme.ts'
+import type { Theme } from '../src/ui/theme.ts'
+import { addressSession, keptTheme, keepTheme, pageSearch, pageSocket, showTheme } from './dom.ts'
 import { emptyWatched, watchedAfter, type Watched } from '../src/ui/board.ts'
 import { makeBridge } from './bridge.ts'
-
-/** The socket the page talks to; the host is the one that served the page. */
-export const socketUrl = (protocol: string, host: string): string =>
-  (protocol === 'https:' ? 'wss://' : 'ws://') + host + '/ui'
-
-/** Writes the reader's choice where the stylesheet reads it; the system's is its own. */
-const applyTheme = (theme: Theme): void => {
-  const attribute = themeAttribute(theme)
-  if (attribute === undefined) delete document.documentElement.dataset.theme
-  else document.documentElement.dataset.theme = attribute
-}
 
 /** How one failed call reads in the status strip. */
 const messageOf = (error: unknown): string =>
   typeof error === 'string' ? error : error instanceof Error ? error.message : String(error)
+
+/** The one line a whole cause reads as, defects included. */
+const causeText = (cause: Cause.Cause<unknown>): string => messageOf(Cause.squash(cause))
+
+/** How long a pipeline the page cannot lose waits before it runs again. */
+const RESTART_DELAY = '250 millis'
+
+/** A cause that is only an interruption is the page moving on, not a failure. */
+const unlessInterrupted = (
+  cause: Cause.Cause<unknown>,
+  onFailure: Effect.Effect<void>,
+): Effect.Effect<void> => (Cause.hasInterruptsOnly(cause) ? Effect.interrupt : onFailure)
+
+/**
+ * Runs one pipeline that must outlive a failure: it is reported and started
+ * again. A subscription the page dropped otherwise takes the page down with it
+ * in silence, which reads as input that does nothing.
+ */
+const keepsRunning = <A>(
+  what: string,
+  effect: Effect.Effect<A, unknown, unknown>,
+  report: (message: string) => void,
+): Effect.Effect<never, never, unknown> =>
+  effect.pipe(
+    Effect.catchCause((cause) =>
+      unlessInterrupted(
+        cause,
+        Effect.sync(() => report(what + ': ' + causeText(cause))),
+      ),
+    ),
+    Effect.andThen(Effect.sleep(RESTART_DELAY)),
+    Effect.forever,
+  )
 
 /** What one session's log told the page to read again. */
 const needsRefresh = (type: string): boolean =>
@@ -86,8 +109,8 @@ export interface SessionStoreOptions {
 }
 
 export const createSessionStore = (options: SessionStoreOptions = {}): SessionStore => {
-  const url = options.url ?? socketUrl(window.location.protocol, window.location.host)
-  const search = options.search ?? window.location.search
+  const url = options.url ?? pageSocket()
+  const search = options.search ?? pageSearch()
   const [state, setState] = createSignal<WebState>(initialState)
   const update = (next: (current: WebState) => WebState): void => {
     setState((current) => next(current))
@@ -120,8 +143,14 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
                 ),
               ),
             ),
+            // A row that stops moving is not worth the reader's attention: the
+            // board follows the session again without saying anything about it.
+            Effect.catchCause((cause) => unlessInterrupted(cause, Effect.void)),
+            Effect.andThen(Effect.sleep(RESTART_DELAY)),
+            Effect.forever,
+            // The claim on the id stands for the whole life of this fiber, so a
+            // second look at the same session does not open a second stream.
             Effect.ensuring(Effect.sync(() => watching.delete(id))),
-            Effect.ignore,
           ),
         ).pipe(Effect.asVoid)
       })
@@ -146,18 +175,39 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
         yield* Effect.forEach(listed.opened, watch)
       })
 
-    /** Everything one session logs, until the socket or the page moves on. */
-    const follow = (id: string) =>
-      client.events({ sessionId: id }).pipe(
-        Stream.runForEach((event) =>
-          Effect.gen(function* () {
-            yield* Effect.sync(() => {
-              update((now) => applyUiEvent(now, event))
-            })
-            if (event.kind === 'session' && needsRefresh(event.event.type)) yield* relist()
-          }),
+    /**
+     * Everything one session logs, until the page moves on. A dropped
+     * subscription follows again: the server opens with the session's history,
+     * and the fold keeps only the events past the last one it applied, so the
+     * turns the page missed arrive on the second look.
+     */
+    const follow = (id: string) => {
+      /** The line this feed last put in the strip, so only its own report clears. */
+      let reported = ''
+      return keepsRunning(
+        'the session feed',
+        client.events({ sessionId: id }).pipe(
+          Stream.runForEach((event) =>
+            Effect.gen(function* () {
+              yield* Effect.sync(() => {
+                update((now) => {
+                  // A feed that reached the page again is working: it takes its
+                  // own line back, and leaves anything else the reader was told.
+                  const cleared =
+                    reported !== '' && now.problem === reported ? withProblem(now, '') : now
+                  return applyUiEvent(cleared, event)
+                })
+              })
+              if (event.kind === 'session' && needsRefresh(event.event.type)) yield* relist()
+            }),
+          ),
         ),
+        (message) => {
+          reported = message
+          update((now) => withProblem(now, message))
+        },
       )
+    }
 
     const show = (id: string | undefined) =>
       Effect.gen(function* () {
@@ -166,7 +216,7 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
         const running = yield* client.state({ sessionId: summary.id })
         yield* Effect.sync(() => {
           update((now) => withRun(withSession(now, summary), running))
-          history.replaceState(null, '', '?session=' + encodeURIComponent(summary.id))
+          addressSession(summary.id)
         })
         following = yield* Effect.forkScoped(follow(summary.id))
         yield* watch(summary.id)
@@ -177,9 +227,42 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
       update((now) => withConnection(now, true))
     })
 
+    /**
+     * What one command the core never took means for the reader: the line is said
+     * out loud, and the draft comes back when the line was the reader's own, so
+     * nothing they typed is thrown away in silence.
+     */
+    const notTaken = (
+      addressed: { readonly sessionId: string; readonly command: UiCommand },
+      why: string,
+    ): Effect.Effect<void> =>
+      Effect.sync(() => {
+        update((now) => {
+          const text = addressed.command.kind === 'submit' ? addressed.command.text : undefined
+          const kept = text !== undefined && now.draft.trim() === '' ? withDraft(now, text) : now
+          return withProblem(kept, why)
+        })
+      })
+
     yield* Effect.forkScoped(
       Stream.runForEach(Stream.fromQueue(commands), (addressed) =>
-        client.command(addressed).pipe(Effect.ignore),
+        client.command(addressed).pipe(
+          // A false answer is the core saying it does not hold that session: the
+          // page opens it again, and the next command lands somewhere real.
+          Effect.tap((accepted) =>
+            accepted
+              ? Effect.void
+              : Effect.andThen(
+                  notTaken(addressed, 'the core did not take the ' + addressed.command.kind),
+                  Effect.sync(() => Queue.offerUnsafe(moves, addressed.sessionId)),
+                ),
+          ),
+          // `ignore` would let a defect kill this fiber, and every later command
+          // would sit in the queue with nothing left to send it. A call the far
+          // side interrupted is not the page moving on: the command never landed,
+          // and the reader is owed that line rather than silence.
+          Effect.catchCause((cause) => notTaken(addressed, causeText(cause))),
+        ),
       ),
     )
     /** Reads one job and shows it in the pane; stopping it reads it again after. */
@@ -213,8 +296,8 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
           const settings = yield* client.settings()
           yield* Effect.sync(() => update((now) => withSettings(now, settings)))
         }).pipe(
-          Effect.catch((error) =>
-            Effect.sync(() => update((now) => withProblem(now, messageOf(error)))),
+          Effect.catchCause((cause) =>
+            Effect.sync(() => update((now) => withProblem(now, causeText(cause)))),
           ),
         ),
       ),
@@ -235,8 +318,11 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
       Stream.concat(Stream.fromIterable([wanted]), Stream.fromQueue(moves)),
       (id) =>
         show(id).pipe(
-          Effect.catch((error) =>
-            Effect.sync(() => update((now) => withProblem(now, String(error)))),
+          Effect.catchCause((cause) =>
+            unlessInterrupted(
+              cause,
+              Effect.sync(() => update((now) => withProblem(now, causeText(cause)))),
+            ),
           ),
         ),
     )
@@ -254,9 +340,9 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
   )
 
   const start = (): void => {
-    const theme = themeFrom(localStorage.getItem(THEME_KEY))
+    const theme = keptTheme()
     update((now) => withTheme(now, theme))
-    applyTheme(theme)
+    showTheme(theme)
     bridge.start(runnable)
   }
 
@@ -288,8 +374,8 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
     moveTo: (id) => Queue.offerUnsafe(moves, id),
     chooseTheme: (theme) => {
       update((now) => withTheme(now, theme))
-      applyTheme(theme)
-      localStorage.setItem(THEME_KEY, theme)
+      showTheme(theme)
+      keepTheme(theme)
     },
     showPane: (pane) => update((now) => withPane(now, pane)),
     openJob: (id) => {

@@ -106,6 +106,9 @@ describe('the browser state', () => {
     const failed = withProblem(withSession(initialState, a), 'the session is gone')
     expect(failed.problem).toBe('the session is gone')
     expect(withSession(failed, b).problem).toBe('')
+    // Reopening the session already on screen is no move: the line stands, so a
+    // page that reopens a session it was refused keeps saying why.
+    expect(withSession(failed, a).problem).toBe('the session is gone')
   })
 
   test('every move the page makes lands in the field it names', () => {

@@ -24,7 +24,12 @@ export default defineConfig({
       'packages/*/*/tests/**/*.test.ts',
       'scripts/**/*.test.ts',
     ],
-    coverage: { provider: 'v8' },
+    coverage: {
+      provider: 'v8',
+      // The browser page is not this suite's to measure: it is exercised by the
+      // client project's own tests and by the acceptance run in a real browser.
+      exclude: ['apps/web/client-solid/**'],
+    },
   },
   run: {
     tasks: {

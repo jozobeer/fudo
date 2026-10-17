@@ -113,7 +113,10 @@ export const withSession = (state: WebState, summary: SessionSummary): WebState 
     sessionId: summary.id,
     conversation: emptyConversation,
     info: emptyInfo,
-    problem: '',
+    // A move to another session starts the page over. Opening the session it
+    // already shows again is no move: the line about what just went wrong stays,
+    // which is what a page that reopens a refused session has to say for itself.
+    problem: state.sessionId === summary.id ? state.problem : '',
     run: undefined,
     turns: [],
     trace: [],

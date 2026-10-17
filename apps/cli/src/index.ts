@@ -107,10 +107,10 @@ import {
 } from '@jozo-harness/safety'
 import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@jozo-harness/tui'
+import { fileURLToPath } from 'node:url'
 import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
 import {
   WebError,
-  defaultStaticRoot,
   pageIsThere,
   serveWeb,
   type JobDetailView,
@@ -794,6 +794,9 @@ const sessionFactoryOf = (
       ),
     ),
 })
+
+/** Where the built browser app sits: this tree's client bundle, beside the CLI. */
+const defaultStaticRoot = fileURLToPath(new URL('../../web/dist/', import.meta.url))
 
 /** Starts the browser UI; it runs until interrupted. */
 const serveWebUi = (
