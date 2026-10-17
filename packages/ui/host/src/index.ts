@@ -56,15 +56,18 @@ export const makeUiHost = (options: MakeUiHostOptions): Effect.Effect<UiHost, ne
     )
 
     // The entry outlives the answer: a waiter that starts after the command
-    // still finds a settled Deferred. The answered event removes it.
+    // still finds a settled Deferred. The answered event removes it. An answer
+    // nobody waits on stays unsettled, which is what the caller reads.
     const settle = <A>(
       waiting: Map<string, Deferred.Deferred<A>>,
       key: string,
       value: A,
-    ): Effect.Effect<void> =>
+    ): Effect.Effect<boolean> =>
       Effect.gen(function* () {
         const pending = waiting.get(key)
-        if (pending !== undefined) yield* Deferred.succeed(pending, value)
+        if (pending === undefined) return false
+        yield* Deferred.succeed(pending, value)
+        return true
       })
 
     const waitFor = <A>(
@@ -105,8 +108,21 @@ export const makeUiHost = (options: MakeUiHostOptions): Effect.Effect<UiHost, ne
           }
           yield* options.agent.followup({ text, source: 'user' })
         }),
-      approve: (callId, approved) => settle(approvals, callId, approved),
-      answer: (id, answer) => settle(asks, id, answer),
+      approve: (callId, approved) => Effect.asVoid(settle(approvals, callId, approved)),
+      /**
+       * A question only lives in the run that asked it: a session reopened from
+       * its log draws the question again, with nobody left to wait on the answer.
+       * The reader's word is input for the session either way, so it becomes the
+       * next message, and the log records the question as answered rather than
+       * leaving a card that answers nothing behind it.
+       */
+      answer: (id, answer) =>
+        Effect.gen(function* () {
+          const taken = yield* settle(asks, id, answer)
+          if (taken) return
+          yield* options.session.append('interaction/ask/answered', { id, answer })
+          yield* options.agent.followup({ text: answer, source: 'user' })
+        }),
       cancel: () => options.agent.cancel('user'),
       // Without a request there is nothing to allow: deny rather than hang.
       answerApproval: (request) => waitFor(approvals, request.callId, false),

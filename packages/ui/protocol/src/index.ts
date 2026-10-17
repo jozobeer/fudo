@@ -72,8 +72,8 @@ export interface UiHost {
   readonly submit: (text: string) => Effect.Effect<void, SessionError>
   /** Answers one approval request. */
   readonly approve: (callId: string, approved: boolean) => Effect.Effect<void>
-  /** Answers one question. */
-  readonly answer: (id: string, answer: string) => Effect.Effect<void>
+  /** Answers one question; the answer may have to be written down, so it can fail. */
+  readonly answer: (id: string, answer: string) => Effect.Effect<void, SessionError>
   /** Cancels the running turn; a no-op while idle. */
   readonly cancel: () => Effect.Effect<void>
   /** The approval answerer handed to `installApproval`. */

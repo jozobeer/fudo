@@ -206,6 +206,32 @@ describe('ui host', () => {
     )
   })
 
+  test('a question that outlived the run that asked it still takes the answer', async () => {
+    const input = makeInput()
+    // The question is in the log this run resumed from, so no hook of this run
+    // registered a waiter for it: a page that reopened the session draws the
+    // question again, and the answer has nowhere to go unless it is carried.
+    await Effect.runPromise(
+      input.append('interaction/ask/requested', {
+        id: 'q1',
+        question: 'which colour?',
+        options: ['blue', 'red'],
+      }),
+    )
+    await withHost(input, (host) =>
+      Effect.gen(function* () {
+        // The reader's word is still input for the session, so it becomes the next
+        // message rather than nothing, and the log says the question was answered.
+        yield* host.answer('q1', 'blue')
+        expect(input.submitted).toEqual(['blue'])
+        expect(input.session.events().map((event) => event.type)).toEqual([
+          'interaction/ask/requested',
+          'interaction/ask/answered',
+        ])
+      }),
+    )
+  })
+
   test('submit and cancel reach the agent', async () => {
     const input = makeInput()
     await withHost(input, (host) =>
