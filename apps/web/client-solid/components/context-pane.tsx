@@ -6,6 +6,7 @@ import type { TurnView } from '../../client/trajectory.ts'
 import { childSessionsOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
 import { Review } from './review.tsx'
+import { Inspector } from './inspector.tsx'
 import { Button } from './ui/button.tsx'
 
 const Goal = (props: { goal: RunStateView['goal'] }) => (
@@ -273,6 +274,11 @@ export const ContextPane = (props: { store: SessionStore }) => {
               </button>
             )}
           </For>
+          <Show when={ofKind(pane(), 'inspect')}>
+            <button class="tab active" type="button">
+              inspect
+            </button>
+          </Show>
           <Show when={ofKind(pane(), 'job')}>
             {(job) => (
               <button class="tab active" type="button">
@@ -299,6 +305,11 @@ export const ContextPane = (props: { store: SessionStore }) => {
         <Switch>
           <Match when={ofKind(body(), 'changes')}>
             {(changes) => <Review store={props.store} path={changes().path} />}
+          </Match>
+          <Match when={ofKind(body(), 'inspect')}>
+            {(inspect) => (
+              <Inspector store={props.store} turn={inspect().turn} callId={inspect().callId} />
+            )}
           </Match>
           <Match when={body()?.kind === 'run'}>
             <Run store={props.store} />
