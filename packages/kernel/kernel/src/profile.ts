@@ -1,4 +1,5 @@
 import { Effect, Schema } from 'effect'
+import { parse } from 'yaml'
 import { PluginError } from './errors.ts'
 
 export const PluginRowSchema = Schema.Struct({
@@ -55,7 +56,7 @@ const configError = (message: string): PluginError => new PluginError({ code: 'c
 export function parseProfile(text: string): Effect.Effect<Profile, PluginError> {
   return Effect.gen(function* () {
     const raw = yield* Effect.try({
-      try: () => Bun.YAML.parse(text) as unknown,
+      try: () => parse(text) as unknown,
       catch: (cause) => configError(`profile is not valid YAML: ${String(cause)}`),
     })
     return yield* Schema.decodeUnknownEffect(ProfileSchema)(raw).pipe(
