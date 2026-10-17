@@ -1,5 +1,4 @@
 import { For, Show, createMemo } from 'solid-js'
-import { traceOf } from '../../client/trace.ts'
 import { changedFilesOf, editsOf, type FileEdit } from '../edits.ts'
 import type { SessionStore } from '../store.ts'
 
@@ -22,7 +21,7 @@ const Edit = (props: { edit: FileEdit }) => (
  * edits of the one the reader picked, in the order they happened.
  */
 export const Review = (props: { store: SessionStore; path: string | undefined }) => {
-  const turns = createMemo(() => traceOf(props.store.state().log))
+  const turns = createMemo(() => props.store.state().trace)
   const files = () => changedFilesOf(turns())
   const picked = () => props.path ?? files()[0]
   return (
