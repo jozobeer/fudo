@@ -260,6 +260,9 @@ importers:
       '@jozo-harness/kernel':
         specifier: workspace:*
         version: link:../../kernel/kernel
+      '@jozo-harness/process':
+        specifier: workspace:*
+        version: link:../../kernel/process
       '@jozo-harness/safety':
         specifier: workspace:*
         version: link:../safety
@@ -290,6 +293,9 @@ importers:
       '@jozo-harness/llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@jozo-harness/process':
+        specifier: workspace:*
+        version: link:../../kernel/process
       '@jozo-harness/safety':
         specifier: workspace:*
         version: link:../safety
@@ -308,6 +314,8 @@ importers:
       effect:
         specifier: 4.0.3
         version: 4.0.3
+
+  packages/kernel/process: {}
 
   packages/llm/llm:
     dependencies:

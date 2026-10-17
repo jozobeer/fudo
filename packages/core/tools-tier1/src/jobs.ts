@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
 import { ToolError } from '@jozo-harness/tools'
+import { spawn, type Child } from '@jozo-harness/process'
 
 export interface Job {
   readonly id: string
@@ -25,7 +26,7 @@ export const JOB_OUTPUT_LIMIT = 64_000
  */
 export const makeJobs = (): Effect.Effect<JobsShape> =>
   Effect.sync(() => {
-    const jobs = new Map<string, { job: Job; process: Bun.Subprocess }>()
+    const jobs = new Map<string, { job: Job; process: Child }>()
     let counter = 0
 
     const collect = (job: Job, stream: ReadableStream<Uint8Array>): void => {
@@ -46,19 +47,18 @@ export const makeJobs = (): Effect.Effect<JobsShape> =>
         Effect.sync(() => {
           counter += 1
           const id = 'job-' + String(counter)
-          const process = Bun.spawn({
-            cmd: ['bash', '-lc', command],
+          const child = spawn(['bash', '-lc', command], {
             cwd,
             stdout: 'pipe',
             stderr: 'pipe',
           })
           const job: Job = { id, command, running: true, output: '' }
-          collect(job, process.stdout)
-          collect(job, process.stderr)
-          void process.exited.then(() => {
+          collect(job, child.stdout)
+          collect(job, child.stderr)
+          void child.exited.then(() => {
             job.running = false
           })
-          jobs.set(id, { job, process })
+          jobs.set(id, { job, process: child })
           return job
         }),
       read: (id) =>

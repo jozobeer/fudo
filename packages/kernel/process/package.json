@@ -1,0 +1,5 @@
+{
+  "name": "@jozo-harness/process",
+  "type": "module",
+  "exports": "./src/index.ts"
+}

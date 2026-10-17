@@ -9,6 +9,7 @@ import {
   type SandboxMode,
   type SandboxShape,
 } from '@jozo-harness/safety'
+import { spawn } from '@jozo-harness/process'
 import { escalates, escalationFields, modeOfCall } from './escalation.ts'
 import { resolveInside } from './workspace.ts'
 import { exitSummaryOf } from './present.ts'
@@ -78,22 +79,21 @@ const runWrapped = async (
   wrapped: { readonly argv: ReadonlyArray<string>; readonly cwd: string },
   timeoutMs: number,
 ): Promise<Run> => {
-  const process = Bun.spawn({
-    cmd: [...wrapped.argv],
+  const child = spawn([...wrapped.argv], {
     cwd: wrapped.cwd,
     stdout: 'pipe',
     stderr: 'pipe',
   })
-  const stdoutText = new Response(process.stdout).text()
-  const stderrText = new Response(process.stderr).text()
+  const stdoutText = new Response(child.stdout).text()
+  const stderrText = new Response(child.stderr).text()
   let timedOut = false
   const soft = setTimeout(() => {
     timedOut = true
-    process.kill()
+    child.kill()
   }, timeoutMs)
   // A command may trap the soft signal; the hard one is not optional.
-  const hard = setTimeout(() => process.kill(9), timeoutMs + BASH_HARD_KILL_GRACE_MS)
-  const exitCode = await process.exited
+  const hard = setTimeout(() => child.kill(9), timeoutMs + BASH_HARD_KILL_GRACE_MS)
+  const exitCode = await child.exited
   clearTimeout(soft)
   clearTimeout(hard)
   const [stdout, stderr] = await Promise.all([stdoutText, stderrText])

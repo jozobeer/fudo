@@ -1,5 +1,6 @@
 import { Effect, type Scope } from 'effect'
 import { ToolError } from '@jozo-harness/tools'
+import { spawn } from '@jozo-harness/process'
 import { decodeResponse, encodeRequest, type McpResponse } from './mcp-codec.ts'
 
 export interface McpServerOptions {
@@ -54,8 +55,7 @@ export const startMcpServer = (
 ): Effect.Effect<McpClientShape, ToolError, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.sync(() => {
-      const server = Bun.spawn({
-        cmd: [...options.command],
+      const server = spawn([...options.command], {
         cwd: options.cwd ?? process.cwd(),
         stdin: 'pipe',
         stdout: 'pipe',
@@ -84,8 +84,8 @@ export const startMcpServer = (
                   if (response.error !== undefined) reject(new Error(response.error.message))
                   else resolve(response.result)
                 })
-                void server.stdin.write(encodeRequest(id, method, params))
-                void server.stdin.flush()
+                // Node queues the write itself, so there is no flush to ask for.
+                server.stdin.write(encodeRequest(id, method, params))
               }),
           ).pipe(
             Effect.mapError(
