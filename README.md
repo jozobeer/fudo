@@ -10,7 +10,7 @@
 |---|---|
 | `apps/cli` | `jzh` 本体。引数の解釈、設定と鍵の読み込み、profile の組み立て、`config` / `auth` / `models` / `sessions` / `web` の入口 |
 | `apps/tui` | 端末 UI。会話と承認・質問を 1 画面に描く |
-| `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client/` を `pnpm run build:web` で `dist` に束ねる |
+| `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client-solid/` を `pnpm run build:web` で `dist` に束ねる（入口をまたぐ純関数は `src/ui/`） |
 | `packages/kernel/kernel` | profile の解析・マージと plugin のローダ、hook |
 | `packages/kernel/process` | 子プロセスを Node で動かす薄いラッパー（stdio・exit code・kill） |
 | `packages/core/*` | agent と turn（`agent` / `agent-loop`）、session とそのログ（`session` / `session-jsonl`）、tool（`tools` / `tools-tier0` / `tools-tier1`）、許可と sandbox（`safety`）、system prompt（`system-prompt`）、scope |
@@ -78,7 +78,7 @@ jzh --dump-config                       # 読み込んだプロファイルと�
 
 #### Web UI
 
-ブラウザ側を先に束ねる。初回と `apps/web/client/` を変えたときに走らせる。
+ブラウザ側を先に束ねる。初回と `apps/web/client-solid/`・`apps/web/src/ui/` を変えたときに走らせる。
 
 ```sh
 pnpm run build:web    # apps/web/dist に束ねる

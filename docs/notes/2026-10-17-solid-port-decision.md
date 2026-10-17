@@ -30,7 +30,7 @@
 | 動き | なし | 4 箇所、150〜250ms |
 | テスト | なし（受け入れのみ） | コンポーネント 5 本 |
 
-置換は次の 1 コミットで行う（この Issue の受け入れは「並走し、既定の配信は現行のまま」なので、置換自体は Issue の外）。
+置換は 2026-10-17 に下の 4 手で行った（結果は `docs/notes/2026-10-17-web-entry-replaced.md`）。Issue の受け入れは「並走し、既定の配信は現行のまま」だったので、置換自体は Issue の外である。
 
 1. `client/state.ts`・`theme.ts`・`markdown.ts`・`trajectory.ts`・`scroll.ts` を `client-solid` の外（例: `apps/web/src/ui/`）へ移し、両入口から読む。
 2. ビルドの出力先と `base` を入れ替え、Solid を `/` で配る（SEA の `web/` 資産も追随）。
