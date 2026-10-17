@@ -12,9 +12,16 @@ describe('bundled profiles', () => {
     }
   })
 
+  test('base parses and carries the plugin rows', async () => {
+    const parsed = await Effect.runPromise(parseProfile(await loadBundledProfileNamed('base')))
+
+    expect(parsed.name).toBe('base')
+    expect(parsed.plugins.length).toBeGreaterThan(0)
+  })
+
   test('an unknown profile fails to load', async () => {
     for (const name of ['nope', 'constructor', '../base']) {
-      expect(loadBundledProfileNamed(name)).rejects.toThrow(name)
+      await expect(loadBundledProfileNamed(name)).rejects.toThrow(name)
     }
   })
 })
