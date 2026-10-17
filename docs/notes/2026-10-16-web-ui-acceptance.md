@@ -8,8 +8,10 @@ DSH 側の棚卸しは [機能棚卸し](2026-10-16-dsh-web-ui-inventory.md) に
 
 **シェルとセッションの入口**
 
-- レールにセッション一覧（名前・時刻・id の先頭と cwd の末尾）。名前は最初の user
-  メッセージで、turn が終わるたびに store を読み直して付く。
+- 画面は 3 列。左は「どこにいるか」（セッション一覧。名前・いつ始まったか・id の先頭と
+  cwd の末尾。名前は最初の user メッセージで、turn が終わるたびに store を読み直して付く）、
+  中央は「何が話されているか」、右は「いま何が起きているか」。
+  幅が 1100px を切ると右は会話の上に重なる。
 - New session、行クリックで切り替え。URL は `?session=<id>` なので再読込しても戻る。
 - サーバはセッション登録簿を持ち、必要になったときに 1 つ開く
   （`apps/web/src/server/sessions.ts`）。開いたセッションはサーバが止まるまで生きる。
@@ -19,22 +21,26 @@ DSH 側の棚卸しは [機能棚卸し](2026-10-16-dsh-web-ui-inventory.md) に
 - assistant は markdown。見出し・箇条書き・引用・コードフェンス（言語名つき）・
   インライン。リンクは http / https / mailto / 相対だけをアンカーにする。
 - tool はカード。1 行の要約と、`<details>` に全文（16,384 字まで）。エラーは開いた状態。
-- 承認は Allow / Deny（y / n でも答える）。質問は尋ねた場所にブロックとして残り、
-  markdown で読め、選択肢のボタンは待っている間だけ出る。plan の提示もこの経路である。
+- 承認と質問は **composer の上**（takeover）に出る。次に読むべきものは次に打つ場所の隣に
+  あるべきだからである。承認は Allow / Deny（y / n でも答える）、質問は選択肢のボタン。
+  質問そのものは尋ねた場所にブロックとして残り、markdown で読める。plan の提示もこの経路。
 
 **設定とテーマ**
 
 - テーマは system / dark / light。選んだものは保存され、system を選ぶと属性を書かない
   ので機械の設定に追従し続ける。
-- 設定シートは model / effort / cwd / セッションの置き場 / 設定ファイルを出す。
+- 右のペインは tab（run / settings / turns ＋ 開いた job）で切り替える。settings は
+  model / effort / cwd / セッションの置き場 / 設定ファイルを出し、**テーマもここ**にある
+  （好みは設定であって案内ではない）。モデルは composer の席にあり、押すとここが開く。
 - モデルは `List models`（provider の `GET /models`）から選び、`jzh config set model`
   と同じ書き手（`runConfig`）で書く。効くのは次の run から。
 
 **走行状態**
 
-- goal（objective / phase / ラウンド数）、schedule（rule / prompt）、job（実行中か、
-  開いて出力、まだ走っていれば Stop）、queued（次の turn を待つ入力）、subagent が
-  始めた子セッションへの移動、trajectory（ターンごとの長さ・ステップ数・呼び出し数・
+- 右のペインの run が goal（objective / phase / ラウンド数）、schedule（rule / prompt）、
+  job（実行中か、開いて出力、まだ走っていれば Stop）、subagent が始めた子セッションへの
+  移動を出す。queued（次の turn を待つ入力）は composer の上、
+  trajectory（ターンごとの長さ・ステップ数・呼び出し数・
   終わりの理由）。
 
 ## 検証
