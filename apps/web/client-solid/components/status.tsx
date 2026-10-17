@@ -5,14 +5,21 @@ import type { SessionStore } from '../store.ts'
 /** The strip along the top: the connection, where the session runs, what happens next. */
 export const Status = (props: { store: SessionStore }) => {
   const state = () => props.store.state()
+  /** An approval or a question waits on the reader: the one thing the strip should shout. */
+  const waiting = (): boolean =>
+    state().conversation.approval !== undefined || state().conversation.ask !== undefined
+  const hintClass = (): string =>
+    'hint' + (state().problem !== '' ? ' error' : waiting() ? ' attention' : '')
   return (
     <>
       <span class={'dot ' + (state().connected ? 'on' : 'off')} />
-      <span class="title">jozo-harness</span>
       <Show when={state().info.cwd !== ''}>
-        <span class="where">{state().info.cwd}</span>
+        {/* The strip clips the head of a long path; bdi keeps the path itself left to right. */}
+        <span class="where" title={state().info.cwd}>
+          <bdi>{state().info.cwd}</bdi>
+        </span>
       </Show>
-      <span class={'hint' + (state().problem === '' ? '' : ' error')}>{hintOf(state())}</span>
+      <span class={hintClass()}>{hintOf(state())}</span>
     </>
   )
 }

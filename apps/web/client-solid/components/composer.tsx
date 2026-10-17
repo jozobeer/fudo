@@ -175,7 +175,8 @@ export const Composer = (props: { store: SessionStore }) => {
               </button>
             </Show>
           </div>
-          <Button id="send" variant="primary" type="submit">
+          {/* While something waits on the reader, the card's button is the one in amber. */}
+          <Button id="send" variant={takeover() ? 'default' : 'primary'} type="submit">
             Send
           </Button>
           <Button id="cancel" type="button" onClick={() => props.store.send({ kind: 'cancel' })}>

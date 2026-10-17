@@ -8,23 +8,19 @@
 @import 'tailwindcss';
 @import '../client/style.css' layer(client);
 
-@theme {
-  --color-bg: #0f1115;
-  --color-bg-sunken: #0a0c10;
-  --color-bg-raise: #14171d;
-  --color-bg-hover: #1a1e25;
-  --color-bg-float: #191d24;
-  --color-line-soft: #1b1f26;
-  --color-line: #262b34;
-  --color-line-strong: #353d4a;
-  --color-text: #e3e7ee;
-  --color-dim: #8b93a3;
-  --color-accent: #6ea8fe;
-  --color-accent-soft: #22334f;
-  --color-user: #7cc4ff;
-  --color-tool: #7fd6a4;
-  --color-error: #ff7b72;
-  --color-warn: #ffc86b;
+/* Solid renders into #root, so the page's flex column has to reach through it. */
+#root {
+  display: contents;
+}
+
+/* The palette lives in the page's sheet; utilities read it, so they follow the theme. */
+@theme inline {
+  --color-bg-hover: var(--bg-hover);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
 }
 
 /*

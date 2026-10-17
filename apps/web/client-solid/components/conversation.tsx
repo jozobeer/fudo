@@ -99,8 +99,7 @@ const Welcome = () => (
       </li>
       <li>a shell command asks before it runs</li>
       <li>
-        the rail carries what the session works toward, and the sheets carry its turns, jobs and
-        settings
+        the sheet on the right carries what the session works toward, its turns, jobs and settings
       </li>
     </ul>
   </section>

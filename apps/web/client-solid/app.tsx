@@ -6,7 +6,7 @@ import { Rail } from './components/rail.tsx'
 import { Status } from './components/status.tsx'
 import { createSessionStore } from './store.ts'
 
-/** The page: the strip, the three columns, and the composer with what waits on it. */
+/** The page: the strip, and three columns with the composer under the middle one. */
 export const App = () => {
   const store = createSessionStore()
   onMount(() => {
@@ -22,12 +22,14 @@ export const App = () => {
         <aside id="sidebar">
           <Rail store={store} />
         </aside>
-        <Conversation store={store} />
+        <div id="main">
+          <Conversation store={store} />
+          <Composer store={store} />
+        </div>
         <aside id="context" aria-label="Context">
           <ContextPane store={store} />
         </aside>
       </div>
-      <Composer store={store} />
     </>
   )
 }

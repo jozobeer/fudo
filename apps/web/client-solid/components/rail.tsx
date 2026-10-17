@@ -11,11 +11,11 @@ export const Rail = (props: { store: SessionStore }) => {
       <div class="brand">jozo-harness</div>
       <Button
         id="new-session"
-        variant="primary"
+        variant="quiet"
         type="button"
         onClick={() => props.store.moveTo(undefined)}
       >
-        New session
+        + New session
       </Button>
       <nav id="session-list" aria-label="Sessions">
         <For each={state().sessions}>
@@ -31,7 +31,8 @@ export const Rail = (props: { store: SessionStore }) => {
               </span>
               <span class="session-when">{whenOf(summary.createdAt, Date.now())}</span>
               <span class="session-where">
-                {summary.id.slice(0, 8) + ' · ' + basenameOf(summary.cwd)}
+                <span>{basenameOf(summary.cwd)}</span>
+                <span class="session-id">{summary.id.slice(0, 8)}</span>
               </span>
             </button>
           )}
