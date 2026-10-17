@@ -31,7 +31,9 @@ const relativeOf = (requestPath: string): string | undefined => {
     }
   })()
   if (decoded === undefined || decoded.includes('\u0000')) return undefined
-  return decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '')
+  const stripped = decoded.replace(/^\/+/, '')
+  // A directory request serves the page in it, the way a static server does.
+  return stripped === '' || stripped.endsWith('/') ? stripped + 'index.html' : stripped
 }
 
 /**

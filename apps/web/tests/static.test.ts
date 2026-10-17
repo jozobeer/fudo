@@ -16,6 +16,11 @@ describe('static files', () => {
     expect(staticPath('/srv/app', '/assets/app.css')).toBe('/srv/app/assets/app.css')
   })
 
+  test('a directory request serves the page inside it', () => {
+    expect(staticPath('/srv/app', '/solid/')).toBe('/srv/app/solid/index.html')
+    expect(staticPath('/srv/app', '/deep/nested/')).toBe('/srv/app/deep/nested/index.html')
+  })
+
   test('paths that climb out are refused, encoded or not', () => {
     expect(staticPath('/srv/app', '/../secret')).toBeUndefined()
     expect(staticPath('/srv/app', '/%2e%2e/secret')).toBeUndefined()
