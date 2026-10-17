@@ -444,6 +444,23 @@ const readsTheRun = async (read: () => Promise<unknown>): Promise<void> => {
   }
 }
 
+/**
+ * A page nobody is touching keeps its socket. The connection is kept alive by
+ * pings, and a client whose ping timeout is as short as its interval writes the
+ * socket off whenever a tick lands a little late: the page reconnects within the
+ * second, so the strip has to be watched the whole time — one look at the end of
+ * the quiet spell would land in a good moment and say nothing was wrong.
+ */
+const keepsTheSocketWhileQuiet = async (client: Cdp): Promise<void> => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    await sleep(500)
+    const strip = await client.evaluate("document.getElementById('status').innerText")
+    if (typeof strip !== 'string' || !strip.includes('ready')) {
+      throw new Error('the page lost its socket while nothing happened: ' + String(strip))
+    }
+  }
+}
+
 /** Opens the ledger, checks that it knows what ran, and closes it again. */
 const readsTheLedger = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
   await client.evaluate(showsPane('trajectory'))
@@ -511,6 +528,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
       throw new Error('the page never reported ready: ' + shown.slice(0, 400))
     }
     const answer = await answersTheApproval(client, read)
+    await keepsTheSocketWhileQuiet(client)
     await readsTheRun(read)
     await readsTheLedger(client, read)
     const first = await opensANewSession(client)

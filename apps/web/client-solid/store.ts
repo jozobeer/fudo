@@ -62,6 +62,16 @@ const keepsRunning = <A>(
     Effect.forever,
   )
 
+/**
+ * How the page checks the socket is still there. Effect's own timeout equals its
+ * interval, so a tick that lands a hair late — a throttled timer, a page busy
+ * with a long answer — writes the whole connection off, and an idle session
+ * reads as a feed that keeps dropping. A page sits quiet for minutes at a time,
+ * so the check is cheap and the verdict is slow: a ping every twenty seconds,
+ * and a minute of silence before the socket is given up on.
+ */
+const KEEP_ALIVE = { pingInterval: '20 seconds', pingTimeout: '1 minute' } as const
+
 /** What one session's log told the page to read again. */
 const needsRefresh = (type: string): boolean =>
   type === 'turn/end' || type.startsWith('agent/inbox/')
@@ -331,7 +341,7 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
   const runnable = withoutServices(
     program.pipe(
       Effect.ensuring(Effect.sync(() => update((now) => withConnection(now, false)))),
-      Effect.provide(RpcClient.layerProtocolSocket()),
+      Effect.provide(RpcClient.layerProtocolSocket(KEEP_ALIVE)),
       Effect.provide(Socket.layerWebSocket(url)),
       Effect.provide(Socket.layerWebSocketConstructorGlobal),
       Effect.provide(RpcSerialization.layerJson),
