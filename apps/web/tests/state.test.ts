@@ -58,6 +58,21 @@ describe('the browser state', () => {
     expect(state.info).toEqual({ cwd: '', model: '', turns: 0 })
   })
 
+  test('the trace grows one event at a time, and a replayed event does not count twice', () => {
+    const start = session('turn/start', { turn: 1 })
+    const step = session('step/start', { step: 1 })
+    const call = session('tool/call', {
+      callId: 'c1',
+      name: 'bash',
+      arguments: '{}',
+      summary: 'ls',
+    })
+    const state = fold([start, step, call, call])
+
+    expect(state.trace.map((turn) => turn.steps.map((step) => step.tools.length))).toEqual([[1]])
+    expect(withSession(state, a).trace).toEqual([])
+  })
+
   test('the list a page opens with is what its sidebar shows', () => {
     const state = withSessions(initialState, [b, a])
     expect(state.sessions).toEqual([b, a])
