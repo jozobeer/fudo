@@ -17,7 +17,8 @@ export interface AbMetrics {
   readonly tools: Readonly<Record<string, number>>
 }
 
-interface AbEvent {
+/** One line of either log; both fields are read defensively. */
+export interface AbEvent {
   readonly type?: unknown
   readonly data?: unknown
 }

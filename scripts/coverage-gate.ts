@@ -8,9 +8,10 @@
 /** The percentages the suite may not fall under. */
 const FLOOR = { lines: 93, functions: 92 } as const
 
+/** A running tally; the fields are mutated as the lcov report is read. */
 interface Totals {
-  readonly lines: { readonly hit: number; readonly found: number }
-  readonly functions: { readonly hit: number; readonly found: number }
+  lines: { hit: number; found: number }
+  functions: { hit: number; found: number }
 }
 
 const { mkdtemp, readFile, readdir, rm } = await import('node:fs/promises')

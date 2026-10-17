@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { dshMetrics, jozoHarnessMetrics, type AbMetrics } from './metrics.ts'
+import { dshMetrics, jozoHarnessMetrics, type AbEvent, type AbMetrics } from './metrics.ts'
 import { tableOf, type Cell } from './table.ts'
 import { TASKS, type AbTask } from './tasks.ts'
 
@@ -95,18 +95,19 @@ const lastLine = (text: string): string =>
     .slice(-1)[0]
     ?.slice(0, 240) ?? ''
 
-const jsonl = (text: string): ReadonlyArray<unknown> =>
-  text.split('\n').flatMap((line) => {
+/** The lines that parsed, in the order the log wrote them. */
+const jsonl = (text: string): ReadonlyArray<AbEvent> =>
+  text.split('\n').flatMap((line): ReadonlyArray<AbEvent> => {
     if (line.trim() === '') return []
     try {
-      return [JSON.parse(line) as unknown]
+      return [JSON.parse(line) as AbEvent]
     } catch {
       return []
     }
   })
 
 /** The dsh log is zstd-compressed; Bun decodes it without a helper process. */
-const zstdJsonl = (path: string): ReadonlyArray<unknown> =>
+const zstdJsonl = (path: string): ReadonlyArray<AbEvent> =>
   jsonl(new TextDecoder().decode(Bun.zstdDecompressSync(readFileSync(path))))
 
 /** A log that cannot be counted spoils its own run, not the runs still to come. */
