@@ -1,9 +1,33 @@
-/** The shell the port grows into; it says where it is while that happens. */
-export const App = () => (
-  <main class="min-h-screen bg-[var(--surface)] p-8 text-[var(--text)]">
-    <h1 class="text-2xl font-semibold">jozo-harness</h1>
-    <p class="mt-2 text-sm opacity-70">
-      the Solid entry, served beside the current page at /solid/
-    </p>
-  </main>
-)
+import { onCleanup, onMount } from 'solid-js'
+import { Composer } from './components/composer.tsx'
+import { ContextPane } from './components/context-pane.tsx'
+import { Conversation } from './components/conversation.tsx'
+import { Rail } from './components/rail.tsx'
+import { Status } from './components/status.tsx'
+import { createSessionStore } from './store.ts'
+
+/** The page: the strip, the three columns, and the composer with what waits on it. */
+export const App = () => {
+  const store = createSessionStore()
+  onMount(() => {
+    store.start()
+    onCleanup(() => store.stop())
+  })
+  return (
+    <>
+      <header id="status" aria-live="polite">
+        <Status store={store} />
+      </header>
+      <div id="shell">
+        <aside id="sidebar">
+          <Rail store={store} />
+        </aside>
+        <Conversation store={store} />
+        <aside id="context" aria-label="Context">
+          <ContextPane store={store} />
+        </aside>
+      </div>
+      <Composer store={store} />
+    </>
+  )
+}

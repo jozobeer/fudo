@@ -8,4 +8,8 @@ export default defineConfig({
   base: '/solid/',
   build: { outDir: '../dist/solid', emptyOutDir: true },
   plugins: [solid(), tailwindcss()],
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.test.tsx'],
+  },
 })

@@ -1,13 +1,24 @@
 @import 'tailwindcss';
+/* While the port is tried beside the current page it wears the same stylesheet,
+   so the two entries can be compared. The tokens below are those values in the
+   shape Tailwind v4 reads, for the components written with utilities. */
+@import '../client/style.css';
 
-/* The tokens the current page keeps in :root, in the place Tailwind v4 reads
-   them. The full set follows as the components land. */
 @theme {
-  --color-surface: #101216;
-  --color-panel: #171a20;
+  --color-bg: #0f1115;
+  --color-bg-sunken: #0a0c10;
+  --color-bg-raise: #14171d;
+  --color-bg-hover: #1a1e25;
+  --color-bg-float: #191d24;
+  --color-line-soft: #1b1f26;
   --color-line: #262b34;
-  --color-text: #e6e8ec;
-  --color-muted: #9aa2b1;
-  --color-accent: #7aa2f7;
-  --color-danger: #f7768e;
+  --color-line-strong: #353d4a;
+  --color-text: #e3e7ee;
+  --color-dim: #8b93a3;
+  --color-accent: #6ea8fe;
+  --color-accent-soft: #22334f;
+  --color-user: #7cc4ff;
+  --color-tool: #7fd6a4;
+  --color-error: #ff7b72;
+  --color-warn: #ffc86b;
 }
