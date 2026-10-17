@@ -5,6 +5,7 @@ import { THEMES, type Theme } from '../../client/theme.ts'
 import type { TurnView } from '../../client/trajectory.ts'
 import { childSessionsOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
+import { Review } from './review.tsx'
 import { Button } from './ui/button.tsx'
 
 const Goal = (props: { goal: RunStateView['goal'] }) => (
@@ -216,10 +217,23 @@ const Job = (props: { store: SessionStore; pane: Extract<Pane, { kind: 'job' }> 
 )
 
 const PANES = [
+  { kind: 'changes', label: 'changes' },
   { kind: 'run', label: 'run' },
   { kind: 'settings', label: 'settings' },
   { kind: 'trajectory', label: 'turns' },
 ] as const
+
+type Tab = (typeof PANES)[number]['kind']
+
+/** The pane when it is of one kind, narrowed to it; undefined otherwise. */
+const ofKind = <K extends Pane['kind']>(
+  pane: Pane | undefined,
+  kind: K,
+): Extract<Pane, { kind: K }> | undefined =>
+  pane?.kind === kind ? (pane as Extract<Pane, { kind: K }>) : undefined
+
+/** What a tab opens: the changes pane starts on no file in particular. */
+const paneFor = (kind: Tab): Pane => (kind === 'changes' ? { kind, path: undefined } : { kind })
 
 /** The right column: what the session runs toward, is set to, did, or one job. */
 export const ContextPane = (props: { store: SessionStore }) => {
@@ -241,9 +255,8 @@ export const ContextPane = (props: { store: SessionStore }) => {
   const body = (): Pane | undefined => pane() ?? kept()
   const open = (): boolean => pane() !== undefined
   const closing = (): boolean => pane() === undefined && kept() !== undefined
-  const active = (kind: 'run' | 'settings' | 'trajectory'): boolean => pane()?.kind === kind
-  const toggle = (kind: 'run' | 'settings' | 'trajectory'): void =>
-    props.store.showPane(active(kind) ? undefined : { kind })
+  const active = (kind: Tab): boolean => pane()?.kind === kind
+  const toggle = (kind: Tab): void => props.store.showPane(active(kind) ? undefined : paneFor(kind))
   return (
     <>
       <header class="context-head">
@@ -260,9 +273,7 @@ export const ContextPane = (props: { store: SessionStore }) => {
               </button>
             )}
           </For>
-          <Show
-            when={pane()?.kind === 'job' ? (pane() as Extract<Pane, { kind: 'job' }>) : undefined}
-          >
+          <Show when={ofKind(pane(), 'job')}>
             {(job) => (
               <button class="tab active" type="button">
                 {'job ' + job().id.slice(0, 8)}
@@ -286,6 +297,9 @@ export const ContextPane = (props: { store: SessionStore }) => {
         data-closing={closing() ? 'true' : 'false'}
       >
         <Switch>
+          <Match when={ofKind(body(), 'changes')}>
+            {(changes) => <Review store={props.store} path={changes().path} />}
+          </Match>
           <Match when={body()?.kind === 'run'}>
             <Run store={props.store} />
           </Match>
@@ -295,9 +309,7 @@ export const ContextPane = (props: { store: SessionStore }) => {
           <Match when={body()?.kind === 'trajectory'}>
             <Trajectory turns={props.store.state().turns} />
           </Match>
-          <Match
-            when={body()?.kind === 'job' ? (body() as Extract<Pane, { kind: 'job' }>) : undefined}
-          >
+          <Match when={ofKind(body(), 'job')}>
             {(job) => <Job store={props.store} pane={job()} />}
           </Match>
         </Switch>

@@ -68,33 +68,42 @@ describe('the Solid page', () => {
     expect(calls).toContainEqual({ kind: 'moveTo', id: 'ccccdddd' })
   })
 
-  test('the conversation renders markdown, tool output, and the live step', () => {
-    const { store } = makeStore({
-      conversation: {
-        ...emptyConversation,
-        blocks: [
-          { kind: 'user', text: 'hello' },
-          { kind: 'assistant', text: '# Heading' },
-          {
-            kind: 'tool',
-            callId: 'c1',
-            name: 'read',
-            summary: 'a.ts',
-            status: 'done',
-            result: 'a.ts',
-            output: 'the file said so',
-          },
-        ],
-        live: 'still writing',
-      },
+  test('a turn shows the ask, folds its work into one line, and ends in the answer', () => {
+    const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
+    const { store, calls } = makeStore({
+      conversation: { ...emptyConversation, blocks: [{ kind: 'user', text: 'hello' }] },
+      log: [
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'agent/inbox/claimed', { message: { text: 'hello', source: 'user' } }),
+        at(3, 'step/start', { step: 1 }),
+        at(4, 'tool/call', {
+          callId: 'c1',
+          name: 'edit',
+          arguments: '{"path":"a.ts"}',
+          summary: 'a.ts',
+        }),
+        at(5, 'tool/result', {
+          callId: 'c1',
+          isError: false,
+          summary: 'lines: 1 → 2',
+          content: [{ type: 'text', text: 'the file said so' }],
+        }),
+        at(6, 'step/end', { step: 1 }),
+        at(7, 'step/start', { step: 2 }),
+        at(8, 'assistant/message', { content: [{ type: 'text', text: '# Heading' }] }),
+        at(9, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ],
     })
 
     const { container } = render(() => <Conversation store={store} />)
 
     expect(container.querySelector('.block.user .body')?.textContent).toBe('hello')
-    expect(container.querySelector('.markdown h1')?.textContent).toBe('Heading')
+    expect(container.querySelector('.process-count')?.textContent).toBe('2 steps, 1 call')
+    expect(container.querySelector('.answer h1')?.textContent).toBe('Heading')
     expect(container.querySelector('.tool-card .tool-output')?.textContent).toBe('the file said so')
-    expect(container.querySelector('.block.live')?.textContent).toContain('still writing')
+
+    fireEvent.click(container.querySelector('button.change') as Element)
+    expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'changes', path: 'a.ts' } })
   })
 
   test('an approval answers through the store, from the buttons and from y / n', () => {

@@ -99,3 +99,321 @@
     transform: translateY(-4px);
   }
 }
+
+/*
+ * Outcome first: a turn is read from what it left. The ask heads it, the work
+ * folds into one line that opens into its steps, the answer is the body, and
+ * the files it wrote close it.
+ */
+@layer client {
+  #conversation .block.turn {
+    padding-left: 0;
+    margin-bottom: var(--s6);
+  }
+
+  #conversation .block.turn::before,
+  #conversation .block.turn .block::before {
+    display: none;
+  }
+
+  #conversation .turn .block {
+    max-width: none;
+    margin: 0;
+    padding-left: 0;
+  }
+
+  .turn-ask {
+    margin-bottom: var(--s3) !important;
+  }
+
+  .turn-ask .body {
+    font-size: var(--text-md);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .process {
+    margin: 0 0 var(--s3);
+    border-left: 2px solid var(--line);
+  }
+
+  .process[open] {
+    border-left-color: var(--line-strong);
+  }
+
+  .process-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 4px 10px;
+    color: var(--dim);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .process-line::-webkit-details-marker {
+    display: none;
+  }
+
+  .process-line::before {
+    content: '▸';
+    width: 0.8em;
+    font-size: var(--text-xs);
+  }
+
+  .process[open] > .process-line::before {
+    content: '▾';
+  }
+
+  .process-line:hover {
+    color: var(--text);
+  }
+
+  .process-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tool);
+  }
+
+  .process-dot.running {
+    border: 2px solid var(--tool);
+    background: none;
+  }
+
+  .process-dot.error,
+  .process-dot.cancelled {
+    background: var(--error);
+  }
+
+  .process-state {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .process-took,
+  .process-count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .process-failed {
+    color: var(--error);
+  }
+
+  .process-now {
+    flex-basis: 100%;
+    padding-left: calc(0.8em + 28px);
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    max-height: 60vh;
+    margin: 0;
+    padding: var(--s1) var(--s3) var(--s3);
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .step-thought {
+    margin: 0 0 2px;
+    overflow: hidden;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    font-style: italic;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .step-said {
+    margin: 2px 0 4px;
+    font-size: var(--text-sm);
+  }
+
+  .tool-card {
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+  }
+
+  .tool-line {
+    display: grid;
+    grid-template-columns: 3.5em minmax(0, 1fr) auto 3.5em;
+    gap: var(--s2);
+    padding: 1px 0;
+    color: var(--dim);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .tool-line::-webkit-details-marker {
+    display: none;
+  }
+
+  .tool-line:hover {
+    color: var(--text);
+  }
+
+  .tool-card .tool-name {
+    color: var(--text);
+  }
+
+  .tool-card.error .tool-name,
+  .tool-card.error .tool-result {
+    color: var(--error);
+  }
+
+  .tool-card .tool-summary,
+  .tool-card .tool-result {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tool-took {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tool-card .tool-output {
+    max-height: 14rem;
+    margin: 4px 0 6px 4.1em;
+    font-size: var(--text-xs);
+  }
+
+  .answer {
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .changes {
+    margin-top: var(--s4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .changes-head {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-raise);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .change {
+    display: flex;
+    gap: var(--s3);
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    background: none;
+    color: var(--text);
+    font-size: var(--text-sm);
+    text-align: left;
+  }
+
+  .change:last-child {
+    border-bottom: 0;
+  }
+
+  .change:hover {
+    background: var(--bg-hover);
+  }
+
+  .change-path {
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .change-edits {
+    flex: none;
+    color: var(--dim);
+    font-size: var(--text-xs);
+  }
+
+  .review-files {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: var(--s4);
+  }
+
+  .review-file {
+    padding: 5px 8px;
+    border: 0;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: var(--text-xs);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .review-file.active {
+    border-left-color: var(--select);
+    background: var(--select-soft);
+    color: var(--text);
+  }
+
+  .edit {
+    margin-bottom: var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .edit-head {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--dim);
+    font-size: var(--text-xs);
+  }
+
+  .diff {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 6px 0;
+    background: var(--code-bg);
+    overflow-x: auto;
+    font: var(--text-xs) / 1.55 var(--mono);
+  }
+
+  .diff span {
+    padding: 0 10px;
+    white-space: pre;
+  }
+
+  .diff-del {
+    background: color-mix(in srgb, var(--error) 14%, transparent);
+  }
+
+  .diff-add {
+    background: color-mix(in srgb, var(--tool) 16%, transparent);
+  }
+
+  #takeover .takeover-text.markdown {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+}
