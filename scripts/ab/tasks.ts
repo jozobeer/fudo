@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises'
 import { findDisagreement } from './find-task.ts'
 import { longPrompt } from './prompt-task.ts'
 import { readReport } from './read-task.ts'
+import { recoverAmbiguousEdit } from './recover-task.ts'
 import { fixRules } from './rules-task.ts'
 
 export interface AbTask {
@@ -18,6 +19,11 @@ export interface AbTask {
   readonly files: Readonly<Record<string, string>>
   /** How long one run may take; the run script's default when absent. */
   readonly timeoutMs?: number
+  /**
+   * Where a harness difference would show for this task, and what it means when none shows:
+   * one line, written against this task's own metrics so a flat result can be read.
+   */
+  readonly regime?: string
   /** Whether the work landed, read from the workspace. */
   readonly done: (workspace: string) => Promise<boolean>
 }
@@ -73,4 +79,5 @@ export const TASKS: ReadonlyArray<AbTask> = [
   readReport,
   longPrompt,
   findDisagreement,
+  recoverAmbiguousEdit,
 ]
