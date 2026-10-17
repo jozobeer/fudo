@@ -10,6 +10,8 @@ import { Conversation } from '../components/conversation.tsx'
 import { Board } from '../components/board.tsx'
 import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
 import { Waterfall } from '../components/waterfall.tsx'
+import { LensSwitch } from '../components/lens-switch.tsx'
+import { lensFrom, type Lens } from '../lens.ts'
 import type { SessionStore } from '../store.ts'
 
 /** One call a component made, in the order it made them. */
@@ -225,5 +227,22 @@ describe('the Solid page', () => {
     expect(row?.querySelector('.wf-took')?.textContent).toBe('2.0s')
     fireEvent.click(row as Element)
     expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'inspect', turn: 1, callId: 'c1' } })
+  })
+
+  test('the switch marks the reading on screen and hands over the other', () => {
+    const chosen: Array<Lens> = []
+    const { container } = render(() => (
+      <LensSwitch lens="answers" onChoose={(lens) => chosen.push(lens)} />
+    ))
+
+    const pressed = container.querySelector('button[aria-pressed="true"]')
+    expect(pressed?.textContent).toBe('Answers')
+    fireEvent.click(container.querySelector('button[data-lens="timeline"]') as Element)
+    expect(chosen).toEqual(['timeline'])
+    expect([lensFrom('timeline'), lensFrom('waterfall'), lensFrom(null)]).toEqual([
+      'timeline',
+      'answers',
+      'answers',
+    ])
   })
 })

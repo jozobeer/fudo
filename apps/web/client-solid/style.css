@@ -564,33 +564,52 @@
 }
 
 /*
- * Trace first: the middle of the page is the trace, every model call and tool
- * call a bar on its turn's time axis. The chat narrows to a column on the left,
- * the sessions become a drawer, and the pane on the right inspects one call.
+ * Trace first: every model call and tool call a bar on its turn's time axis,
+ * and the pane on the right inspects one call. It shares the middle column
+ * with the answers; the switch on the column's head picks which it shows.
  */
 @layer client {
-  #shell {
-    grid-template-columns: 380px minmax(0, 1fr) auto;
+  #main[data-lens='answers'] #waterfall,
+  #main[data-lens='timeline'] #conversation {
+    display: none;
   }
 
-  #sidebar {
-    position: fixed;
-    top: 39px;
-    bottom: 0;
-    left: 0;
-    z-index: 40;
-    width: var(--rail-w);
-    box-shadow: 18px 0 40px rgb(0 0 0 / 30%);
-    transform: translateX(-100%);
-    visibility: hidden;
+  #main #waterfall {
+    flex: 1;
   }
 
-  body[data-drawer] #sidebar {
-    transform: none;
-    visibility: visible;
+  .column-head {
+    flex: none;
+    display: flex;
+    padding: var(--s2) var(--s4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lens {
+    display: flex;
+    flex: none;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+
+  .lens-option {
+    padding: 1px 10px;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    color: var(--dim);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+  }
+
+  .lens-option[aria-pressed='true'] {
+    background: var(--bg-hover);
+    color: var(--text);
   }
 
   .drawer-toggle {
+    display: none;
     flex: none;
     padding: 2px 8px;
     border: 1px solid var(--line);
@@ -599,19 +618,6 @@
     color: var(--text);
     font-size: var(--text-sm);
     line-height: 1.4;
-  }
-
-  #main {
-    border-right: 1px solid var(--line);
-  }
-
-  #main #conversation {
-    padding: var(--s4) var(--s3) var(--s5);
-    font-size: var(--text-sm);
-  }
-
-  #main footer {
-    padding: var(--s2) var(--s3) var(--s3);
   }
 
   #waterfall {
@@ -813,19 +819,53 @@
     margin-top: 0;
   }
 
-  @media (max-width: 1100px) {
-    #shell {
-      grid-template-columns: 320px minmax(0, 1fr);
-    }
-  }
-
+  /*
+   * The page is too narrow for the board beside the column: it slides over it
+   * instead, and the strip keeps only whether something waits, on its toggle.
+   */
   @media (max-width: 720px) {
-    #shell {
-      grid-template-columns: minmax(0, 1fr);
+    .drawer-toggle {
+      display: block;
     }
 
-    #waterfall {
+    .drawer-toggle.waiting {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #status .where,
+    #status .fleet {
       display: none;
+    }
+
+    #status .hint {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* The tabs that hang in the strip are wider than the room the strip keeps for them. */
+    body:has(.context-body[data-open='false'][data-closing='false']) #status {
+      padding-right: 236px;
+    }
+
+    #sidebar {
+      position: fixed;
+      top: 39px;
+      bottom: 0;
+      left: 0;
+      z-index: 40;
+      display: flex;
+      width: min(var(--rail-w), 92vw);
+      box-shadow: 18px 0 40px rgb(0 0 0 / 30%);
+      transform: translateX(-100%);
+      visibility: hidden;
+    }
+
+    body[data-drawer] #sidebar {
+      transform: none;
+      visibility: visible;
     }
   }
 }

@@ -305,6 +305,7 @@ export const ContextPane = (props: { store: SessionStore }) => {
         <Switch>
           <Match when={ofKind(body(), 'changes')}>
             {(changes) => <Review store={props.store} path={changes().path} />}
+          </Match>
           <Match when={ofKind(body(), 'inspect')}>
             {(inspect) => (
               <Inspector store={props.store} turn={inspect().turn} callId={inspect().callId} />

@@ -17,7 +17,7 @@ export const Status = (props: { store: SessionStore }) => {
     <>
       <button
         id="drawer-toggle"
-        class="drawer-toggle"
+        class={'drawer-toggle' + (fleet().waiting.length > 0 ? ' waiting' : '')}
         type="button"
         aria-label="sessions"
         aria-controls="sidebar"
