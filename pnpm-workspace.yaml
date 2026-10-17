@@ -3,3 +3,9 @@
 packages:
   - 'apps/*'
   - 'packages/*/*'
+
+# Supply-chain cooldown: a version younger than this many minutes is not
+# resolved, so a release that turns out to be compromised has time to be yanked
+# before it can reach a lockfile. It applies to the lockfile check too, which is
+# why the pins already in it have to be old enough.
+minimumReleaseAge: 1440
