@@ -12,6 +12,7 @@
 | `apps/tui` | 端末 UI。会話と承認・質問を 1 画面に描く |
 | `apps/web` | ブラウザ UI。`src/server` が 127.0.0.1 で配り、`client/` を `pnpm run build:web` で `dist` に束ねる |
 | `packages/kernel/kernel` | profile の解析・マージと plugin のローダ、hook |
+| `packages/kernel/process` | 子プロセスを Node で動かす薄いラッパー（stdio・exit code・kill） |
 | `packages/core/*` | agent と turn（`agent` / `agent-loop`）、session とそのログ（`session` / `session-jsonl`）、tool（`tools` / `tools-tier0` / `tools-tier1`）、許可と sandbox（`safety`）、system prompt（`system-prompt`）、scope |
 | `packages/llm/*` | provider に依らない LLM の型（`llm`）と OpenAI 互換 adapter（`llm-openai`） |
 | `packages/ui/*` | UI とコアの間の rpc の約束（`protocol`）、ログを会話に畳む共有の描画（`view`）、承認と質問の待ち合わせ（`host`） |
