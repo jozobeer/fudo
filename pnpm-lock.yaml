@@ -80,6 +80,13 @@ importers:
       yaml:
         specifier: 2.9.1
         version: 2.9.1
+    devDependencies:
+      '@jozo-harness/process':
+        specifier: workspace:*
+        version: link:../../packages/kernel/process
+      '@jozo-harness/test-support-stub':
+        specifier: workspace:*
+        version: link:../../packages/test-support/stub
 
   apps/tui:
     dependencies:
@@ -318,6 +325,10 @@ importers:
       effect:
         specifier: 4.0.3
         version: 4.0.3
+    devDependencies:
+      '@jozo-harness/test-support-stub':
+        specifier: workspace:*
+        version: link:../../test-support/stub
 
   packages/kernel/kernel:
     dependencies:
@@ -362,6 +373,8 @@ importers:
       effect:
         specifier: 4.0.3
         version: 4.0.3
+
+  packages/test-support/stub: {}
 
   packages/ui/host:
     dependencies:

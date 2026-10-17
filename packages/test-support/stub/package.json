@@ -1,0 +1,6 @@
+{
+  "name": "@jozo-harness/test-support-stub",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}
