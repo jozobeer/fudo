@@ -1,9 +1,17 @@
 :root {
   color-scheme: dark;
+  /* Surfaces, from the rail's ground up to what floats above the conversation. */
   --bg: #0f1115;
+  --bg-sunken: #0a0c10;
+  --bg-raise: #14171d;
+  --bg-hover: #1a1e25;
+  --bg-float: #191d24;
   --panel: #14171d;
   --panel-2: #191d24;
+  /* Lines, by how much separation they claim. */
+  --line-soft: #1b1f26;
   --line: #262b34;
+  --line-strong: #353d4a;
   --text: #e3e7ee;
   --dim: #8b93a3;
   --accent: #6ea8fe;
@@ -12,7 +20,19 @@
   --tool: #7fd6a4;
   --error: #ff7b72;
   --warn: #ffc86b;
+  /* One spacing scale, so the panes breathe at the same rhythm. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
   --radius: 10px;
+  --radius-sm: 8px;
+  /* The three columns, and the width prose is allowed to reach. */
+  --rail-w: 268px;
+  --context-w: 344px;
+  --prose-w: 48rem;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
@@ -23,9 +43,15 @@
   :root:not([data-theme='dark']) {
     color-scheme: light;
     --bg: #ffffff;
+    --bg-sunken: #f4f6f9;
+    --bg-raise: #f7f8fa;
+    --bg-hover: #eef1f6;
+    --bg-float: #ffffff;
     --panel: #f7f8fa;
     --panel-2: #eef1f6;
+    --line-soft: #e8ecf2;
     --line: #d9dee7;
+    --line-strong: #c3cad6;
     --text: #1d222b;
     --dim: #667085;
     --accent: #1d64d8;
@@ -42,9 +68,15 @@
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #ffffff;
+  --bg-sunken: #f4f6f9;
+  --bg-raise: #f7f8fa;
+  --bg-hover: #eef1f6;
+  --bg-float: #ffffff;
   --panel: #f7f8fa;
   --panel-2: #eef1f6;
+  --line-soft: #e8ecf2;
   --line: #d9dee7;
+  --line-strong: #c3cad6;
   --text: #1d222b;
   --dim: #667085;
   --accent: #1d64d8;
@@ -119,22 +151,122 @@ body {
   white-space: nowrap;
 }
 
+/* Where am I (rail) · what is being said (conversation) · what is going on (pane). */
 #shell {
   flex: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
   min-height: 0;
 }
 
 #sidebar {
-  flex: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 264px;
-  padding: 12px;
+  gap: var(--s3);
+  min-height: 0;
+  padding: var(--s4) var(--s3);
   border-right: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-sunken);
   overflow-y: auto;
+}
+
+/* The right pane: a tab strip that stays, and a body that comes and goes. */
+#context {
+  display: flex;
+  flex-direction: column;
+  width: var(--context-w);
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--bg-raise);
+}
+
+.context-head {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  padding: var(--s3) var(--s3) var(--s2);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.tabs {
+  display: flex;
+  flex: 1;
+  gap: var(--s1);
+}
+
+.tab {
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill, 999px);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tab.active {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.pane-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pane-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.context-body {
+  min-height: 0;
+  padding: var(--s3);
+  overflow-y: auto;
+}
+
+.pane-title {
+  margin: 0 0 var(--s3);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.pane-label {
+  display: block;
+  margin: var(--s4) 0 var(--s2);
+  color: var(--dim);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pane-label:first-child {
+  margin-top: 0;
+}
+
+.rail-store {
+  padding: 0 var(--s1);
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand {
@@ -542,16 +674,37 @@ body {
   color: var(--error);
 }
 
+/* The pane hangs over the conversation before the window is wide enough for three. */
+@media (max-width: 1100px) {
+  #shell {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  }
+
+  #context {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(400px, 92vw);
+    box-shadow: -18px 0 40px rgb(0 0 0 / 35%);
+  }
+}
+
 @media (max-width: 720px) {
   #sidebar {
     display: none;
   }
+
+  #shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 #conversation {
-  flex: 1;
+  min-width: 0;
   overflow-y: auto;
-  padding: 24px 20px 40px;
+  padding: var(--s5) var(--s4) var(--s6);
 }
 
 #conversation:focus-visible {
@@ -559,8 +712,8 @@ body {
 }
 
 .block {
-  max-width: 56rem;
-  margin: 0 auto 18px;
+  max-width: var(--prose-w);
+  margin: 0 auto var(--s4);
 }
 
 .block .role {
@@ -793,15 +946,24 @@ summary.tool-head::-webkit-details-marker {
   padding: 12px 14px;
   border: 1px solid var(--warn);
   border-radius: var(--radius);
-  background: var(--panel);
+  background: var(--bg-float);
 }
 
 .ask {
   border-color: var(--accent);
 }
 
+/* The takeover sits above the composer: the one thing to read before typing. */
+.takeover {
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-float);
+}
+
 .approval-text,
-.ask-question {
+.ask-question,
+.takeover-text {
   margin-bottom: 10px;
 }
 
@@ -810,6 +972,14 @@ summary.tool-head::-webkit-details-marker {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+#takeover:empty {
+  display: none;
+}
+
+#takeover .block {
+  margin-bottom: var(--s2);
 }
 
 .ask-answer {
@@ -833,9 +1003,9 @@ summary.tool-head::-webkit-details-marker {
 }
 
 footer {
-  padding: 12px 20px 14px;
+  padding: var(--s3) var(--s4) var(--s4);
   border-top: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raise);
 }
 
 .welcome {
@@ -918,9 +1088,9 @@ footer {
 
 #composer {
   display: flex;
-  gap: 10px;
+  gap: var(--s2);
   align-items: flex-end;
-  max-width: 56rem;
+  max-width: var(--prose-w);
   margin: 0 auto;
 }
 

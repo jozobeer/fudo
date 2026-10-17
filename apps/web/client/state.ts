@@ -18,8 +18,9 @@ export interface SessionInfo {
 
 const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
 
-/** What the sheet on the right shows: the run's settings, one job, or the turn ledger. */
-export type Sheet =
+/** What the right pane shows: what the session runs toward, its settings, its turns, or one job. */
+export type Pane =
+  | { readonly kind: 'run' }
   | { readonly kind: 'settings' }
   | { readonly kind: 'trajectory' }
   | { readonly kind: 'job'; readonly id: string; readonly detail: JobDetailView | undefined }
@@ -42,8 +43,8 @@ export interface WebState {
   readonly settings: SettingsView | undefined
   /** The provider's models, once the reader asked for them. */
   readonly models: ReadonlyArray<string>
-  /** What the sheet on the right is showing, if anything. */
-  readonly sheet: Sheet | undefined
+  /** Which surface the right pane shows; undefined leaves the tab strip alone and the body empty. */
+  readonly pane: Pane | undefined
   /** Every turn this session ran, oldest first, as the log recorded it. */
   readonly turns: ReadonlyArray<TurnView>
   /** What the session says it works toward; undefined until the page has asked. */
@@ -61,7 +62,7 @@ export const initialState: WebState = {
   theme: DEFAULT_THEME,
   settings: undefined,
   models: [],
-  sheet: undefined,
+  pane: { kind: 'run' },
   turns: [],
   run: undefined,
 }
@@ -92,9 +93,9 @@ export const withModels = (state: WebState, models: ReadonlyArray<string>): WebS
   models,
 })
 
-export const withSheet = (state: WebState, sheet: Sheet | undefined): WebState => ({
+export const withPane = (state: WebState, pane: Pane | undefined): WebState => ({
   ...state,
-  sheet,
+  pane,
 })
 
 export const withRun = (state: WebState, run: RunStateView): WebState => ({ ...state, run })

@@ -353,11 +353,18 @@ const opensANewSession = async (client: Cdp): Promise<string> => {
 const themeAttributeOf = 'document.documentElement.dataset.theme ?? ""'
 const backgroundOf = 'getComputedStyle(document.body).backgroundColor'
 
+/** Shows one of the pane's tabs, without toggling it shut when it already shows. */
+const showsPane = (id: string): string =>
+  '(() => { const tab = document.getElementById(' +
+  JSON.stringify(id) +
+  "); if (tab !== null && !tab.classList.contains('active')) tab.click() })()"
+
 const themeButton = (theme: string): string =>
   "document.querySelector('.theme[data-theme=" + JSON.stringify(theme) + "]').click()"
 
-/** Picks each theme the rail offers and checks the page follows, across a reload. */
+/** Picks each theme the settings offer and checks the page follows, across a reload. */
 const choosesATheme = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  await client.evaluate(showsPane('settings'))
   await client.evaluate(themeButton('light'))
   if ((await client.evaluate(themeAttributeOf)) !== 'light') {
     throw new Error('the light choice never reached the document')
@@ -389,7 +396,7 @@ const readsTheRun = async (read: () => Promise<unknown>): Promise<void> => {
 
 /** Opens the ledger, checks that it knows what ran, and closes it again. */
 const readsTheLedger = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
-  await client.evaluate("document.getElementById('trajectory').click()")
+  await client.evaluate(showsPane('trajectory'))
   if ((await waitFor(read, 'turn 1')) === undefined) {
     throw new Error('the ledger never listed the first turn')
   }
@@ -401,7 +408,7 @@ const readsTheLedger = async (client: Cdp, read: () => Promise<unknown>): Promis
 
 /** Opens the settings sheet, checks what it says, and closes it again. */
 const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
-  await client.evaluate("document.getElementById('settings').click()")
+  await client.evaluate(showsPane('settings'))
   if ((await waitFor(read, 'Settings')) === undefined) {
     throw new Error('the settings sheet never opened')
   }
@@ -414,9 +421,10 @@ const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Prom
     throw new Error('a model list that cannot be asked for was not reported')
   }
   await client.evaluate("document.getElementById('panel-close').click()")
-  if ((await client.evaluate("document.getElementById('panel').innerHTML")) !== '') {
-    throw new Error('the sheet stayed on screen after it was closed')
-  }
+  const closed = await client.evaluate(
+    "document.querySelector('#context .context-body').children.length",
+  )
+  if (closed !== 0) throw new Error('the pane body stayed after it was hidden')
 }
 
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {

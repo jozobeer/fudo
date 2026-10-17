@@ -10,7 +10,7 @@ import {
   withConnection,
   withDraft,
   withModels,
-  withSheet,
+  withPane,
   withProblem,
   withSession,
   withRun,
@@ -22,12 +22,13 @@ import {
 import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
 import {
   renderConversation,
-  renderSheet,
+  renderContext,
   renderQueue,
   renderRail,
   renderSeat,
   renderSessions,
   renderStatus,
+  renderTakeover,
 } from './view.ts'
 
 const conversationElement = document.getElementById('conversation')
@@ -38,8 +39,9 @@ const cancelButton = document.getElementById('cancel')
 const newSessionButton = document.getElementById('new-session')
 const sessionListElement = document.getElementById('session-list')
 const railFootElement = document.getElementById('rail-foot')
-const panelElement = document.getElementById('panel')
+const contextElement = document.getElementById('context')
 const queueElement = document.getElementById('queue')
+const takeoverElement = document.getElementById('takeover')
 const seatElement = document.getElementById('seat')
 if (
   conversationElement === null ||
@@ -50,8 +52,9 @@ if (
   newSessionButton === null ||
   sessionListElement === null ||
   railFootElement === null ||
-  panelElement === null ||
+  contextElement === null ||
   queueElement === null ||
+  takeoverElement === null ||
   seatElement === null ||
   !(input instanceof HTMLTextAreaElement)
 ) {
@@ -89,8 +92,9 @@ const paint = (): void => {
   statusElement.innerHTML = renderStatus(state)
   sessionListElement.innerHTML = renderSessions(state)
   railFootElement.innerHTML = renderRail(state)
-  panelElement.innerHTML = renderSheet(state)
+  contextElement.innerHTML = renderContext(state)
   queueElement.innerHTML = renderQueue(state)
+  takeoverElement.innerHTML = renderTakeover(state)
   seatElement.innerHTML = renderSeat(state)
   if (follow) conversationElement.scrollTop = conversationElement.scrollHeight
 }
@@ -212,7 +216,7 @@ const session = Effect.gen(function* () {
         if (ask.kind === 'job') {
           const detail = yield* client.jobDetail({ sessionId: state.sessionId, id: ask.id })
           yield* Effect.sync(() => {
-            state = withSheet(state, { kind: 'job', id: ask.id, detail })
+            state = withPane(state, { kind: 'job', id: ask.id, detail })
             paint()
           })
           return
@@ -222,7 +226,7 @@ const session = Effect.gen(function* () {
           yield* relist()
           const detail = yield* client.jobDetail({ sessionId: state.sessionId, id: ask.id })
           yield* Effect.sync(() => {
-            state = withSheet(state, { kind: 'job', id: ask.id, detail })
+            state = withPane(state, { kind: 'job', id: ask.id, detail })
             paint()
           })
           return
@@ -308,57 +312,35 @@ const chooseTheme = (stored: string): void => {
   paint()
 }
 
-/** Opens one background command in the sheet, with the output it has kept. */
+/** Opens one background command in the pane, with the output it has kept. */
 const openJob = (id: string): void => {
-  state = withSheet(state, { kind: 'job', id, detail: undefined })
+  state = withPane(state, { kind: 'job', id, detail: undefined })
   Queue.offerUnsafe(panelAsks, { kind: 'job', id })
   paint()
 }
 
-/** Opens one of the sheets the rail names, or closes it when it is the one showing. */
-const toggleSheet = (kind: 'settings' | 'trajectory'): void => {
-  state = withSheet(state, state.sheet?.kind === kind ? undefined : { kind })
+/** Shows one surface in the pane, or hides the body when it is already showing. */
+const showPane = (kind: 'run' | 'settings' | 'trajectory'): void => {
+  state = withPane(state, state.pane?.kind === kind ? undefined : { kind })
   paint()
 }
 
-/** What each button the rail draws does. */
-const railActions: Readonly<Record<string, () => void>> = {
-  settings: () => toggleSheet('settings'),
-  trajectory: () => toggleSheet('trajectory'),
+/** The pane's tab strip: one button per surface the pane can show. */
+const tabs: Readonly<Record<string, () => void>> = {
+  run: () => showPane('run'),
+  settings: () => showPane('settings'),
+  trajectory: () => showPane('trajectory'),
 }
 
-railFootElement.addEventListener('click', (event) => {
-  const target = event.target
-  if (!(target instanceof HTMLButtonElement)) return
-  const named = railActions[target.id]
-  if (named !== undefined) {
-    named()
-    return
-  }
-  const job = target.dataset.jobId
-  if (job !== undefined) {
-    openJob(job)
-    return
-  }
-  // A child session a subagent started reads like any other session row.
-  const child = target.dataset.sessionId
-  if (child !== undefined) {
-    moveTo(child)
-    return
-  }
-  const stored = target.dataset.theme
-  if (stored !== undefined) chooseTheme(stored)
-})
-
-/** What each button in the sheet does; one entry per button the sheet draws. */
-const sheetActions: Readonly<Record<string, () => void>> = {
+/** What each button inside the pane body does; one entry per button drawn there. */
+const paneActions: Readonly<Record<string, () => void>> = {
   'panel-close': () => {
-    state = withSheet(state, undefined)
+    state = withPane(state, undefined)
     paint()
   },
   'stop-job': () => {
-    const sheet = state.sheet
-    if (sheet?.kind === 'job') Queue.offerUnsafe(panelAsks, { kind: 'stopJob', id: sheet.id })
+    const pane = state.pane
+    if (pane?.kind === 'job') Queue.offerUnsafe(panelAsks, { kind: 'stopJob', id: pane.id })
   },
   'ask-models': () => {
     Queue.offerUnsafe(panelAsks, { kind: 'models' })
@@ -371,17 +353,33 @@ const sheetActions: Readonly<Record<string, () => void>> = {
   },
 }
 
-// The seat names the model; pressing it opens the sheet that changes it.
+// The seat names the model; pressing it shows the settings tab that changes it.
 seatElement.addEventListener('click', (event) => {
   const target = event.target
-  if (target instanceof HTMLButtonElement && target.id === 'seat-model') toggleSheet('settings')
+  if (target instanceof HTMLButtonElement && target.id === 'seat-model') showPane('settings')
 })
 
-panelElement.addEventListener('click', (event) => {
+contextElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
-  const action = sheetActions[target.id]
-  if (action !== undefined) action()
+  const named = tabs[target.id] ?? paneActions[target.id]
+  if (named !== undefined) {
+    named()
+    return
+  }
+  const job = target.dataset.jobId
+  if (job !== undefined) {
+    openJob(job)
+    return
+  }
+  // A child session a subagent started reads like any other session row.
+  const other = target.dataset.sessionId
+  if (other !== undefined) {
+    moveTo(other)
+    return
+  }
+  const stored = target.dataset.theme
+  if (stored !== undefined) chooseTheme(stored)
 })
 
 sessionListElement.addEventListener('click', (event) => {
@@ -392,7 +390,8 @@ sessionListElement.addEventListener('click', (event) => {
   if (id !== undefined) moveTo(id)
 })
 
-conversationElement.addEventListener('click', (event) => {
+// The takeover holds the two ways the page answers for the human.
+takeoverElement.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof HTMLButtonElement)) return
   const callId = target.dataset.callId

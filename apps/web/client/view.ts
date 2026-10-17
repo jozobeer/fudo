@@ -1,7 +1,7 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
 import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
-import type { Sheet } from './state.ts'
+import type { Pane } from './state.ts'
 import type { TurnView } from './trajectory.ts'
 import { escapeHtml } from './html.ts'
 import { THEMES } from './theme.ts'
@@ -57,10 +57,11 @@ const toolHtml = (block: ToolBlock): string => {
   )
 }
 
-/** The ways to answer a question that is still waiting. */
-const askActions = (block: Extract<ConversationBlock, { kind: 'ask' }>): string => {
-  const id = escapeHtml(block.id)
-  const options = block.options
+/** The ways to answer a question that is still waiting, for the takeover to draw. */
+const askActions = (ask: Conversation['ask']): string => {
+  if (ask === undefined) return ''
+  const id = escapeHtml(ask.id)
+  const options = ask.options
     .map(
       (option) =>
         '<button data-answer="' +
@@ -72,24 +73,22 @@ const askActions = (block: Extract<ConversationBlock, { kind: 'ask' }>): string 
         '</button>',
     )
     .join('')
-  return (
-    (options === '' ? '' : '<div class="ask-options">' + options + '</div>') +
-    '<div class="card-hint">or type an answer and press Enter</div>'
-  )
+  return options === '' ? '' : '<div class="ask-options">' + options + '</div>'
 }
 
-const askHtml = (block: Extract<ConversationBlock, { kind: 'ask' }>, pending: boolean): string =>
+/** The first line of something the human has to read before typing again. */
+const firstLineOf = (value: string): string => plainText(value).split('\n')[0] ?? ''
+
+const askHtml = (block: Extract<ConversationBlock, { kind: 'ask' }>): string =>
   '<article class="block ask"><div class="ask-question markdown">' +
   markdown(block.question) +
   '</div>' +
   (block.answer === undefined
-    ? pending
-      ? askActions(block)
-      : ''
+    ? ''
     : '<div class="ask-answer">answered: ' + text(block.answer) + '</div>') +
   '</article>'
 
-const renderBlock = (block: ConversationBlock, pendingAsk: string | undefined): string => {
+const renderBlock = (block: ConversationBlock): string => {
   switch (block.kind) {
     case 'user':
       return (
@@ -108,7 +107,7 @@ const renderBlock = (block: ConversationBlock, pendingAsk: string | undefined): 
     case 'tool':
       return toolHtml(block)
     case 'ask':
-      return askHtml(block, block.id === pendingAsk)
+      return askHtml(block)
     case 'notice':
       return '<article class="block notice ' + block.level + '">' + text(block.text) + '</article>'
   }
@@ -116,15 +115,12 @@ const renderBlock = (block: ConversationBlock, pendingAsk: string | undefined): 
 
 /** Rendered blocks of the conversation last painted; the array changes only when blocks do. */
 let paintedBlocks: ReadonlyArray<ConversationBlock> | undefined
-let paintedAsk: string | undefined
 let paintedHtml = ''
 
 const blocksHtml = (conversation: Conversation): string => {
-  const pending = conversation.ask?.id
-  if (conversation.blocks !== paintedBlocks || pending !== paintedAsk) {
+  if (conversation.blocks !== paintedBlocks) {
     paintedBlocks = conversation.blocks
-    paintedAsk = pending
-    paintedHtml = conversation.blocks.map((block) => renderBlock(block, pending)).join('')
+    paintedHtml = conversation.blocks.map(renderBlock).join('')
   }
   return paintedHtml
 }
@@ -176,7 +172,7 @@ export const renderConversation = (conversation: Conversation): string => {
       : '<article class="block assistant live"><div class="body markdown">' +
         markdown(conversation.live) +
         '</div></article>'
-  return blocksHtml(conversation) + live + approvalHtml(conversation)
+  return blocksHtml(conversation) + live
 }
 
 const basenameOf = (path: string): string => {
@@ -328,11 +324,11 @@ export const renderQueue = (state: WebState): string =>
     )
     .join('')
 
-/** What the session works toward: its goal, its standing schedules, and its background work. */
+/** What the session runs toward: its goal, its standing schedules, and its background work. */
 export const renderRun = (state: WebState): string => {
   const run = state.run
   return (
-    '<span class="rail-label">run</span>' +
+    '<h2 class="pane-title">Run</h2>' +
     (run === undefined
       ? '<div class="run-empty">reading…</div>'
       : goalHtml(run.goal) +
@@ -342,17 +338,11 @@ export const renderRun = (state: WebState): string => {
   )
 }
 
-/** The rail's foot: what the session works toward, how the page is lit, and the settings. */
+/** The rail's foot: where the sessions the page lists live. */
 export const renderRail = (state: WebState): string =>
-  renderRun(state) +
-  '<span class="rail-label">theme</span>' +
-  themesHtml(state) +
-  '<button id="settings" class="rail-button' +
-  (state.sheet?.kind === 'settings' ? ' active' : '') +
-  '" type="button">settings</button>' +
-  '<button id="trajectory" class="rail-button' +
-  (state.sheet?.kind === 'trajectory' ? ' active' : '') +
-  '" type="button">trajectory</button>'
+  '<span class="rail-label">store</span><div class="rail-store">' +
+  text(state.settings?.sessionRoot ?? '…') +
+  '</div>'
 
 const panelRow = (name: string, value: string): string =>
   '<div class="panel-row"><span class="panel-name">' +
@@ -383,12 +373,19 @@ const panelBody = (settings: SettingsView): string =>
   panelRow('settings', settings.settingsPath === '' ? '(none)' : settings.settingsPath)
 
 const settingsBody = (state: WebState): string =>
-  state.settings === undefined
+  '<h2 class="pane-title">Settings</h2>' +
+  '<span class="pane-label">theme</span>' +
+  themesHtml(state) +
+  (state.settings === undefined
     ? '<div class="card-hint">reading the settings…</div>'
-    : '<div class="panel-rows">' + panelBody(state.settings) + '</div>' + modelsHtml(state)
+    : '<span class="pane-label">run</span>' +
+      '<div class="panel-rows">' +
+      panelBody(state.settings) +
+      '</div>' +
+      modelsHtml(state))
 
 /** One background command with the output it has kept, and the way to stop it. */
-const jobBody = (sheet: Extract<Sheet, { kind: 'job' }>): string => {
+const jobBody = (sheet: Extract<Pane, { kind: 'job' }>): string => {
   const detail = sheet.detail
   if (detail === undefined) return '<div class="card-hint">reading the job…</div>'
   return (
@@ -432,31 +429,79 @@ const trajectoryBody = (state: WebState): string =>
     ? '<div class="card-hint">this session has not run a turn yet</div>'
     : '<ul class="turns">' + state.turns.map(turnRow).join('') + '</ul>'
 
-const sheetTitle = (sheet: Sheet): string =>
-  sheet.kind === 'settings'
-    ? 'Settings'
-    : sheet.kind === 'trajectory'
-      ? 'Trajectory'
-      : 'Job ' + sheet.id.slice(0, 8)
+/** The surfaces the pane offers without being asked for one. */
+const PANES: ReadonlyArray<{
+  readonly kind: 'run' | 'settings' | 'trajectory'
+  readonly label: string
+}> = [
+  { kind: 'run', label: 'run' },
+  { kind: 'settings', label: 'settings' },
+  { kind: 'trajectory', label: 'turns' },
+]
 
-const sheetBody = (state: WebState, sheet: Sheet): string => {
-  if (sheet.kind === 'settings') return settingsBody(state)
-  return sheet.kind === 'trajectory' ? trajectoryBody(state) : jobBody(sheet)
+const tab = (id: string, label: string, active: boolean, pane: string): string =>
+  '<button id="' +
+  id +
+  '" class="tab' +
+  (active ? ' active' : '') +
+  '" data-pane="' +
+  pane +
+  '" type="button">' +
+  label +
+  '</button>'
+
+/** The pane's tab strip: the surfaces it can show, and whatever came up on its own. */
+const tabsHtml = (pane: Pane | undefined): string =>
+  '<nav class="tabs" aria-label="What the pane shows">' +
+  PANES.map((entry) => tab(entry.kind, entry.label, pane?.kind === entry.kind, entry.kind)).join(
+    '',
+  ) +
+  (pane?.kind === 'job'
+    ? tab('job-tab', 'job ' + escapeHtml(pane.id.slice(0, 8)), true, 'job')
+    : '') +
+  '</nav>'
+
+const paneBody = (state: WebState, pane: Pane): string => {
+  if (pane.kind === 'run') return renderRun(state)
+  if (pane.kind === 'settings') return settingsBody(state)
+  if (pane.kind === 'trajectory') return trajectoryBody(state)
+  return '<h2 class="pane-title">Job ' + text(pane.id.slice(0, 8)) + '</h2>' + jobBody(pane)
 }
 
-/** The sheet on the right: what this run is set to, its turns, or one background command. */
-export const renderSheet = (state: WebState): string => {
-  const sheet = state.sheet
-  if (sheet === undefined) return ''
-  const title = sheetTitle(sheet)
+/**
+ * The right pane: what the session runs toward, what it is set to, what it did,
+ * and any one background command. It is part of the shell rather than a sheet, so
+ * the tab strip stays put while the body comes and goes.
+ */
+export const renderContext = (state: WebState): string => {
+  const pane = state.pane
   return (
-    '<section class="panel" role="dialog" aria-label="' +
-    escapeHtml(title) +
-    '"><header class="panel-head"><span class="panel-title">' +
-    text(title) +
-    '</span><button id="panel-close" type="button">Close</button></header>' +
-    sheetBody(state, sheet) +
-    '</section>'
+    '<header class="context-head">' +
+    tabsHtml(pane) +
+    '<button id="panel-close" class="pane-close" type="button" aria-label="hide the pane">×</button>' +
+    '</header><div class="context-body">' +
+    (pane === undefined ? '' : paneBody(state, pane)) +
+    '</div>'
+  )
+}
+
+/**
+ * What the page asks before the human types again. An approval takes the whole
+ * line; a question shows its first line and the ways out, with the question
+ * itself left in the conversation where it was asked.
+ */
+export const renderTakeover = (state: WebState): string => {
+  const conversation = state.conversation
+  const approval = approvalHtml(conversation)
+  if (approval !== '') return approval
+  const ask = conversation.ask
+  if (ask === undefined) return ''
+  return (
+    '<section class="block takeover"><div class="takeover-text">' +
+    text(firstLineOf(ask.question)) +
+    '</div>' +
+    askActions(ask) +
+    '<div class="card-hint">or type an answer and press Enter</div></section>'
   )
 }
 

@@ -4,11 +4,12 @@ import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { escapeHtml } from '../client/html.ts'
 import {
   initialState,
+  type WebState,
   withConnection,
   withDraft,
   withModels,
   withRun,
-  withSheet,
+  withPane,
   withSession,
   withSessions,
   withSettings,
@@ -20,7 +21,8 @@ import {
   renderQueue,
   renderRail,
   renderSeat,
-  renderSheet,
+  renderContext,
+  renderTakeover,
   whenOf,
   renderSessions,
   renderStatus,
@@ -99,24 +101,34 @@ describe('the browser view', () => {
   })
 
   test('a pending approval offers both answers and a pending question its choices', () => {
-    const approval = renderConversation(
-      fold([
-        session('turn/start', { turn: 1 }),
-        session('safety/approval/requested', { callId: 'c1', tool: 'bash', reason: 'because' }),
-      ]),
+    const waiting = (conversation: Conversation): WebState => ({ ...initialState, conversation })
+    const approval = renderTakeover(
+      waiting(
+        fold([
+          session('turn/start', { turn: 1 }),
+          session('safety/approval/requested', { callId: 'c1', tool: 'bash', reason: 'because' }),
+        ]),
+      ),
     )
     expect(approval).toContain('data-call-id="c1"')
     expect(approval).toContain('data-approve="true"')
     expect(approval).toContain('data-approve="false"')
-    const ask = renderConversation(
-      fold([
-        session('interaction/ask/requested', { id: 'a1', question: 'which?', options: ['x', 'y'] }),
-      ]),
-    )
+    expect(approval).toContain('Approve bash?')
+    const asked = fold([
+      session('interaction/ask/requested', {
+        id: 'a1',
+        question: 'which one?\n\n- x\n- y',
+        options: ['x', 'y'],
+      }),
+    ])
+    const ask = renderTakeover(waiting(asked))
     expect(ask).toContain('data-answer="x"')
     expect(ask).toContain('data-answer="y"')
-    expect(ask).toContain('class="ask-question markdown"')
-    expect(renderConversation(emptyConversation)).not.toContain('data-approve')
+    expect(ask).toContain('which one?')
+    // The question itself stays in the conversation, where it was asked.
+    expect(renderConversation(asked)).toContain('class="ask-question markdown"')
+    expect(renderConversation(asked)).not.toContain('data-answer')
+    expect(renderTakeover(initialState)).toBe('')
   })
 
   test('the sidebar lists the sessions and marks the one being read', () => {
@@ -131,8 +143,8 @@ describe('the browser view', () => {
     expect(renderSessions(initialState)).not.toContain('data-session-id')
   })
 
-  test('the rail offers the three themes and marks the one in use', () => {
-    const view = renderRail(withTheme(initialState, 'light'))
+  test('the settings tab offers the three themes and marks the one in use', () => {
+    const view = renderContext(withPane(withTheme(initialState, 'light'), { kind: 'settings' }))
     expect(view).toContain('data-theme="system"')
     expect(view).toContain('data-theme="dark"')
     expect(view).toContain('class="theme active" data-theme="light"')
@@ -150,7 +162,7 @@ describe('the browser view', () => {
       ],
       queued: [],
     })
-    const view = renderRail(running)
+    const view = renderContext(withPane(running, { kind: 'run' }))
     expect(view).toContain('ship the UI')
     expect(view).toContain('run-phase active')
     expect(view).toContain('2/8')
@@ -161,7 +173,11 @@ describe('the browser view', () => {
     expect(view).toContain('sleep 5')
     expect(view).toContain('echo done')
     expect(
-      renderRail(withRun(initialState, { goal: null, schedules: [], jobs: [], queued: [] })),
+      renderContext(
+        withPane(withRun(initialState, { goal: null, schedules: [], jobs: [], queued: [] }), {
+          kind: 'run',
+        }),
+      ),
     ).toContain('no goal')
   })
 
@@ -199,7 +215,9 @@ describe('the browser view', () => {
       }),
     ])
     expect(childSessionsOf(started.blocks)).toEqual(['child-1'])
-    const view = renderRail({ ...initialState, conversation: started, run: emptyRun })
+    const view = renderContext(
+      withPane({ ...initialState, conversation: started, run: emptyRun }, { kind: 'run' }),
+    )
     expect(view).toContain('class="run-child" data-session-id="child-1"')
     expect(view).toContain('subagent · child-1')
     expect(childSessionsOf([])).toEqual([])
@@ -217,10 +235,14 @@ describe('the browser view', () => {
     expect(renderQueue(initialState)).toBe('')
   })
 
-  test('the sheet stays away until it is asked for', () => {
-    expect(renderSheet(initialState)).toBe('')
-    const open = withSheet(initialState, { kind: 'settings' })
-    expect(renderSheet(open)).toContain('reading the settings')
+  test('the pane keeps its tabs while its body comes and goes', () => {
+    const hidden = renderContext(withPane(initialState, undefined))
+    expect(hidden).toContain('id="settings"')
+    expect(hidden).not.toContain('reading the settings')
+    expect(renderContext(initialState)).toContain('Run')
+    expect(renderContext(withPane(initialState, { kind: 'settings' }))).toContain(
+      'reading the settings',
+    )
   })
 
   test('a session nobody has asked anything shows what the page can do', () => {
@@ -241,6 +263,18 @@ describe('the browser view', () => {
     expect(whenOf(now - 240 * 3_600_000, now)).not.toMatch(/^(now|\d+[mh]|yesterday)$/)
   })
 
+  test('the rail foot says where the sessions it lists live', () => {
+    const known = withSettings(initialState, {
+      model: 'stub/model',
+      effort: '',
+      settingsPath: '/home/me/.jzh/config.yml',
+      cwd: '/work',
+      sessionRoot: '/home/me/.jzh/sessions',
+    })
+    expect(renderRail(known)).toContain('/home/me/.jzh/sessions')
+    expect(renderRail(initialState)).toContain('store')
+  })
+
   test('the composer seat names the model that answers', () => {
     expect(renderSeat(initialState)).toBe('')
     const known = { ...initialState, info: { cwd: '/work', model: 'stub/model', turns: 1 } }
@@ -249,7 +283,7 @@ describe('the browser view', () => {
   })
 
   test('the ledger lists what each turn did and how long it took', () => {
-    const state = withSheet(
+    const state = withPane(
       {
         ...initialState,
         turns: [
@@ -259,26 +293,26 @@ describe('the browser view', () => {
       },
       { kind: 'trajectory' },
     )
-    const view = renderSheet(state)
+    const view = renderContext(state)
     expect(view).toContain('turn 1')
     expect(view).toContain('1.5s')
     expect(view).toContain('2 steps · 1 calls')
     expect(view).toContain('completed')
     expect(view).toContain('class="turn open"')
     expect(view).toContain('running')
-    expect(renderSheet(withSheet(initialState, { kind: 'trajectory' }))).toContain(
+    expect(renderContext(withPane(initialState, { kind: 'trajectory' }))).toContain(
       'has not run a turn',
     )
   })
 
   test('a job opens with the output it kept, and a running one can be stopped', () => {
     const detail = { id: 'j-1', command: 'sleep 5', running: true, output: 'line one' }
-    const view = renderSheet(withSheet(initialState, { kind: 'job', id: 'j-1', detail }))
+    const view = renderContext(withPane(initialState, { kind: 'job', id: 'j-1', detail }))
     expect(view).toContain('sleep 5')
     expect(view).toContain('line one')
     expect(view).toContain('id="stop-job"')
-    const finished = renderSheet(
-      withSheet(initialState, { kind: 'job', id: 'j-1', detail: { ...detail, running: false } }),
+    const finished = renderContext(
+      withPane(initialState, { kind: 'job', id: 'j-1', detail: { ...detail, running: false } }),
     )
     expect(finished).not.toContain('id="stop-job"')
   })
@@ -291,15 +325,15 @@ describe('the browser view', () => {
       cwd: '/work',
       sessionRoot: '/home/me/.jzh/sessions',
     }
-    const read = withSheet(withSettings(initialState, settings), { kind: 'settings' })
-    const view = renderSheet(read)
+    const read = withPane(withSettings(initialState, settings), { kind: 'settings' })
+    const view = renderContext(read)
     expect(view).toContain('stub/model')
     expect(view).toContain('high')
     expect(view).toContain('/home/me/.jzh/sessions')
     expect(view).toContain('id="ask-models"')
     const listed = withModels(read, ['stub/model', 'stub/other'])
-    expect(renderSheet(listed)).toContain('<option value="stub/other">')
-    expect(renderSheet(listed)).toContain('id="use-model"')
+    expect(renderContext(listed)).toContain('<option value="stub/other">')
+    expect(renderContext(listed)).toContain('id="use-model"')
   })
 
   test('the status strip reports the connection, where it runs and the next action', () => {
