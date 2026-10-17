@@ -1,0 +1,109 @@
+import { createSignal } from 'solid-js'
+import type { UiCommand, UiEvent } from '@jozo-harness/ui-protocol'
+import {
+  applyUiEvent,
+  initialState,
+  withDraft,
+  withSession,
+  withSessions,
+  withTheme,
+  type WebState,
+} from '../../client/state.ts'
+import type { RunStateView, SettingsView } from '../../src/shared/rpc.ts'
+import type { SessionStore } from '../store.ts'
+import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
+import { fixtureSessions, type FixtureSession } from './fixture.ts'
+
+const SETTINGS: SettingsView = {
+  model: 'ollama-cloud/qwen3-coder:480b',
+  effort: '',
+  settingsPath: '/Users/dev/.config/jzh/config.yaml',
+  cwd: '/Users/dev/src/jozo-harness',
+  sessionRoot: '/Users/dev/.jzh/sessions',
+}
+
+const RUN: RunStateView = {
+  goal: {
+    objective: '再接続しても turn を一度だけ数える',
+    phase: 'active',
+    rounds: 2,
+    maxRounds: 8,
+  },
+  schedules: [
+    { id: 's1', when: 'every 30m', prompt: 'pnpm run check を回して報告', lastFiredAt: 0 },
+  ],
+  jobs: [{ id: 'j1a2b3c4d5', command: 'pnpm vitest --watch apps/web', running: true }],
+  queued: [],
+}
+
+const replay = (state: WebState, events: ReadonlyArray<UiEvent>): WebState =>
+  events.reduce(applyUiEvent, state)
+
+/** What answering does to a made-up log: the answer lands as the next event. */
+const answered = (session: FixtureSession, command: UiCommand): ReadonlyArray<UiEvent> => {
+  const last = session.events[session.events.length - 1]
+  const seq = last?.kind === 'session' ? last.event.seq + 1 : 1
+  const event = (type: string, data: unknown): UiEvent => ({
+    kind: 'session',
+    event: { seq, time: Date.now(), type, data },
+  })
+  if (command.kind === 'approve') {
+    return [
+      event('safety/approval/answered', { callId: command.callId, approved: command.approved }),
+    ]
+  }
+  if (command.kind === 'answer') return [event('interaction/ask/answered', command)]
+  return []
+}
+
+/**
+ * A store over the made-up sessions, for looking at the page without a model.
+ * Moving between sessions replays one; answering appends to it; nothing leaves the page.
+ */
+export const createPreviewStore = (now = Date.now()): SessionStore => {
+  const sessions = [...fixtureSessions(now)]
+  const open = (id: string | undefined, base: WebState): WebState => {
+    const session = sessions.find((item) => item.summary.id === id) ?? sessions[0]
+    if (session === undefined) return base
+    return { ...replay(withSession(base, session.summary), session.events), run: RUN }
+  }
+  const first: WebState = {
+    ...withSessions(
+      { ...initialState, connected: true, settings: SETTINGS },
+      sessions.map((s) => s.summary),
+    ),
+  }
+  const wanted = new URLSearchParams(location.search).get('session') ?? undefined
+  const [state, setState] = createSignal<WebState>(open(wanted, first))
+  const follow = (): ReadonlyMap<string, Watched> =>
+    new Map(
+      sessions.map((item) => [item.summary.id, item.events.reduce(watchedAfter, emptyWatched)]),
+    )
+  const [watched, setWatched] = createSignal(follow())
+  const sendTo = (id: string, command: UiCommand): void => {
+    const index = sessions.findIndex((item) => item.summary.id === id)
+    const session = sessions[index]
+    if (session === undefined) return
+    const more = answered(session, command)
+    sessions[index] = { ...session, events: [...session.events, ...more] }
+    setWatched(follow())
+    if (id === state().sessionId) setState((now) => replay(now, more))
+  }
+  return {
+    state,
+    watched,
+    start: () => undefined,
+    stop: () => undefined,
+    setDraft: (text) => setState((now) => withDraft(now, text)),
+    submit: () => setState((now) => withDraft(now, '')),
+    send: (command) => sendTo(state().sessionId, command),
+    sendTo,
+    moveTo: (id) => setState((now) => open(id, now)),
+    chooseTheme: (theme) => setState((now) => withTheme(now, theme)),
+    showPane: (pane) => setState((now) => ({ ...now, pane })),
+    openJob: () => undefined,
+    stopJob: () => undefined,
+    askModels: () => undefined,
+    setModel: () => undefined,
+  }
+}

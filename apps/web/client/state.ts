@@ -7,6 +7,7 @@ import type {
   SettingsView,
 } from '../src/shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
+import { traceAfter, type TraceTurn } from './trace.ts'
 import { turnsAfter, type TurnView } from './trajectory.ts'
 
 /** What the header says about the session behind the page. */
@@ -20,6 +21,8 @@ const emptyInfo: SessionInfo = { cwd: '', model: '', turns: 0 }
 
 /** What the right pane shows: what the session runs toward, its settings, its turns, or one job. */
 export type Pane =
+  | { readonly kind: 'changes'; readonly path: string | undefined }
+  | { readonly kind: 'inspect'; readonly turn: number; readonly callId: string }
   | { readonly kind: 'run' }
   | { readonly kind: 'settings' }
   | { readonly kind: 'trajectory' }
@@ -49,6 +52,8 @@ export interface WebState {
   readonly turns: ReadonlyArray<TurnView>
   /** What the session says it works toward; undefined until the page has asked. */
   readonly run: RunStateView | undefined
+  /** Every turn this session ran, folded one event at a time down to its steps and calls. */
+  readonly trace: ReadonlyArray<TraceTurn>
 }
 
 export const initialState: WebState = {
@@ -65,6 +70,7 @@ export const initialState: WebState = {
   pane: { kind: 'run' },
   turns: [],
   run: undefined,
+  trace: [],
 }
 
 export const withConnection = (state: WebState, connected: boolean): WebState => ({
@@ -114,6 +120,8 @@ export const withSession = (state: WebState, summary: SessionSummary): WebState 
     info: emptyInfo,
     problem: '',
     run: undefined,
+    turns: [],
+    trace: [],
   }
 }
 
@@ -159,6 +167,7 @@ export const applyUiEvent = (state: WebState, event: UiEvent): WebState => {
     ...state,
     info: event.kind === 'session' ? infoAfter(state.info, event.event) : state.info,
     turns: fresh ? turnsAfter(state.turns, event.event) : state.turns,
+    trace: fresh ? traceAfter(state.trace, event.event) : state.trace,
     conversation: applyEvent(state.conversation, event),
   }
 }

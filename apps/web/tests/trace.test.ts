@@ -1,0 +1,98 @@
+import { describe, expect, test } from 'vitest'
+import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
+import { toolsOf, traceOf, writtenPath } from '../client/trace.ts'
+
+const event = (type: string, data: unknown, time: number): UiSessionEvent => ({
+  seq: time,
+  time,
+  type,
+  data,
+})
+
+const claim = (text: string, source: string, time: number): UiSessionEvent =>
+  event('agent/inbox/claimed', { target: 'next-turn', message: { text, source } }, time)
+
+const said = (time: number, ...content: ReadonlyArray<unknown>): UiSessionEvent =>
+  event('assistant/message', { content }, time)
+
+describe('the trace', () => {
+  test('a turn holds the prompt, its steps and tools, the answer, and the files it wrote', () => {
+    const [turn] = traceOf([
+      event('turn/start', { turn: 1 }, 10),
+      claim('fix the ledger', 'user', 11),
+      event('step/start', { step: 1 }, 12),
+      said(13, { type: 'reasoning', text: 'read it first' }, { type: 'text', text: 'Reading.' }),
+      event(
+        'tool/call',
+        { callId: 'c1', name: 'edit', arguments: '{"path":"a.ts"}', summary: 'edit a.ts' },
+        14,
+      ),
+      event(
+        'tool/result',
+        {
+          callId: 'c1',
+          isError: false,
+          summary: 'lines: 1 → 2',
+          content: [{ type: 'text', text: 'ok' }],
+        },
+        15,
+      ),
+      event(
+        'tool/call',
+        { callId: 'c2', name: 'write', arguments: '{"file_path":"a.ts"}', summary: 'write a.ts' },
+        16,
+      ),
+      event('tool/result', { callId: 'c2', isError: true, summary: 'denied', content: [] }, 17),
+      event('step/end', { step: 1 }, 18),
+      event('step/start', { step: 2 }, 19),
+      said(20, { type: 'text', text: 'Done.' }),
+      event('step/end', { step: 2 }, 21),
+      event('turn/end', { turn: 1, reason: { kind: 'completed' } }, 22),
+    ])
+    expect(turn?.prompt).toBe('fix the ledger')
+    expect(turn?.answer).toBe('Done.')
+    expect(turn?.outcome).toBe('completed')
+    expect(turn?.endedAt).toBe(22)
+    expect(turn?.changed).toEqual([{ path: 'a.ts', edits: 2 }])
+    expect(turn?.steps[0]?.reasoning).toBe('read it first')
+    expect(
+      turn === undefined
+        ? []
+        : toolsOf(turn).map((tool) => [tool.status, tool.result, tool.endedAt]),
+    ).toEqual([
+      ['done', 'lines: 1 → 2', 15],
+      ['error', 'denied', 17],
+    ])
+  })
+
+  test('only the human claims the prompt, and a running turn has no end', () => {
+    const [turn] = traceOf([
+      event('turn/start', { turn: 2 }, 5),
+      claim('a reminder', 'schedule', 6),
+      claim('the real ask', 'user', 7),
+      claim('a later one', 'user', 8),
+      event('step/start', { step: 1 }, 9),
+      event('tool/call', { callId: 'c1', name: 'bash', arguments: '{}', summary: 'bash ls' }, 10),
+    ])
+    expect(turn?.prompt).toBe('the real ask')
+    expect(turn?.endedAt).toBeUndefined()
+    expect(turn?.outcome).toBe('')
+    expect(turn === undefined ? [] : toolsOf(turn).map((tool) => tool.status)).toEqual(['running'])
+  })
+
+  test('events before any turn and bodies it cannot read change nothing', () => {
+    expect(traceOf([event('step/start', { step: 1 }, 1), event('session/header', {}, 2)])).toEqual(
+      [],
+    )
+    const [turn] = traceOf([event('turn/start', null, 3), said(4, 'not a part')])
+    expect(turn?.turn).toBe(0)
+    expect(turn?.answer).toBe('')
+  })
+
+  test('only an edit or a write with a readable path names a file', () => {
+    expect(writtenPath('edit', '{"path":"x.ts"}')).toBe('x.ts')
+    expect(writtenPath('read', '{"path":"x.ts"}')).toBeUndefined()
+    expect(writtenPath('edit', '{')).toBeUndefined()
+    expect(writtenPath('write', '{}')).toBeUndefined()
+  })
+})

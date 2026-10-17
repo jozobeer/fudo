@@ -19,6 +19,8 @@ export const SessionsRpc = Rpc.make('sessions', {
   success: Schema.Struct({
     initial: Schema.String,
     items: Schema.Array(SessionSummarySchema),
+    /** The sessions the server has open now: the ones a page can follow live. */
+    opened: Schema.Array(Schema.String),
   }),
   error: Schema.String,
 })

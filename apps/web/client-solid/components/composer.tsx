@@ -1,5 +1,6 @@
 import { For, Match, Show, Switch, onCleanup, onMount } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
+import { renderMarkdown } from '../../client/markdown.ts'
 import type { SessionStore } from '../store.ts'
 import { Button } from './ui/button.tsx'
 
@@ -73,7 +74,10 @@ const Takeover = (props: { store: SessionStore }) => {
       <Match when={conversation().ask}>
         {(ask) => (
           <section class="block takeover-card">
-            <div class="takeover-text">{plainText(ask().question).split('\n')[0] ?? ''}</div>
+            <div
+              class="takeover-text markdown"
+              innerHTML={renderMarkdown(plainText(ask().question))}
+            />
             <Show when={ask().options.length > 0}>
               <div class="ask-options">
                 <For each={ask().options}>
@@ -175,7 +179,8 @@ export const Composer = (props: { store: SessionStore }) => {
               </button>
             </Show>
           </div>
-          <Button id="send" variant="primary" type="submit">
+          {/* While something waits on the reader, the card's button is the one in amber. */}
+          <Button id="send" variant={takeover() ? 'default' : 'primary'} type="submit">
             Send
           </Button>
           <Button id="cancel" type="button" onClick={() => props.store.send({ kind: 'cancel' })}>
