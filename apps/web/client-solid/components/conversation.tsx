@@ -1,93 +1,8 @@
-import { For, Match, Show, Switch, createEffect, createSignal } from 'solid-js'
-import {
-  plainText,
-  type Conversation as ConversationState,
-  type ConversationBlock,
-} from '@jozo-harness/ui-view'
-import { renderMarkdown } from '../../client/markdown.ts'
+import { Show, createEffect, createSignal } from 'solid-js'
+import type { Conversation as ConversationState } from '@jozo-harness/ui-view'
 import { followsBottom } from '../../client/scroll.ts'
 import type { SessionStore } from '../store.ts'
-
-type ToolBlock = Extract<ConversationBlock, { kind: 'tool' }>
-
-const Markdown = (props: { text: string }) => (
-  <div class="body markdown" innerHTML={renderMarkdown(plainText(props.text))} />
-)
-
-const toolState = (status: ToolBlock['status']): string =>
-  status === 'error' ? 'failed' : status === 'running' ? 'running' : 'done'
-
-const ToolHead = (props: { block: ToolBlock }) => (
-  <>
-    <span class="tool-name">{props.block.name}</span>
-    <span class="tool-summary">{props.block.summary}</span>
-    <span class="tool-state">{toolState(props.block.status)}</span>
-  </>
-)
-
-const Tool = (props: { block: ToolBlock }) => (
-  <Show
-    when={props.block.output !== ''}
-    fallback={
-      <article class={'block tool ' + props.block.status}>
-        <div class="tool-head">
-          <ToolHead block={props.block} />
-        </div>
-      </article>
-    }
-  >
-    <article class={'block tool ' + props.block.status}>
-      <details class="tool-card" open={props.block.status === 'error'}>
-        <summary class="tool-head">
-          <ToolHead block={props.block} />
-        </summary>
-        <pre class="tool-output">{plainText(props.block.output)}</pre>
-      </details>
-    </article>
-  </Show>
-)
-
-const Block = (props: { block: ConversationBlock }) => (
-  <Switch>
-    <Match when={props.block.kind === 'user' ? props.block : undefined}>
-      {(block) => (
-        <article class="block user">
-          <div class="role">you</div>
-          <div class="body">{plainText(block().text)}</div>
-        </article>
-      )}
-    </Match>
-    <Match when={props.block.kind === 'assistant' ? props.block : undefined}>
-      {(block) => (
-        <article class="block assistant">
-          <div class="role">agent</div>
-          <Markdown text={block().text} />
-        </article>
-      )}
-    </Match>
-    <Match when={props.block.kind === 'tool' ? props.block : undefined}>
-      {(block) => <Tool block={block()} />}
-    </Match>
-    <Match when={props.block.kind === 'ask' ? props.block : undefined}>
-      {(block) => (
-        <article class="block ask">
-          <div
-            class="ask-question markdown"
-            innerHTML={renderMarkdown(plainText(block().question))}
-          />
-          <Show when={block().answer !== undefined}>
-            <div class="ask-answer">{'answered: ' + (block().answer ?? '')}</div>
-          </Show>
-        </article>
-      )}
-    </Match>
-    <Match when={props.block.kind === 'notice' ? props.block : undefined}>
-      {(block) => (
-        <article class={'block notice ' + block().level}>{plainText(block().text)}</article>
-      )}
-    </Match>
-  </Switch>
-)
+import { Turns } from './turns.tsx'
 
 const Welcome = () => (
   <section class="welcome">
@@ -139,14 +54,7 @@ export const Conversation = (props: { store: SessionStore }) => {
       }}
     >
       <Show when={!isEmpty(props.store.state().conversation)} fallback={<Welcome />}>
-        <For each={props.store.state().conversation.blocks}>
-          {(block) => <Block block={block} />}
-        </For>
-        <Show when={props.store.state().conversation.live !== ''}>
-          <article class="block assistant live">
-            <Markdown text={props.store.state().conversation.live} />
-          </article>
-        </Show>
+        <Turns store={props.store} />
       </Show>
     </main>
   )

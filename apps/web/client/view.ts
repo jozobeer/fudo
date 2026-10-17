@@ -465,6 +465,8 @@ const paneBody = (state: WebState, pane: Pane): string => {
   if (pane.kind === 'run') return renderRun(state)
   if (pane.kind === 'settings') return settingsBody(state)
   if (pane.kind === 'trajectory') return trajectoryBody(state)
+  // The changes and inspect panes belong to the Solid page; this one has no surface for them.
+  if (pane.kind === 'changes' || pane.kind === 'inspect') return ''
   return '<h2 class="pane-title">Job ' + text(pane.id.slice(0, 8)) + '</h2>' + jobBody(pane)
 }
 
