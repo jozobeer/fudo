@@ -39,7 +39,7 @@ const handlersOf = (registry: SessionRegistry, settings: SettingsPort) =>
   UiRpcs.toLayer({
     sessions: () =>
       registry.list().pipe(
-        Effect.map((items) => ({ initial: registry.initial, items })),
+        Effect.map((items) => ({ initial: registry.initial, items, opened: registry.openedIds() })),
         Effect.mapError((error) => error.message),
       ),
     open: ({ sessionId }) =>

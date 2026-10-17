@@ -2,7 +2,7 @@ import { onCleanup, onMount } from 'solid-js'
 import { Composer } from './components/composer.tsx'
 import { ContextPane } from './components/context-pane.tsx'
 import { Conversation } from './components/conversation.tsx'
-import { Rail } from './components/rail.tsx'
+import { Board } from './components/board.tsx'
 import { Status } from './components/status.tsx'
 import { createSessionStore, type SessionStore } from './store.ts'
 
@@ -20,7 +20,7 @@ export const App = (props: { store?: SessionStore }) => {
       </header>
       <div id="shell">
         <aside id="sidebar">
-          <Rail store={store} />
+          <Board store={store} />
         </aside>
         <div id="main">
           <Conversation store={store} />

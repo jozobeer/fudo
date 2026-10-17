@@ -21,6 +21,7 @@ import {
   type WebState,
 } from '../client/state.ts'
 import { THEME_KEY, themeAttribute, themeFrom, type Theme } from '../client/theme.ts'
+import { emptyWatched, watchedAfter, type Watched } from '../client/board.ts'
 import { makeBridge } from './bridge.ts'
 
 /** The socket the page talks to; the host is the one that served the page. */
@@ -57,6 +58,8 @@ type PanelAsk =
 /** Everything the components may ask of the session. */
 export interface SessionStore {
   readonly state: Accessor<WebState>
+  /** Every session the server has open, followed live, by id. */
+  readonly watched: Accessor<ReadonlyMap<string, Watched>>
   /** Opens the socket and reads the store; call once, when the app mounts. */
   readonly start: () => void
   /** Stops the program, for a page that is going away. */
@@ -64,6 +67,8 @@ export interface SessionStore {
   readonly setDraft: (text: string) => void
   readonly submit: () => void
   readonly send: (command: UiCommand) => void
+  /** Sends one command to a session that need not be the one on screen. */
+  readonly sendTo: (sessionId: string, command: UiCommand) => void
   readonly moveTo: (id: string | undefined) => void
   readonly chooseTheme: (theme: Theme) => void
   readonly showPane: (pane: Pane | undefined) => void
@@ -88,7 +93,10 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
     setState((current) => next(current))
   }
 
-  const commands = Effect.runSync(Queue.unbounded<UiCommand>())
+  const [watched, setWatched] = createSignal<ReadonlyMap<string, Watched>>(new Map())
+  const commands = Effect.runSync(
+    Queue.unbounded<{ readonly sessionId: string; readonly command: UiCommand }>(),
+  )
   const moves = Effect.runSync(Queue.unbounded<string | undefined>())
   const panelAsks = Effect.runSync(Queue.unbounded<PanelAsk>())
   let following: Fiber.Fiber<void, unknown> | undefined
@@ -96,6 +104,27 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
 
   const program = Effect.gen(function* () {
     const client = yield* RpcClient.make(UiRpcs)
+    /** The sessions this connection follows for the board; a dropped stream may follow again. */
+    const watching = new Set<string>()
+
+    const watch = (id: string) =>
+      Effect.suspend(() => {
+        if (watching.has(id)) return Effect.void
+        watching.add(id)
+        return Effect.forkScoped(
+          client.events({ sessionId: id }).pipe(
+            Stream.runForEach((event) =>
+              Effect.sync(() =>
+                setWatched((now) =>
+                  new Map(now).set(id, watchedAfter(now.get(id) ?? emptyWatched, event)),
+                ),
+              ),
+            ),
+            Effect.ensuring(Effect.sync(() => watching.delete(id))),
+            Effect.ignore,
+          ),
+        ).pipe(Effect.asVoid)
+      })
 
     // The orchestration below mirrors the current page's while both entries are
     // served side by side: the port is compared against it, so the two are not
@@ -114,6 +143,7 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
           update((now) => withSessions(now, listed.items))
           if (running !== undefined) update((now) => withRun(now, running))
         })
+        yield* Effect.forEach(listed.opened, watch)
       })
 
     /** Everything one session logs, until the socket or the page moves on. */
@@ -139,6 +169,7 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
           history.replaceState(null, '', '?session=' + encodeURIComponent(summary.id))
         })
         following = yield* Effect.forkScoped(follow(summary.id))
+        yield* watch(summary.id)
       })
     /* jscpd:ignore-end */
 
@@ -147,8 +178,8 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
     })
 
     yield* Effect.forkScoped(
-      Stream.runForEach(Stream.fromQueue(commands), (command) =>
-        client.command({ sessionId: state().sessionId, command }).pipe(Effect.ignore),
+      Stream.runForEach(Stream.fromQueue(commands), (addressed) =>
+        client.command(addressed).pipe(Effect.ignore),
       ),
     )
     /** Reads one job and shows it in the pane; stopping it reads it again after. */
@@ -194,6 +225,7 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
 
     const listed = yield* client.sessions()
     yield* Effect.sync(() => update((now) => withSessions(now, listed.items)))
+    yield* Effect.forEach(listed.opened, watch)
 
     // The session the page opens, then one more for every move: a click, or a new session.
     const current = state()
@@ -228,8 +260,13 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
     bridge.start(runnable)
   }
 
+  const sendTo = (sessionId: string, command: UiCommand): void => {
+    Queue.offerUnsafe(commands, { sessionId, command })
+  }
+
   return {
     state,
+    watched,
     start,
     stop: () => bridge.stop(),
     setDraft: (draft) => update((now) => withDraft(now, draft)),
@@ -238,15 +275,16 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
       const value = current.draft.trim()
       if (value === '') return
       const ask = current.conversation.ask
-      Queue.offerUnsafe(
-        commands,
+      sendTo(
+        current.sessionId,
         ask === undefined
           ? { kind: 'submit', text: value }
           : { kind: 'answer', id: ask.id, answer: value },
       )
       update((now) => withDraft(now, ''))
     },
-    send: (command) => Queue.offerUnsafe(commands, command),
+    send: (command) => sendTo(state().sessionId, command),
+    sendTo,
     moveTo: (id) => Queue.offerUnsafe(moves, id),
     chooseTheme: (theme) => {
       update((now) => withTheme(now, theme))
