@@ -186,6 +186,28 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
       })
 
     /**
+     * The asks to read the store again, and the fiber that answers them. A feed
+     * hands the ask over instead of making the calls itself: a client stops
+     * reading its socket while a feed's buffer holds events, so a feed that waits
+     * on a call of its own waits for an answer that arrives behind the very
+     * events it is holding up. Only the newest ask matters — a reader wants the
+     * store as it is now, not once per event that changed it.
+     */
+    const refreshes = Effect.runSync(Queue.sliding<void>(1))
+    yield* Effect.forkScoped(
+      Stream.runForEach(Stream.fromQueue(refreshes), () =>
+        relist().pipe(
+          Effect.catchCause((cause) =>
+            unlessInterrupted(
+              cause,
+              Effect.sync(() => update((now) => withProblem(now, causeText(cause)))),
+            ),
+          ),
+        ),
+      ),
+    )
+
+    /**
      * Everything one session logs, until the page moves on. A dropped
      * subscription follows again: the server opens with the session's history,
      * and the fold keeps only the events past the last one it applied, so the
@@ -208,7 +230,10 @@ export const createSessionStore = (options: SessionStoreOptions = {}): SessionSt
                   return applyUiEvent(cleared, event)
                 })
               })
-              if (event.kind === 'session' && needsRefresh(event.event.type)) yield* relist()
+              // Handed over rather than awaited: the feed has to keep draining.
+              if (event.kind === 'session' && needsRefresh(event.event.type)) {
+                yield* Queue.offer(refreshes, undefined)
+              }
             }),
           ),
         ),

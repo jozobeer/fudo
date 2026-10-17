@@ -57,6 +57,8 @@ interface FakeHost {
   readonly dropped: () => void
   /** How many times a client asked to follow this session. */
   readonly followed: () => number
+  /** How many times a client read the run state: once when it opens, once per read again. */
+  readonly states: () => number
   /** False makes `submit` die, as a core that fell over does. */
   accepting: boolean
 }
@@ -74,9 +76,13 @@ const makeHost = (id: string): FakeHost => {
   const subscribers = new Set<Queue.Queue<UiEvent>>()
   const commands: Array<UiCommand> = []
   let follows = 0
+  let states = 0
   const host: FakeHost = {
     summary: { id, cwd: '/work', createdAt: 1, title: '' },
-    runState: () => ({ goal: null, schedules: [], jobs: [], queued: [] }),
+    runState: () => {
+      states += 1
+      return { goal: null, schedules: [], jobs: [], queued: [] }
+    },
     jobOutput: () => Effect.fail(new WebError({ message: 'no such job' })),
     stopJob: () => Effect.void,
     commands,
@@ -92,6 +98,7 @@ const makeHost = (id: string): FakeHost => {
       subscribers.clear()
     },
     followed: () => follows,
+    states: () => states,
     host: {
       // Every follower is handed the log first, then what happens next: the same
       // shape the real host has, and what lets a second look recover a gap.
@@ -221,6 +228,30 @@ const withStore = (
   )
 
 describe('the page store', () => {
+  test('a long log keeps unfolding while the page reads the store again', async () => {
+    stubTheBrowser()
+    const host = makeHost('a')
+    // The first look replays the whole log in one burst, and the second event in
+    // it asks the page to read the store again. A feed that makes that call
+    // itself stops draining: the client stops reading the socket while a feed's
+    // buffer holds events, so the answer sits behind the very events the call is
+    // holding up, and the page stays empty with nothing said about why.
+    host.said(event(1, 'turn/start', { turn: 1 }))
+    host.said(event(2, 'agent/inbox/queued', { message: { source: 'user', text: 'the ask' } }))
+    for (let index = 0; index < 40; index += 1) {
+      host.said(turn(3 + index, 'line ' + String(index + 1)))
+    }
+    await Effect.runPromise(
+      withStore(host, (store) =>
+        Effect.gen(function* () {
+          yield* until(() => saidTexts(store).includes('line 40'), 'showed the whole log')
+          // The read again happened too, on the page's own fiber.
+          yield* until(() => host.states() >= 2, 'read the run state again')
+        }),
+      ),
+    )
+  }, 15_000)
+
   test('following again brings the turns a dropped feed missed', async () => {
     stubTheBrowser()
     const host = makeHost('a')
