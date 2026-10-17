@@ -13,6 +13,7 @@ import { Socket } from 'effect/socket'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { spawn } from '@jozo-harness/process'
 import { runCommand } from '../src/index.ts'
 import { UiRpcs, withoutServices } from '@jozo-harness/web'
 
@@ -88,14 +89,11 @@ describe('the browser UI through the command', () => {
 
   beforeAll(async () => {
     staticRoot = await mkdtemp(join(tmpdir(), 'jozo-harness-web-dist-'))
-    const build = Bun.spawn(
-      ['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build', '--outDir', staticRoot],
-      {
-        cwd: join(import.meta.dir, '../../..'),
-        stdout: 'ignore',
-        stderr: 'inherit',
-      },
-    )
+    const build = spawn(['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build', '--outDir', staticRoot], {
+      cwd: join(import.meta.dir, '../../..'),
+      stdout: 'ignore',
+      stderr: 'inherit',
+    })
     expect(await build.exited).toBe(0)
   }, 60_000)
 

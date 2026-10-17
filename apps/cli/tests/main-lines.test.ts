@@ -1,13 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { main } from '../src/bin.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const patchWithRoot = async (dir: string): Promise<string> => {
   const path = join(dir, 'sessions.yml')
-  await Bun.write(
+  await writeFileDeep(
     path,
     [
       'name: sessions',

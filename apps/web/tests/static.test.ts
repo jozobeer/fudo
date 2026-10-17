@@ -1,8 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { staticPath, staticResponse } from '../src/server/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 describe('static files', () => {
   test('the root and plain names stay inside the root', () => {
@@ -21,7 +26,7 @@ describe('static files', () => {
 
   test('a present file answers with its type and a missing one does not answer', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-static-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const found = await staticResponse(root, '/')
     expect(found?.headers.get('content-type')).toBe('text/html; charset=utf-8')
     expect(await found?.text()).toBe('<h1>jozo-harness</h1>')

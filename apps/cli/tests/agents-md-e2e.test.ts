@@ -9,11 +9,16 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const MARKER = 'AGENTS-MD-MARKER-4711'
 const NESTED_MARKER = 'NESTED-AGENTS-MARKER-8142'
@@ -115,7 +120,7 @@ describe('workspace instructions', () => {
   test('AGENTS.md reaches the model request', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
-    await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
+    await writeFileDeep(join(workspace, 'AGENTS.md'), MARKER + '\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -139,7 +144,7 @@ describe('workspace instructions', () => {
   test('a workspace with only CLAUDE.md still reaches the model', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
-    await Bun.write(join(workspace, 'CLAUDE.md'), CLAUDE_MARKER + '\n')
+    await writeFileDeep(join(workspace, 'CLAUDE.md'), CLAUDE_MARKER + '\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -166,9 +171,9 @@ describe('workspace instructions', () => {
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const nested = join(workspace, 'packages', 'foo')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
-    await Bun.write(join(nested, 'AGENTS.md'), NESTED_MARKER + '\n')
-    await Bun.write(join(nested, 'notes.txt'), 'the notes\n')
+    await writeFileDeep(join(workspace, 'AGENTS.md'), MARKER + '\n')
+    await writeFileDeep(join(nested, 'AGENTS.md'), NESTED_MARKER + '\n')
+    await writeFileDeep(join(nested, 'notes.txt'), 'the notes\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -209,7 +214,10 @@ describe('workspace instructions', () => {
   test('a huge AGENTS.md is cut inside the budget and the model is told', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
-    await Bun.write(join(workspace, 'AGENTS.md'), 'filler line\n'.repeat(6000) + TAIL_MARKER + '\n')
+    await writeFileDeep(
+      join(workspace, 'AGENTS.md'),
+      'filler line\n'.repeat(6000) + TAIL_MARKER + '\n',
+    )
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -244,8 +252,8 @@ describe('workspace instructions', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-md-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
-    await Bun.write(join(home, 'AGENTS.md'), HOME_MARKER + '\n')
-    await Bun.write(join(workspace, 'AGENTS.md'), MARKER + '\n')
+    await writeFileDeep(join(home, 'AGENTS.md'), HOME_MARKER + '\n')
+    await writeFileDeep(join(workspace, 'AGENTS.md'), MARKER + '\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(

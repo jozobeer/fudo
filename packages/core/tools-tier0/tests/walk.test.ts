@@ -1,13 +1,18 @@
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { isBinary, makeIgnoredPaths, readIgnoreRules, walkFiles } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const write = async (dir: string, path: string, body = 'x\n'): Promise<void> => {
   await mkdir(join(dir, path, '..'), { recursive: true })
-  await Bun.write(join(dir, path), body)
+  await writeFileDeep(join(dir, path), body)
 }
 
 describe('walkFiles', () => {
@@ -27,7 +32,7 @@ describe('walkFiles', () => {
 
   test('honours the workspace ignore files, last rule winning', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
-    await Bun.write(join(dir, '.gitignore'), ['logs/', '*.log', '!keep.log', ''].join('\n'))
+    await writeFileDeep(join(dir, '.gitignore'), ['logs/', '*.log', '!keep.log', ''].join('\n'))
     await write(dir, 'logs/debug.txt')
     await write(dir, 'debug.log')
     await write(dir, 'keep.log')
@@ -41,7 +46,7 @@ describe('walkFiles', () => {
 
   test('a nested pattern only matches where it points', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-walk-'))
-    await Bun.write(join(dir, '.ignore'), ['src/generated/**', '*.tmp', ''].join('\n'))
+    await writeFileDeep(join(dir, '.ignore'), ['src/generated/**', '*.tmp', ''].join('\n'))
     await write(dir, 'src/generated/a.ts')
     await write(dir, 'src/kept.ts')
     await write(dir, 'elsewhere/generated/b.ts')

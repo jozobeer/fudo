@@ -1,35 +1,31 @@
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
+import { startStubServer } from '@jozo-harness/test-support-stub'
 import { braveSearch } from '../src/index.ts'
 
 describe('braveSearch', () => {
   test('parses the provider response', async () => {
     let seen: { url: string; token: string } = { url: '', token: '' }
-    const server = Bun.serve({
-      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: (request) => {
-        seen = {
-          url: request.url,
-          token: request.headers.get('x-subscription-token') ?? '',
-        }
-        return Response.json({
-          web: {
-            results: [
-              { title: 'jozo-harness', url: 'https://example.com', description: 'a harness' },
-              { url: 'https://example.com/2' },
-            ],
-          },
-        })
-      },
+    const server = await startStubServer((request) => {
+      seen = {
+        url: request.url,
+        token: request.headers.get('x-subscription-token') ?? '',
+      }
+      return Response.json({
+        web: {
+          results: [
+            { title: 'jozo-harness', url: 'https://example.com', description: 'a harness' },
+            { url: 'https://example.com/2' },
+          ],
+        },
+      })
     })
-    const baseUrl = 'http://127.0.0.1:' + String(server.port) + '/search'
+    const baseUrl = server.origin + '/search'
 
     const hits = await Effect.runPromise(
       braveSearch({ apiKey: 'secret', baseUrl }).search('jozo-harness', 2),
     )
-    await server.stop(true)
+    await server.stop()
 
     expect(hits).toEqual([
       { title: 'jozo-harness', url: 'https://example.com', snippet: 'a harness' },
@@ -41,12 +37,8 @@ describe('braveSearch', () => {
   })
 
   test('a failing provider becomes a tool error', async () => {
-    const server = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: () => new Response('nope', { status: 500 }),
-    })
-    const baseUrl = 'http://127.0.0.1:' + String(server.port) + '/search'
+    const server = await startStubServer(() => new Response('nope', { status: 500 }))
+    const baseUrl = server.origin + '/search'
 
     const message = await Effect.runPromise(
       Effect.match(braveSearch({ apiKey: 'secret', baseUrl }).search('jozo-harness', 1), {
@@ -54,7 +46,7 @@ describe('braveSearch', () => {
         onSuccess: () => 'ok',
       }),
     )
-    await server.stop(true)
+    await server.stop()
 
     expect(message).toContain('search failed')
   })

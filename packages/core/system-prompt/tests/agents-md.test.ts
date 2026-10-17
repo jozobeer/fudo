@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
   AGENTS_MD_BUDGET_BYTES,
@@ -14,6 +14,11 @@ import {
   registerAgentsMd,
   type PromptSection,
 } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 /** Section text, which may be a function of the assemble context. */
 const textOf = (section: PromptSection | undefined): string => {
@@ -33,8 +38,8 @@ describe('loadAgentsFiles', () => {
     const root = await workspace()
     const nested = join(root, 'a', 'b')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(root, 'AGENTS.md'), 'outer rules\n')
-    await Bun.write(join(nested, 'AGENTS.md'), 'inner rules\n')
+    await writeFileDeep(join(root, 'AGENTS.md'), 'outer rules\n')
+    await writeFileDeep(join(nested, 'AGENTS.md'), 'inner rules\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(nested))
 
@@ -48,7 +53,7 @@ describe('loadAgentsFiles', () => {
 
   test('reads CLAUDE.md when AGENTS.md is absent', async () => {
     const root = await workspace()
-    await Bun.write(join(root, 'CLAUDE.md'), 'claude rules\n')
+    await writeFileDeep(join(root, 'CLAUDE.md'), 'claude rules\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(root))
 
@@ -58,8 +63,8 @@ describe('loadAgentsFiles', () => {
 
   test('reads the local candidate after the base in the same directory', async () => {
     const root = await workspace()
-    await Bun.write(join(root, 'CLAUDE.md'), 'base rules\n')
-    await Bun.write(join(root, 'CLAUDE.local.md'), 'local rules\n')
+    await writeFileDeep(join(root, 'CLAUDE.md'), 'base rules\n')
+    await writeFileDeep(join(root, 'CLAUDE.local.md'), 'local rules\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(root))
 
@@ -74,7 +79,7 @@ describe('loadAgentsFiles', () => {
     const parent = await mkdtemp(join(tmpdir(), 'jozo-harness-agents-'))
     const root = join(parent, 'project')
     await mkdir(join(root, '.git'), { recursive: true })
-    await Bun.write(join(parent, 'AGENTS.md'), 'above the project\n')
+    await writeFileDeep(join(parent, 'AGENTS.md'), 'above the project\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(root))
 
@@ -85,8 +90,8 @@ describe('loadAgentsFiles', () => {
   test('reads the home file first', async () => {
     const root = await workspace()
     const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
-    await Bun.write(join(home, 'AGENTS.md'), 'home rules\n')
-    await Bun.write(join(root, 'AGENTS.md'), 'workspace rules\n')
+    await writeFileDeep(join(home, 'AGENTS.md'), 'home rules\n')
+    await writeFileDeep(join(root, 'AGENTS.md'), 'workspace rules\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(root, { home }))
 
@@ -99,8 +104,8 @@ describe('loadAgentsFiles', () => {
     const root = await workspace()
     const nested = join(root, 'a')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(root, 'AGENTS.md'), 'same rules\n')
-    await Bun.write(join(nested, 'AGENTS.md'), 'same rules\n')
+    await writeFileDeep(join(root, 'AGENTS.md'), 'same rules\n')
+    await writeFileDeep(join(nested, 'AGENTS.md'), 'same rules\n')
 
     const load = await Effect.runPromise(loadAgentsFiles(nested))
 
@@ -110,7 +115,7 @@ describe('loadAgentsFiles', () => {
 
   test('names a file too large to read instead of loading it', async () => {
     const root = await workspace()
-    await Bun.write(join(root, 'AGENTS.md'), 'x'.repeat(100))
+    await writeFileDeep(join(root, 'AGENTS.md'), 'x'.repeat(100))
 
     const load = await Effect.runPromise(loadAgentsFiles(root, { maxSourceBytes: 10 }))
 
@@ -188,9 +193,9 @@ describe('nestedAgentsFiles', () => {
     const root = await workspace()
     const nested = join(root, 'packages', 'foo')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(root, 'AGENTS.md'), 'root rules\n')
-    await Bun.write(join(nested, 'AGENTS.md'), 'nested rules\n')
-    await Bun.write(join(nested, 'file.txt'), 'content\n')
+    await writeFileDeep(join(root, 'AGENTS.md'), 'root rules\n')
+    await writeFileDeep(join(nested, 'AGENTS.md'), 'nested rules\n')
+    await writeFileDeep(join(nested, 'file.txt'), 'content\n')
 
     const found = await Effect.runPromise(
       nestedAgentsFiles(loadedAgentsOf({ files: [], omitted: [] }), {
@@ -208,7 +213,7 @@ describe('nestedAgentsFiles', () => {
     const root = await workspace()
     const nested = join(root, 'a')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(nested, 'AGENTS.md'), 'same rules\n')
+    await writeFileDeep(join(nested, 'AGENTS.md'), 'same rules\n')
     const loaded = new Map([[join(root, 'AGENTS.md'), 'same rules']])
 
     const found = await Effect.runPromise(
@@ -235,7 +240,7 @@ describe('nestedAgentsFiles', () => {
 describe('registerAgentsMd', () => {
   test('registers the files on a prompt and returns what it read', async () => {
     const root = await workspace()
-    await Bun.write(join(root, 'AGENTS.md'), 'outer rules\n')
+    await writeFileDeep(join(root, 'AGENTS.md'), 'outer rules\n')
 
     const outcome = await Effect.runPromise(
       Effect.scoped(

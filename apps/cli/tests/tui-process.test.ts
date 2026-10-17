@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { spawn } from '@jozo-harness/process'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const entry = join(import.meta.dir, '../src/run.ts')
 
@@ -9,7 +15,7 @@ describe('the tui through a real process', () => {
   test('--tui paints the screen and ctrl-d restores the terminal', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-tui-process-'))
     const patch = join(dir, 'sessions.yml')
-    await Bun.write(
+    await writeFileDeep(
       patch,
       [
         'name: sessions',
@@ -20,7 +26,7 @@ describe('the tui through a real process', () => {
         '      root: ' + join(dir, 'sessions'),
       ].join('\n'),
     )
-    const child = Bun.spawn(
+    const child = spawn(
       [process.execPath, 'run', entry, '--tui', '--model', 'stub/model', '--patch', patch],
       {
         cwd: dir,
@@ -30,8 +36,8 @@ describe('the tui through a real process', () => {
         stderr: 'pipe',
       },
     )
-    void child.stdin.write('\u0004')
-    void child.stdin.end()
+    child.stdin.write('\u0004')
+    child.stdin.end()
     const [out, err, code] = await Promise.all([
       new Response(child.stdout).text(),
       new Response(child.stderr).text(),

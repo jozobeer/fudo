@@ -11,11 +11,16 @@ import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const BODY_MARKER = 'SKILL-BODY-MARKER-8123'
 
@@ -131,11 +136,11 @@ describe('skills through the command', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
-    await Bun.write(
+    await writeFileDeep(
       join(workspace, '.jzh', 'skills', 'demo', 'SKILL.md'),
       skillText('demo', 'Explains how to greet', BODY_MARKER),
     )
-    await Bun.write(
+    await writeFileDeep(
       join(home, 'skills', 'other', 'SKILL.md'),
       skillText('other', 'Does something else', 'other body'),
     )

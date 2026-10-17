@@ -3,8 +3,8 @@ import type { UiCommand, UiEvent, UiHost } from '@jozo-harness/ui-protocol'
 import { Deferred, Effect, Exit, Fiber, Option, Queue, Stream, type Scope } from 'effect'
 import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
   serveWeb,
@@ -21,6 +21,11 @@ import {
   UiRpcs,
   withoutServices,
 } from '../src/shared/rpc.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 interface FakeHost {
   readonly summary: SessionSummary
@@ -207,8 +212,8 @@ describe('the web transport', () => {
   test('a browser client speaks commands and events over one socket', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-root-'))
     const outside = await mkdtemp(join(tmpdir(), 'jozo-harness-web-outside-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
-    await Bun.write(join(outside, 'secret.txt'), 'secret')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(outside, 'secret.txt'), 'secret')
     const web = makeWeb('a')
     const settings = makeSettings()
 
@@ -268,7 +273,7 @@ describe('the web transport', () => {
 
   test('two tabs subscribe to the same conversation', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-tabs-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
     const settings = makeSettings()
 
@@ -306,7 +311,7 @@ describe('the web transport', () => {
 
   test('the page lists the store, opens one more, and each id keeps its own conversation', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-sessions-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
     const settings = makeSettings()
 
@@ -368,7 +373,7 @@ describe('the web transport', () => {
 
   test('the page asks a session what it is working toward', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-state-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
     const settings = makeSettings()
 
@@ -416,7 +421,7 @@ describe('the web transport', () => {
 
   test('the page reads the settings and writes a model through them', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-web-settings-'))
-    await Bun.write(join(root, 'index.html'), '<h1>jozo-harness</h1>')
+    await writeFileDeep(join(root, 'index.html'), '<h1>jozo-harness</h1>')
     const web = makeWeb('a')
     const settings = makeSettings()
 

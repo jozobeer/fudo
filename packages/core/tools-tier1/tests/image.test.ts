@@ -8,10 +8,15 @@ import {
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readImageTool } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const call = (
   tool: ToolDefinition<any, any>,
@@ -36,7 +41,7 @@ describe('read_image tool', () => {
   test('returns an image block for a png', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-image-'))
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-    await Bun.write(join(dir, 'tiny.png'), bytes)
+    await writeFileDeep(join(dir, 'tiny.png'), bytes)
 
     const result = await Effect.runPromise(call(readImageTool, { path: 'tiny.png' }, dir))
 
@@ -51,7 +56,7 @@ describe('read_image tool', () => {
 
   test('refuses a file that is not a known image', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-image-'))
-    await Bun.write(join(dir, 'notes.txt'), 'plain')
+    await writeFileDeep(join(dir, 'notes.txt'), 'plain')
 
     const result = await Effect.runPromise(call(readImageTool, { path: 'notes.txt' }, dir))
 

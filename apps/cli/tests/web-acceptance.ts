@@ -9,11 +9,19 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Deferred, Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { spawn } from '@jozo-harness/process'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 /**
  * Acceptance for S8: a real Chrome types a message, answers the approval prompt
@@ -177,7 +185,7 @@ const waitFor = async (
   attempts = 60,
 ): Promise<string | undefined> => {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await Bun.sleep(250)
+    await sleep(250)
     const value = await read()
     if (typeof value === 'string' && value.includes(wanted)) return value
   }
@@ -192,10 +200,12 @@ interface BrowserOutcome {
 /** The debug port Chrome selected, once it has written it down. */
 const debugPort = async (profileDir: string): Promise<string> => {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    await Bun.sleep(250)
-    const file = Bun.file(join(profileDir, 'DevToolsActivePort'))
-    if (!(await file.exists())) continue
-    const port = (await file.text()).split('\n')[0] ?? ''
+    await sleep(250)
+    const text = await readFile(join(profileDir, 'DevToolsActivePort'), 'utf8').catch(
+      () => undefined,
+    )
+    if (text === undefined) continue
+    const port = text.split('\n')[0] ?? ''
     if (port !== '') return port
   }
   throw new Error('chrome never wrote DevToolsActivePort')
@@ -219,7 +229,7 @@ const saveScreenshot = async (client: Cdp): Promise<void> => {
     result?: { data?: string }
   }
   const data = shot.result?.data
-  if (data !== undefined) await Bun.write(evidence, Buffer.from(data, 'base64'))
+  if (data !== undefined) await writeFileDeep(evidence, Buffer.from(data, 'base64'))
 }
 
 const type = (value: string): string =>
@@ -270,7 +280,7 @@ const activeName = (): string =>
 /** Waits until the page reads a session other than the one it had. */
 const waitForOther = async (client: Cdp, previous: string): Promise<string | undefined> => {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    await Bun.sleep(250)
+    await sleep(250)
     const id = await client.evaluate(activeSession())
     if (typeof id === 'string' && id !== '' && id !== previous) return id
   }
@@ -428,7 +438,7 @@ const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Prom
 }
 
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
-  const browser = Bun.spawn(
+  const browser = spawn(
     [
       chrome,
       '--headless=new',
@@ -472,12 +482,11 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
 
 /** The server hands the browser a built bundle, so a stale dist would test the wrong page. */
 const buildWeb = async (): Promise<void> => {
-  const built = Bun.spawnSync(['pnpm', 'exec', 'vp', '-C', 'apps/web', 'build'], {
+  const built = spawnSync('pnpm', ['exec', 'vp', '-C', 'apps/web', 'build'], {
     cwd: repoRoot,
-    stdout: 'inherit',
-    stderr: 'inherit',
+    stdio: 'inherit',
   })
-  if (built.exitCode !== 0) throw new Error('the web bundle did not build')
+  if (built.status !== 0) throw new Error('the web bundle did not build')
 }
 
 const main = async (): Promise<number> => {

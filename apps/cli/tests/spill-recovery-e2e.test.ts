@@ -9,11 +9,16 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const TAIL = 'SPILL-TAIL-MARKER-4711'
 /** 400 lines of 99 characters, so the file is over the 32 KB spill price. */
@@ -114,7 +119,7 @@ describe('recovering a spilled result', () => {
     const root = await mkdtemp(join(tmpdir(), 'jzh-spill-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
     const home = await mkdtemp(join(tmpdir(), 'jozo-harness-home-'))
-    await Bun.write(join(workspace, '.big.txt'), BIG_TEXT.repeat(399) + TAIL + '\n')
+    await writeFileDeep(join(workspace, '.big.txt'), BIG_TEXT.repeat(399) + TAIL + '\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -148,7 +153,7 @@ describe('recovering a spilled result', () => {
     const spill = join(home, 'spill', id)
     const files = await readdir(spill)
     expect(files).toHaveLength(1)
-    expect((await Bun.file(join(spill, files[0] ?? '')).text()).length).toBeGreaterThan(32_000)
+    expect((await readFile(join(spill, files[0] ?? ''), 'utf8')).length).toBeGreaterThan(32_000)
     expect((await stat(spill)).mode & 0o777).toBe(0o700)
 
     // Step 2 read the spilled file where the notice said it was, and step 4 saw the tail.

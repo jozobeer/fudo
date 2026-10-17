@@ -9,10 +9,15 @@ import {
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { makeEditTool, makeObservedFiles, makeReadTool, makeWriteTool } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 /** A sandbox that confines writes to the workspace, the way the shipped profile does. */
 const confined: SandboxShape = {
@@ -59,7 +64,7 @@ describe('write tool', () => {
 
     expect(result?.isError).toBe(false)
     expect(result?.value).toEqual({ path: join(dir, 'a', 'b.txt'), bytes: 8 })
-    expect(await Bun.file(join(dir, 'a', 'b.txt')).text()).toBe('hi\nthere')
+    expect(await readFile(join(dir, 'a', 'b.txt'), 'utf8')).toBe('hi\nthere')
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -88,7 +93,7 @@ describe('write tool', () => {
 
   test('refuses to overwrite a file this session never read', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
-    await Bun.write(join(dir, 'notes.txt'), 'the original\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
     const result = await Effect.runPromise(
@@ -97,13 +102,13 @@ describe('write tool', () => {
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('read')
-    expect(await Bun.file(join(dir, 'notes.txt')).text()).toBe('the original\n')
+    expect(await readFile(join(dir, 'notes.txt'), 'utf8')).toBe('the original\n')
     await rm(dir, { recursive: true, force: true })
   })
 
   test('overwrites a file that was read and has not changed', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
-    await Bun.write(join(dir, 'notes.txt'), 'the original\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
     await Effect.runPromise(call('read', { path: 'notes.txt' }))
@@ -112,24 +117,24 @@ describe('write tool', () => {
     )
 
     expect(result?.isError).toBe(false)
-    expect(await Bun.file(join(dir, 'notes.txt')).text()).toBe('replaced\n')
+    expect(await readFile(join(dir, 'notes.txt'), 'utf8')).toBe('replaced\n')
     await rm(dir, { recursive: true, force: true })
   })
 
   test('refuses a file that changed after it was read, and leaves it alone', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-write-'))
-    await Bun.write(join(dir, 'notes.txt'), 'the original\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'the original\n')
     const call = makeSession(dir)
 
     await Effect.runPromise(call('read', { path: 'notes.txt' }))
-    await Bun.write(join(dir, 'notes.txt'), 'someone else wrote this\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'someone else wrote this\n')
     const result = await Effect.runPromise(
       call('write', { path: 'notes.txt', content: 'clobbered\n' }),
     )
 
     expect(result?.isError).toBe(true)
     expect(JSON.stringify(result?.content)).toContain('changed')
-    expect(await Bun.file(join(dir, 'notes.txt')).text()).toBe('someone else wrote this\n')
+    expect(await readFile(join(dir, 'notes.txt'), 'utf8')).toBe('someone else wrote this\n')
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -139,7 +144,7 @@ describe('write tool', () => {
 
     await Effect.runPromise(call('write', { path: 'crlf.txt', content: 'one\r\ntwo\r\n' }))
 
-    expect(await Bun.file(join(dir, 'crlf.txt')).text()).toBe('one\ntwo\n')
+    expect(await readFile(join(dir, 'crlf.txt'), 'utf8')).toBe('one\ntwo\n')
     await rm(dir, { recursive: true, force: true })
   })
 })

@@ -7,6 +7,7 @@ import { sessionPlugin } from '@jozo-harness/session'
 import { jsonlSessions, sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
 import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
+import { startStubServer } from '@jozo-harness/test-support-stub'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -63,19 +64,14 @@ describe('two safe calls in one step', () => {
   test('they are in flight at the same time', async () => {
     let inFlight = 0
     let maxInFlight = 0
-    const server = Bun.serve({
-      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: async () => {
-        inFlight += 1
-        maxInFlight = Math.max(maxInFlight, inFlight)
-        await new Promise((resolve) => setTimeout(resolve, 100))
-        inFlight -= 1
-        return new Response('ok')
-      },
+    const server = await startStubServer(async () => {
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      inFlight -= 1
+      return new Response('ok')
     })
-    const base = 'http://127.0.0.1:' + String(server.port)
+    const base = server.origin
 
     const stubLlm: Plugin<{}, Llm, never> = {
       name: 'stub-llm',
@@ -126,7 +122,7 @@ describe('two safe calls in one step', () => {
         stderr: () => undefined,
       }),
     )
-    await server.stop(true)
+    await server.stop()
 
     const sessions = await Effect.runPromise(jsonlSessions({ root }).list())
     const opened = await Effect.runPromise(jsonlSessions({ root }).open(sessions[0]?.id ?? ''))

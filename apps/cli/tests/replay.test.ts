@@ -9,7 +9,7 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { replayAdapter } from '@jozo-harness/test-support-replay'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { runCommand } from '../src/index.ts'
@@ -47,12 +47,13 @@ const profile = (root: string): string =>
 describe('replay through the CLI', () => {
   test('the recorded tool calls reach the pipeline and land in the log', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-replay-'))
-    const sse = await Bun.file(
+    const sse = await readFile(
       new URL(
         '../../../packages/llm/llm-openai/fixtures/ollama-cloud-tool-call.sse',
         import.meta.url,
       ),
-    ).text()
+      'utf8',
+    )
     const replayed = replayAdapter(sse)
     let call = 0
     const adapter: LlmAdapter = {

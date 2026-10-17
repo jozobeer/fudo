@@ -8,10 +8,15 @@ import {
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, utimes } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { globTool, grepTool } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const call = (
   tool: ToolDefinition<any, any>,
@@ -44,9 +49,9 @@ const textOf = (result: ToolExecutionResult | undefined): string =>
 
 const workspace = async () => {
   const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
-  await Bun.write(join(dir, 'a.ts'), 'const one = 1\n// needle\n')
-  await Bun.write(join(dir, 'sub', 'b.ts'), 'const two = 2\n')
-  await Bun.write(join(dir, 'c.md'), 'needle in markdown\n')
+  await writeFileDeep(join(dir, 'a.ts'), 'const one = 1\n// needle\n')
+  await writeFileDeep(join(dir, 'sub', 'b.ts'), 'const two = 2\n')
+  await writeFileDeep(join(dir, 'c.md'), 'needle in markdown\n')
   return dir
 }
 
@@ -73,7 +78,7 @@ describe('glob tool', () => {
 
   test('an over-page listing spills the complete list and says where it is', async () => {
     const dir = await workspace()
-    await Bun.write(join(dir, 'd.ts'), 'const four = 4\n')
+    await writeFileDeep(join(dir, 'd.ts'), 'const four = 4\n')
     const written = new Map<string, string>()
 
     const result = await Effect.runPromise(
@@ -93,7 +98,7 @@ describe('glob tool', () => {
   test('does not walk node_modules', async () => {
     const dir = await workspace()
     await mkdir(join(dir, 'node_modules', 'pkg'), { recursive: true })
-    await Bun.write(join(dir, 'node_modules', 'pkg', 'index.ts'), 'export {}\n')
+    await writeFileDeep(join(dir, 'node_modules', 'pkg', 'index.ts'), 'export {}\n')
 
     const result = await Effect.runPromise(call(globTool, { pattern: '**/*.ts' }, dir))
 
@@ -140,12 +145,12 @@ describe('grep tool', () => {
 
   test('binary files and node_modules are not searched', async () => {
     const dir = await workspace()
-    await Bun.write(
+    await writeFileDeep(
       join(dir, 'blob.bin'),
       new Uint8Array([0x6e, 0x65, 0x65, 0x64, 0x6c, 0x65, 0x00, 0x01]),
     )
     await mkdir(join(dir, 'node_modules'), { recursive: true })
-    await Bun.write(join(dir, 'node_modules', 'dep.md'), 'needle from a dependency\n')
+    await writeFileDeep(join(dir, 'node_modules', 'dep.md'), 'needle from a dependency\n')
 
     const result = await Effect.runPromise(call(grepTool, { pattern: 'needle' }, dir))
 
@@ -156,7 +161,7 @@ describe('grep tool', () => {
 
   test('an over-page search spills every match and says where they are', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
-    await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
+    await writeFileDeep(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
     const written = new Map<string, string>()
 
     const result = await Effect.runPromise(
@@ -172,7 +177,7 @@ describe('grep tool', () => {
 
   test('a capped search says how to see the rest', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'jozo-harness-search-'))
-    await Bun.write(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
+    await writeFileDeep(join(dir, 'many.txt'), 'needle one\nneedle two\nneedle three\n')
 
     const result = await Effect.runPromise(call(grepTool, { pattern: 'needle', limit: 1 }, dir))
 

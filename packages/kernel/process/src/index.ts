@@ -31,9 +31,9 @@ export interface Child {
 export interface SpawnOptions {
   readonly cwd?: string
   readonly env?: NodeJS.ProcessEnv
-  readonly stdin?: 'pipe' | 'ignore'
-  readonly stdout?: 'pipe' | 'ignore'
-  readonly stderr?: 'pipe' | 'ignore'
+  readonly stdin?: 'pipe' | 'ignore' | 'inherit'
+  readonly stdout?: 'pipe' | 'ignore' | 'inherit'
+  readonly stderr?: 'pipe' | 'ignore' | 'inherit'
 }
 
 /** An empty stream, for an output the caller did not ask to read. */

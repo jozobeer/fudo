@@ -9,11 +9,16 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const callRead: ReadonlyArray<StreamChunk> = [
   {
@@ -89,7 +94,7 @@ describe('tier 0 through the command', () => {
   test('the model reads a workspace file and the result lands in the log', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-tools-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-ws-'))
-    await Bun.write(join(workspace, 'notes.txt'), 'hello from the workspace file\n')
+    await writeFileDeep(join(workspace, 'notes.txt'), 'hello from the workspace file\n')
 
     const code = await Effect.runPromise(
       runCommand({

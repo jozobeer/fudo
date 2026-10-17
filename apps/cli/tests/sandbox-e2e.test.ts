@@ -15,11 +15,12 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
+import { spawn } from '@jozo-harness/process'
 import { runCommand } from '../src/index.ts'
 
 /** A host that cannot apply a sandbox refuses every command it is wrapped in. */
 const sandboxApplies = async (): Promise<boolean> => {
-  const probe = Bun.spawn(['sandbox-exec', '-p', '(version 1)(allow default)', '--', 'true'], {
+  const probe = spawn(['sandbox-exec', '-p', '(version 1)(allow default)', '--', 'true'], {
     stdout: 'ignore',
     stderr: 'ignore',
   })

@@ -9,12 +9,17 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm, symlink } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const call = (name: string, args: unknown, id: string): StreamChunk => ({
   type: 'block-end',
@@ -115,7 +120,7 @@ describe('writing over a file through the command', () => {
   test('a file the model read may be rewritten in the same session', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-'))
     const dir = await workspace()
-    await Bun.write(join(dir, 'notes.txt'), 'the original\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'the original\n')
 
     const code = await Effect.runPromise(
       runCommand({
@@ -136,7 +141,7 @@ describe('writing over a file through the command', () => {
     )
     expect(code).toBe(0)
 
-    expect(await Bun.file(join(dir, 'notes.txt')).text()).toBe('rewritten\n')
+    expect(await readFile(join(dir, 'notes.txt'), 'utf8')).toBe('rewritten\n')
     const results = await resultsOf(root)
     expect(results.every((result) => !result.isError)).toBe(true)
 
@@ -182,7 +187,7 @@ describe('writing over a file through the command', () => {
   test('a file the model never read is not clobbered', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-guard-'))
     const dir = await workspace()
-    await Bun.write(join(dir, 'notes.txt'), 'the original\n')
+    await writeFileDeep(join(dir, 'notes.txt'), 'the original\n')
 
     const code = await Effect.runPromise(
       runCommand({
@@ -202,7 +207,7 @@ describe('writing over a file through the command', () => {
     )
     expect(code).toBe(0)
 
-    expect(await Bun.file(join(dir, 'notes.txt')).text()).toBe('the original\n')
+    expect(await readFile(join(dir, 'notes.txt'), 'utf8')).toBe('the original\n')
     const results = await resultsOf(root)
     expect(results[0]?.isError).toBe(true)
     expect(JSON.stringify(results[0]?.content)).toContain('read')

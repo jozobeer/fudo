@@ -10,7 +10,7 @@ import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -206,7 +206,7 @@ describe('plan mode through the command', () => {
     // The approval ends plan mode, and the very next call could write.
     expect(code).toBe(0)
     expect(offered[1]).toContain('write')
-    expect(await Bun.file(join(workspace, 'out.txt')).text()).toBe('the answer\n')
+    expect(await readFile(join(workspace, 'out.txt'), 'utf8')).toBe('the answer\n')
 
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, test } from 'bun:test'
 import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { BlockAssembler, Llm } from '@jozo-harness/llm'
@@ -6,9 +7,10 @@ import { replayAdapter, replayPlugin } from '../src/index.ts'
 import { normalizeLog } from '../src/scenario.ts'
 
 const recording = async (): Promise<string> =>
-  Bun.file(
+  readFile(
     new URL('../../../llm/llm-openai/fixtures/ollama-cloud-tool-call.sse', import.meta.url),
-  ).text()
+    'utf8',
+  )
 
 describe('normalizeLog', () => {
   test('zeroes the moments that move and keeps a schema field named time', () => {

@@ -8,6 +8,7 @@ import {
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
+import { startStubServer } from '@jozo-harness/test-support-stub'
 import { webFetchTool } from '../src/index.ts'
 
 const call = (
@@ -30,13 +31,10 @@ const call = (
 
 describe('web_fetch tool', () => {
   test('reads a body from a local server', async () => {
-    const server = Bun.serve({
-      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: () => new Response('hello from the server', { status: 200 }),
-    })
-    const url = 'http://127.0.0.1:' + String(server.port) + '/'
+    const server = await startStubServer(
+      () => new Response('hello from the server', { status: 200 }),
+    )
+    const url = server.origin + '/'
 
     const result = await Effect.runPromise(call(webFetchTool, { url }))
 
@@ -47,22 +45,17 @@ describe('web_fetch tool', () => {
       text: 'hello from the server',
       truncated: false,
     })
-    await server.stop(true)
+    await server.stop()
   })
 
   test('honours the byte limit', async () => {
-    const server = Bun.serve({
-      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: () => new Response('abcdefghij', { status: 200 }),
-    })
-    const url = 'http://127.0.0.1:' + String(server.port) + '/'
+    const server = await startStubServer(() => new Response('abcdefghij', { status: 200 }))
+    const url = server.origin + '/'
 
     const result = await Effect.runPromise(call(webFetchTool, { url, maxBytes: 4 }))
 
     expect(result?.value).toEqual({ url, status: 200, text: 'abcd', truncated: true })
-    await server.stop(true)
+    await server.stop()
   })
 
   test('refuses a non-http url before calling out', async () => {

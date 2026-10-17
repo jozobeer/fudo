@@ -44,12 +44,13 @@ const toolTurn = (name: string, args: unknown, id: string): ReadonlyArray<Stream
 
 /** The recorded stream of a real tool-calling turn, replayed as it was decoded. */
 const recorded = async (): Promise<string> =>
-  Bun.file(
+  readFile(
     new URL(
       '../../../packages/llm/llm-openai/fixtures/ollama-cloud-tool-call.sse',
       import.meta.url,
     ),
-  ).text()
+    'utf8',
+  )
 
 /** A stream of chunks, written as the SSE a provider would have sent. */
 const sseOf = (turn: ReadonlyArray<StreamChunk>): string =>

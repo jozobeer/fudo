@@ -8,10 +8,15 @@ import {
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { makeSkillTool } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const call = (
   tool: ToolDefinition<any, any>,
@@ -38,7 +43,7 @@ describe('skill tool', () => {
   test('reads the SKILL.md of a skill the roots hold', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     const path = join(root, 'demo', 'SKILL.md')
-    await Bun.write(path, skillText('demo', '# demo\nsteps'))
+    await writeFileDeep(path, skillText('demo', '# demo\nsteps'))
 
     const result = await Effect.runPromise(
       call(makeSkillTool([root, '/missing']), { name: 'demo' }),
@@ -58,7 +63,7 @@ describe('skill tool', () => {
 
   test('an unknown skill names what is available', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
-    await Bun.write(join(root, 'demo', 'SKILL.md'), skillText('demo'))
+    await writeFileDeep(join(root, 'demo', 'SKILL.md'), skillText('demo'))
 
     const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'nope' }))
 
@@ -70,7 +75,7 @@ describe('skill tool', () => {
 
   test('a skill file that fails validation is not readable', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
-    await Bun.write(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
+    await writeFileDeep(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
 
     const result = await Effect.runPromise(call(makeSkillTool([root]), { name: 'broken' }))
 

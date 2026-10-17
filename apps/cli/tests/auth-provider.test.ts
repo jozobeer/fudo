@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -28,7 +28,7 @@ describe('jzh auth add', () => {
 
     const path = join(directory, 'jzh', 'secrets.env')
     expect(code).toBe(0)
-    expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=key-value\n')
+    expect(await readFile(path, 'utf8')).toBe('OLLAMA_API_KEY=key-value\n')
     expect(out.join('')).toContain('stored the ollama key')
     expect(out.join('')).not.toContain('key-value')
     await rm(directory, { recursive: true, force: true })

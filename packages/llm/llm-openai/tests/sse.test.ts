@@ -1,11 +1,12 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, test } from 'bun:test'
 import { BlockAssembler } from '@jozo-harness/llm'
 import { decodeOpenAiStream } from '../src/index.ts'
 
 const fixture = async (): Promise<ReadonlyArray<string>> =>
-  (await Bun.file(new URL('../fixtures/ollama-cloud-tool-call.sse', import.meta.url)).text()).split(
-    '\n',
-  )
+  (
+    await readFile(new URL('../fixtures/ollama-cloud-tool-call.sse', import.meta.url), 'utf8')
+  ).split('\n')
 
 describe('OpenAiStreamDecoder', () => {
   test('decodes the recorded tool-call stream into reasoning, text, and parallel tool calls', async () => {

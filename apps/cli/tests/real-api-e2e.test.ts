@@ -11,7 +11,7 @@ import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -66,7 +66,7 @@ describe('the real provider', () => {
       )
 
       expect(code).toBe(0)
-      expect((await Bun.file(join(workspace, 'real.txt')).text()).trim()).toBe('real-api-ok')
+      expect((await readFile(join(workspace, 'real.txt'), 'utf8')).trim()).toBe('real-api-ok')
 
       await rm(logs, { recursive: true, force: true })
       await rm(home, { recursive: true, force: true })

@@ -9,7 +9,7 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -132,7 +132,7 @@ describe('spilling through the command', () => {
 
     expect(text).toContain('[spilled to ')
     expect(path.length).toBeGreaterThan(0)
-    expect((await Bun.file(path).text()).length).toBe(40_000)
+    expect((await readFile(path, 'utf8')).length).toBe(40_000)
     // The session directory goes with the run; the spill root stays for the next one.
     await rm(join(path, '..'), { recursive: true, force: true })
     await rm(root, { recursive: true, force: true })

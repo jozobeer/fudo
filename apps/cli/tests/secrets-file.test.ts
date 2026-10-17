@@ -1,14 +1,19 @@
 import { statSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { listSecrets, removeSecret, writeSecret } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const withFile = async (body?: string) => {
   const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-secret-file-'))
   const path = join(directory, 'secrets.env')
-  if (body !== undefined) await Bun.write(path, body)
+  if (body !== undefined) await writeFileDeep(path, body)
   return { directory, path }
 }
 
@@ -18,7 +23,7 @@ describe('writeSecret', () => {
 
     writeSecret(path, 'OLLAMA_API_KEY', 'secret-value')
 
-    expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=secret-value\n')
+    expect(await readFile(path, 'utf8')).toBe('OLLAMA_API_KEY=secret-value\n')
     expect(statSync(path).mode & 0o777).toBe(0o600)
     await rm(directory, { recursive: true, force: true })
   })
@@ -28,7 +33,7 @@ describe('writeSecret', () => {
 
     writeSecret(path, 'A', 'updated')
 
-    expect(await Bun.file(path).text()).toBe('# my keys\nA=updated\nB=2\n')
+    expect(await readFile(path, 'utf8')).toBe('# my keys\nA=updated\nB=2\n')
     await rm(directory, { recursive: true, force: true })
   })
 })

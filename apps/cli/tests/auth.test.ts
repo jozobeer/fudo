@@ -1,5 +1,5 @@
 import { statSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
@@ -33,7 +33,7 @@ describe('jzh auth', () => {
 
     const path = join(directory, 'jzh', 'secrets.env')
     expect(code).toBe(0)
-    expect(await Bun.file(path).text()).toBe('OLLAMA_API_KEY=secret-value\n')
+    expect(await readFile(path, 'utf8')).toBe('OLLAMA_API_KEY=secret-value\n')
     expect(statSync(path).mode & 0o777).toBe(0o600)
     expect(out.join('')).toContain('stored OLLAMA_API_KEY')
     expect(out.join('')).not.toContain('secret-value')

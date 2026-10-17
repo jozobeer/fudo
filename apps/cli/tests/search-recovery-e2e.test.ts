@@ -9,11 +9,16 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const MATCHES = 2000
 
@@ -114,7 +119,7 @@ describe('a search whose result is too big for one message', () => {
     for (let index = 0; index < MATCHES; index += 1) {
       lines.push('needle-' + String(index) + ' ' + 'p'.repeat(40))
     }
-    await Bun.write(join(workspace, 'many.txt'), lines.join('\n') + '\n')
+    await writeFileDeep(join(workspace, 'many.txt'), lines.join('\n') + '\n')
     const seen: Array<string> = []
 
     const code = await Effect.runPromise(
@@ -153,7 +158,7 @@ describe('a search whose result is too big for one message', () => {
     // The page is not the whole story; the file is.
     expect(notice).toContain('showing 250 of 2000 matches')
     expect(spillPath.length).toBeGreaterThan(0)
-    const body = await Bun.file(spillPath).text()
+    const body = await readFile(spillPath, 'utf8')
     expect(body).toContain('needle-0 ')
     expect(body).toContain('needle-' + String(MATCHES - 1))
     // The session's spill directory is what keeps other users out of the file.

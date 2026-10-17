@@ -1,15 +1,20 @@
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { discoverSkills, parseSkillDocument, renderSkillCatalog, skillRoots } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const skillText = (name: string, body = 'Steps here.'): string =>
   '---\nname: ' + name + '\ndescription: ' + name + ' does things\n---\n\n' + body + '\n'
 
 const writeSkill = async (root: string, name: string, body?: string): Promise<void> => {
-  await Bun.write(join(root, name, 'SKILL.md'), skillText(name, body))
+  await writeFileDeep(join(root, name, 'SKILL.md'), skillText(name, body))
 }
 
 describe('parseSkillDocument', () => {
@@ -52,8 +57,8 @@ describe('discoverSkills', () => {
     await writeSkill(first, 'demo', 'from the first root')
     await writeSkill(first, 'other')
     await writeSkill(second, 'demo', 'from the second root')
-    await Bun.write(join(second, 'SKILL.md'), 'a stray file, not a skill directory')
-    await Bun.write(join(first, 'not-a-skill', 'README.md'), 'no SKILL.md here')
+    await writeFileDeep(join(second, 'SKILL.md'), 'a stray file, not a skill directory')
+    await writeFileDeep(join(first, 'not-a-skill', 'README.md'), 'no SKILL.md here')
 
     const skills = await Effect.runPromise(discoverSkills([first, second, join(first, 'missing')]))
 
@@ -66,7 +71,7 @@ describe('discoverSkills', () => {
 
   test('a SKILL.md that fails validation is ignored', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skills-'))
-    await Bun.write(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
+    await writeFileDeep(join(root, 'broken', 'SKILL.md'), '# no frontmatter\n')
 
     const skills = await Effect.runPromise(discoverSkills([root]))
 

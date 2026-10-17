@@ -1,31 +1,32 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parseArgs } from '../src/args.ts'
+import { startStubServer } from '@jozo-harness/test-support-stub'
 import { main, type MainIo } from '../src/bin.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 /** A provider that lists `ids`, records every path it saw, and every model a chat named. */
-const serveProvider = (ids: ReadonlyArray<string>) => {
+const serveProvider = async (ids: ReadonlyArray<string>) => {
   const requested: Array<string> = []
   const seen: Array<string> = []
-  const server = Bun.serve({
-    // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: async (request) => {
-      const path = new URL(request.url).pathname
-      seen.push(request.method + ' ' + path)
-      if (path === '/v1/models') return Response.json({ data: ids.map((id) => ({ id })) })
-      if (path === '/v1/chat/completions') {
-        const body = (await request.json()) as { model: string }
-        requested.push(body.model)
-      }
-      return new Response('stub', { status: 500 })
-    },
+  const server = await startStubServer(async (request) => {
+    const path = new URL(request.url).pathname
+    seen.push(request.method + ' ' + path)
+    if (path === '/v1/models') return Response.json({ data: ids.map((id) => ({ id })) })
+    if (path === '/v1/chat/completions') {
+      const body = (await request.json()) as { model: string }
+      requested.push(body.model)
+    }
+    return new Response('stub', { status: 500 })
   })
-  return { server, requested, seen, baseUrl: `http://127.0.0.1:${server.port}/v1` }
+  return { server, requested, seen, baseUrl: server.origin + '/v1' }
 }
 
 /**
@@ -38,7 +39,7 @@ const setUp = async (baseUrl: string, settings?: string) => {
   const keyEnv = 'JZH_TEST_KEY_' + crypto.randomUUID().replaceAll('-', '_')
   process.env[keyEnv] = 'test-key'
   const patch = join(directory, 'local.yml')
-  await Bun.write(
+  await writeFileDeep(
     patch,
     [
       'name: local',
@@ -55,7 +56,7 @@ const setUp = async (baseUrl: string, settings?: string) => {
     ].join('\n'),
   )
   const config = join(directory, 'config.yaml')
-  if (settings !== undefined) await Bun.write(config, settings)
+  if (settings !== undefined) await writeFileDeep(config, settings)
   const tearDown = async () => {
     delete process.env[keyEnv]
     await rm(directory, { recursive: true, force: true })
@@ -94,13 +95,13 @@ describe('parseArgs models', () => {
 describe('jzh models', () => {
   test('prints one route per line from the profile endpoint', async () => {
     const ids = randomIds(4)
-    const { server, baseUrl } = serveProvider(ids)
+    const { server, baseUrl } = await serveProvider(ids)
     const { tearDown, flags } = await setUp(baseUrl)
     const { io, out, err } = collect()
 
     const code = await Effect.runPromise(main(['models', ...flags], io))
 
-    await server.stop(true)
+    await server.stop()
     await tearDown()
     // The pair, so a failure says why: this one flaked once in forty runs of the suite.
     expect({ code, err }).toEqual({ code: 0, err: [] })
@@ -115,8 +116,8 @@ describe('jzh models', () => {
 
 describe('jzh models failures', () => {
   test('an unreachable provider is reported as one line and exits 1', async () => {
-    const { server, baseUrl } = serveProvider([])
-    await server.stop(true)
+    const { server, baseUrl } = await serveProvider([])
+    await server.stop()
     const { tearDown, flags } = await setUp(baseUrl)
     const { io, out, err } = collect()
 
@@ -134,14 +135,14 @@ describe('jzh models failures', () => {
 
 describe('the model a run uses', () => {
   test('without a flag the settings file default is used', async () => {
-    const { server, requested, seen, baseUrl } = serveProvider([])
+    const { server, requested, seen, baseUrl } = await serveProvider([])
     const model = 'm-' + crypto.randomUUID().slice(0, 8)
     const { tearDown, flags } = await setUp(baseUrl, 'model: x/' + model + '\n')
     const { io, err } = collect()
 
     const code = await Effect.runPromise(main([...flags, 'go'], io))
 
-    await server.stop(true)
+    await server.stop()
     await tearDown()
     // The stub answers 500, so the run ends at the provider. Asserting what the stub saw,
     // and the reason it failed, is what says whether the run got there at all.
@@ -154,13 +155,13 @@ describe('the model a run uses', () => {
   })
 
   test('the flag wins over the settings file', async () => {
-    const { server, requested, seen, baseUrl } = serveProvider([])
+    const { server, requested, seen, baseUrl } = await serveProvider([])
     const { tearDown, flags } = await setUp(baseUrl, 'model: x/settings-model\n')
     const { io, err } = collect()
 
     const code = await Effect.runPromise(main([...flags, '--model', 'x/flag-model', 'go'], io))
 
-    await server.stop(true)
+    await server.stop()
     await tearDown()
     expect({ code, err, seen }).toEqual({
       code: 1,
@@ -171,13 +172,13 @@ describe('the model a run uses', () => {
   })
 
   test('with no model anywhere the run stops before the provider', async () => {
-    const { server, requested, baseUrl } = serveProvider([])
+    const { server, requested, baseUrl } = await serveProvider([])
     const { tearDown, flags } = await setUp(baseUrl)
     const { io, err } = collect()
 
     const code = await Effect.runPromise(main([...flags, 'go'], io))
 
-    await server.stop(true)
+    await server.stop()
     await tearDown()
     expect(code).toBe(1)
     expect(err).toEqual([

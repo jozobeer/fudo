@@ -1,8 +1,13 @@
-import { chmod, mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { configPaths, loadSecrets } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 describe('configPaths', () => {
   test('honours XDG_CONFIG_HOME', () => {
@@ -24,7 +29,7 @@ describe('loadSecrets', () => {
   const setup = async (mode: number) => {
     const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-secrets-'))
     const path = join(directory, 'secrets.env')
-    await Bun.write(path, 'API_KEY=from-file\nSHARED=from-file\n')
+    await writeFileDeep(path, 'API_KEY=from-file\nSHARED=from-file\n')
     await chmod(path, mode)
     return { directory, path }
   }

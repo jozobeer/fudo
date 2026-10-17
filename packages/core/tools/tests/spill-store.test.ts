@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { mkdir, mkdtemp, readdir, rm, stat, utimes } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { makeSpillWriter, pruneSpills } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -17,7 +22,7 @@ describe('makeSpillWriter', () => {
     const path = await Effect.runPromise(write('call-1', 'the whole text'))
 
     expect(path).toBe(join(store, 'session-1', 'call-1.txt'))
-    expect(await Bun.file(path).text()).toBe('the whole text')
+    expect(await readFile(path, 'utf8')).toBe('the whole text')
     await rm(store, { recursive: true, force: true })
   })
 
@@ -68,7 +73,7 @@ describe('pruneSpills', () => {
 
   test('a loose file at the root is not a session and stays', async () => {
     const store = await root()
-    await Bun.write(join(store, 'notes.txt'), 'not mine')
+    await writeFileDeep(join(store, 'notes.txt'), 'not mine')
 
     await Effect.runPromise(pruneSpills(store, 7 * DAY, () => Date.now()))
 

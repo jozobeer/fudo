@@ -26,5 +26,9 @@
     "@jozo-harness/web": "workspace:*",
     "effect": "4.0.3",
     "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@jozo-harness/process": "workspace:*",
+    "@jozo-harness/test-support-stub": "workspace:*"
   }
 }

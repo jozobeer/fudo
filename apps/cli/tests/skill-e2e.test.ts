@@ -9,11 +9,16 @@ import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { toolsPlugin } from '@jozo-harness/tools'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const callSkill: ReadonlyArray<StreamChunk> = [
   {
@@ -97,7 +102,7 @@ describe('skill through the command', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-skill-'))
     const skills = await mkdtemp(join(tmpdir(), 'jozo-harness-skills-'))
     const MARKER = 'SKILL-BODY-MARKER'
-    await Bun.write(
+    await writeFileDeep(
       join(skills, 'demo', 'SKILL.md'),
       '---\nname: demo\ndescription: Steps for the demo\n---\n\n' + MARKER + '\nstep one\n',
     )

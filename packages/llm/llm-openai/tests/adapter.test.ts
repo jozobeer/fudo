@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, test } from 'bun:test'
 import { LlmFailure, type LlmRequest } from '@jozo-harness/llm'
 import { Effect, Stream } from 'effect'
@@ -41,9 +42,10 @@ const collect = (response: Response) => Stream.runCollect(adapter(response).stre
 describe('openAiAdapter', () => {
   test('encodes messages, tools, and stream options, then decodes the SSE body', async () => {
     const bodies: Array<string> = []
-    const fixture = await Bun.file(
+    const fixture = await readFile(
       new URL('../fixtures/ollama-cloud-tool-call.sse', import.meta.url),
-    ).text()
+      'utf8',
+    )
     const streaming = openAiAdapter({
       baseUrl: 'https://example.test/v1/',
       apiKey: () => 'key',
@@ -73,9 +75,10 @@ describe('openAiAdapter', () => {
 
   test('the params a request carries reach the body as written', async () => {
     const bodies: Array<string> = []
-    const fixture = await Bun.file(
+    const fixture = await readFile(
       new URL('../fixtures/ollama-cloud-tool-call.sse', import.meta.url),
-    ).text()
+      'utf8',
+    )
     const streaming = openAiAdapter({
       baseUrl: 'https://example.test/v1',
       apiKey: () => 'key',

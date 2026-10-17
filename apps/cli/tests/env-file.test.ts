@@ -1,8 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadEnvFrom, parseEnvFile } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 describe('parseEnvFile', () => {
   test('reads keys, quotes, comments, and skips junk', () => {
@@ -24,8 +29,8 @@ describe('loadEnvFrom', () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-env-'))
     const nested = join(root, 'a', 'b')
     await mkdir(nested, { recursive: true })
-    await Bun.write(join(root, '.env'), 'OUTER=outer\nSHARED=outer\n')
-    await Bun.write(join(nested, '.env'), 'SHARED=inner\nINNER=inner\n')
+    await writeFileDeep(join(root, '.env'), 'OUTER=outer\nSHARED=outer\n')
+    await writeFileDeep(join(nested, '.env'), 'SHARED=inner\nINNER=inner\n')
 
     const env: Record<string, string | undefined> = { SET_ALREADY: 'keep' }
     loadEnvFrom(nested, env)
@@ -39,7 +44,7 @@ describe('loadEnvFrom', () => {
 
   test('never overwrites a variable that is already set', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-env-'))
-    await Bun.write(join(root, '.env'), 'SHARED=from-file\n')
+    await writeFileDeep(join(root, '.env'), 'SHARED=from-file\n')
 
     const env: Record<string, string | undefined> = { SHARED: 'from-shell' }
     loadEnvFrom(root, env)

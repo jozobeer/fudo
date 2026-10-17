@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { mkdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { parseArgs } from '../src/args.ts'
 import { main } from '../src/bin.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 describe('parseArgs', () => {
   test('collects profile, patches, task, and flags', () => {
@@ -101,7 +106,7 @@ describe('main', () => {
     const dir = join(import.meta.dir, '.tmp')
     await mkdir(dir, { recursive: true })
     const path = join(dir, `patch-${crypto.randomUUID()}.yml`)
-    await Bun.write(
+    await writeFileDeep(
       path,
       [
         'name: patch',

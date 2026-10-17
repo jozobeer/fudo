@@ -3,21 +3,17 @@ import { approvalServiceLayer, policyLayer, type ApprovalRequested } from '@jozo
 import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Layer } from 'effect'
 import { describe, expect, test } from 'bun:test'
+import { startStubServer } from '@jozo-harness/test-support-stub'
 import { webFetchTool } from '../src/index.ts'
 
 describe('network under a preset', () => {
   test('a fetch runs without being asked about: the sandbox bounds files, not the network', async () => {
     let hits = 0
-    const server = Bun.serve({
-      // Bound to the address the URL below dials: a wildcard bind can land on another process's port.
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: () => {
-        hits += 1
-        return new Response('secret')
-      },
+    const server = await startStubServer(() => {
+      hits += 1
+      return new Response('secret')
     })
-    const url = 'http://127.0.0.1:' + String(server.port) + '/'
+    const url = server.origin + '/'
 
     const observed = await Effect.runPromise(
       Effect.scoped(
@@ -43,7 +39,7 @@ describe('network under a preset', () => {
         ),
       ),
     )
-    await server.stop(true)
+    await server.stop()
 
     expect(observed.asked).toEqual([])
     expect(observed.isError).toBe(false)

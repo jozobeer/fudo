@@ -10,11 +10,16 @@ import { toolsPlugin } from '@jozo-harness/tools'
 import { tier0Plugin } from '@jozo-harness/tools-tier0'
 import { tier1Plugin } from '@jozo-harness/tools-tier1'
 import { Effect, Layer, Schema, Stream } from 'effect'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 import { runCommand } from '../src/index.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const textTurn = (text: string): ReadonlyArray<StreamChunk> => [
   { type: 'text-delta', index: 0, text },
@@ -100,7 +105,7 @@ describe('the line a tool shows through the command', () => {
   test('the pipeline renders it, and the log carries it', async () => {
     const root = await mkdtemp(join(tmpdir(), 'jozo-harness-present-'))
     const workspace = await mkdtemp(join(tmpdir(), 'jozo-harness-present-ws-'))
-    await Bun.write(join(workspace, 'notes.txt'), 'a\n')
+    await writeFileDeep(join(workspace, 'notes.txt'), 'a\n')
 
     const code = await Effect.runPromise(
       runCommand({
@@ -142,7 +147,7 @@ describe('the line a tool shows through the command', () => {
     // The failure says the exit code, not the first line of output.
     expect(results.at(-1)?.summary).toBe('exit 3')
     // The file really changed, so the summaries describe what happened.
-    expect(await Bun.file(join(workspace, 'notes.txt')).text()).toBe('b\n')
+    expect(await readFile(join(workspace, 'notes.txt'), 'utf8')).toBe('b\n')
 
     await rm(root, { recursive: true, force: true })
     await rm(workspace, { recursive: true, force: true })

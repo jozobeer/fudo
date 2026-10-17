@@ -1,10 +1,15 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Effect } from 'effect'
 import { describe, expect, test } from 'bun:test'
 import { loadConfigFile, parseConfigText } from '../src/index.ts'
 import { main, type MainIo } from '../src/bin.ts'
+/** Writes a file, making the directories above it, the way Bun.write did. */
+const writeFileDeep = async (path: string, text: string | Uint8Array): Promise<void> => {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, text)
+}
 
 const io = (sink: Array<string>, errs: Array<string>): MainIo => ({
   stdout: (text) => void sink.push(text),
@@ -61,10 +66,10 @@ describe('parseConfigText', () => {
     const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-empty-'))
     const path = join(directory, 'config.yaml')
 
-    await Bun.write(path, '')
+    await writeFileDeep(path, '')
     expect(await Effect.runPromise(loadConfigFile(path))).toEqual({})
 
-    await Bun.write(path, '# nothing but a comment\n')
+    await writeFileDeep(path, '# nothing but a comment\n')
     expect(await Effect.runPromise(loadConfigFile(path))).toEqual({})
     await rm(directory, { recursive: true, force: true })
   })
@@ -74,7 +79,7 @@ describe('the settings file through the command', () => {
   test('its plugin rows join the profile and --dump-config shows them', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-'))
     const xdg = join(directory, 'jzh')
-    await Bun.write(
+    await writeFileDeep(
       join(directory, 'config.yaml'),
       [
         'plugins:',
@@ -100,7 +105,7 @@ describe('the settings file through the command', () => {
   test('--dump-config names the settings file and shows what it holds', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-path-'))
     const path = join(directory, 'config.yaml')
-    await Bun.write(path, 'model: my-cloud/some-model\n')
+    await writeFileDeep(path, 'model: my-cloud/some-model\n')
 
     const out: Array<string> = []
     const code = await Effect.runPromise(main(['--dump-config', '--config', path], io(out, [])))
@@ -116,7 +121,7 @@ describe('the settings file through the command', () => {
   test('a malformed settings file stops the run with a message', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'jozo-harness-settings-bad-'))
     const path = join(directory, 'config.yaml')
-    await Bun.write(path, 'model: [unclosed')
+    await writeFileDeep(path, 'model: [unclosed')
 
     const out: Array<string> = []
     const errs: Array<string> = []
