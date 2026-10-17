@@ -105,13 +105,13 @@ import {
   type AskShape,
   type PlanModeShape,
 } from '@jozo-harness/safety'
-import { existsSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { runTui, type TuiIo } from '@jozo-harness/tui'
 import { makeUiHost, type UiHost } from '@jozo-harness/ui-host'
 import {
   WebError,
   defaultStaticRoot,
+  pageIsThere,
   serveWeb,
   type JobDetailView,
   type RunStateView,
@@ -804,7 +804,7 @@ const serveWebUi = (
 ): Effect.Effect<number> =>
   Effect.gen(function* () {
     const staticRoot = work.staticRoot ?? defaultStaticRoot
-    if (!existsSync(join(staticRoot, 'index.html'))) {
+    if (!(yield* Effect.promise(() => pageIsThere(staticRoot)))) {
       options.stderr('jzh web: the browser app is not built: run pnpm run build:web\n')
       return 1
     }

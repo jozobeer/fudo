@@ -96,7 +96,7 @@ jzh web              # http://127.0.0.1:<port>/ を stderr に出す（--port �
 pnpm run check
 ```
 
-fmt・lint・型検査は Vite+ が `vp check` で束ね、テストは Vitest（`vp test`）が回す。単一バイナリは Node SEA で、`vp -C apps/cli pack` が `apps/cli/dist/jzh` に作る（`compiled.test.ts` が受け入れ）。設定は `vite.config.ts` の `fmt` / `lint` / `test` / `run` に閉じてあるので、Vite+ が邪魔をしたらその下の道具（Vitest / oxlint / oxfmt / tsdown）を devDependencies に足して直接呼ぶ道に切り替えられる。
+fmt・lint・型検査は Vite+ が `vp check` で束ね、テストは Vitest（`vp test`）が回す。単一バイナリは Node SEA で、`vp -C apps/cli pack` が `apps/cli/dist/jzh` に作る（`compiled.test.ts` が受け入れ。先に `pnpm run build:web` を走らせると、そのページも焼き込まれて `jzh web` が単体で配る）。設定は `vite.config.ts` の `fmt` / `lint` / `test` / `run` に閉じてあるので、Vite+ が邪魔をしたらその下の道具（Vitest / oxlint / oxfmt / tsdown）を devDependencies に足して直接呼ぶ道に切り替えられる。
 
 ## 参考元
 

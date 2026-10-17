@@ -1,6 +1,12 @@
 import { readFile, stat } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 
+/**
+ * The SEA asset store, when the runtime has one. A compiled binary carries the
+ * built page under `web/`; a run from the tree reads it from disk.
+ */
+const sea = await import('node:sea').catch(() => undefined)
+
 const TYPES: ReadonlyMap<string, string> = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
@@ -15,11 +21,8 @@ const typeOf = (path: string): string => {
   return (index < 0 ? undefined : TYPES.get(path.slice(index))) ?? 'application/octet-stream'
 }
 
-/**
- * Resolves a request path inside `root`, or undefined when it escapes it.
- * The check runs after decoding, so `%2e%2e` cannot climb either.
- */
-export const staticPath = (root: string, requestPath: string): string | undefined => {
+/** The part of a request path a file is read under, or undefined when it must be refused. */
+const relativeOf = (requestPath: string): string | undefined => {
   const decoded = ((): string | undefined => {
     try {
       return decodeURIComponent(requestPath)
@@ -28,10 +31,44 @@ export const staticPath = (root: string, requestPath: string): string | undefine
     }
   })()
   if (decoded === undefined || decoded.includes('\u0000')) return undefined
-  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '')
+  return decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '')
+}
+
+/**
+ * Resolves a request path inside `root`, or undefined when it escapes it.
+ * The check runs after decoding, so `%2e%2e` cannot climb either.
+ */
+export const staticPath = (root: string, requestPath: string): string | undefined => {
+  const relative = relativeOf(requestPath)
+  if (relative === undefined) return undefined
   const base = resolve(root)
   const candidate = resolve(join(base, relative))
   return candidate === base || candidate.startsWith(base + sep) ? candidate : undefined
+}
+
+/** The page a compiled binary carries, or undefined when this run is not one. */
+const assetResponse = (requestPath: string): Response | undefined => {
+  if (sea === undefined || !sea.isSea()) return undefined
+  const relative = relativeOf(requestPath)
+  if (relative === undefined) return undefined
+  try {
+    return new Response(sea.getAsset('web/' + relative), {
+      headers: { 'content-type': typeOf(relative) },
+    })
+  } catch {
+    return undefined
+  }
+}
+
+/** Whether a page this process can serve is there: an asset when compiled, a file otherwise. */
+export const pageIsThere = async (root: string): Promise<boolean> => {
+  if (assetResponse('/') !== undefined) return true
+  const path = staticPath(root, '/')
+  if (path === undefined) return false
+  return stat(path).then(
+    (info) => info.isFile(),
+    () => false,
+  )
 }
 
 /** The file a browser asked for, or undefined when it does not exist. */
@@ -39,6 +76,8 @@ export const staticResponse = async (
   root: string,
   requestPath: string,
 ): Promise<Response | undefined> => {
+  const fromAsset = assetResponse(requestPath)
+  if (fromAsset !== undefined) return fromAsset
   const path = staticPath(root, requestPath)
   if (path === undefined) return undefined
   const info = await stat(path).then(
