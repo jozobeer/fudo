@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
 import type { UiEvent } from '@jozo-harness/ui-protocol'
-import { escapeHtml } from '../client/html.ts'
+import { escapeHtml } from '../src/ui/html.ts'
 import {
   initialState,
   type WebState,
@@ -14,7 +14,7 @@ import {
   withSessions,
   withSettings,
   withTheme,
-} from '../client/state.ts'
+} from '../src/ui/state.ts'
 import {
   childSessionsOf,
   renderConversation,

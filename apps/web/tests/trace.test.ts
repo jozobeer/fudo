@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
-import { toolsOf, traceOf, writtenPath } from '../client/trace.ts'
+import { toolsOf, traceOf, writtenPath } from '../src/ui/trace.ts'
 
 const event = (type: string, data: unknown, time: number): UiSessionEvent => ({
   seq: time,

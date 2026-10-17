@@ -1,5 +1,5 @@
 import { Show, createMemo } from 'solid-js'
-import { boardOf } from '../../client/board.ts'
+import { boardOf } from '../../src/ui/board.ts'
 import { hintOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
 

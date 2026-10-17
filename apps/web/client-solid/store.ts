@@ -19,9 +19,9 @@ import {
   withTheme,
   type Pane,
   type WebState,
-} from '../client/state.ts'
-import { THEME_KEY, themeAttribute, themeFrom, type Theme } from '../client/theme.ts'
-import { emptyWatched, watchedAfter, type Watched } from '../client/board.ts'
+} from '../src/ui/state.ts'
+import { THEME_KEY, themeAttribute, themeFrom, type Theme } from '../src/ui/theme.ts'
+import { emptyWatched, watchedAfter, type Watched } from '../src/ui/board.ts'
 import { makeBridge } from './bridge.ts'
 
 /** The socket the page talks to; the host is the one that served the page. */

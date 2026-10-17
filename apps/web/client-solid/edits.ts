@@ -1,4 +1,4 @@
-import { toolsOf, writtenPath, type TraceTurn } from '../client/trace.ts'
+import { toolsOf, writtenPath, type TraceTurn } from '../src/ui/trace.ts'
 
 /** One change to one file, as the edit or write call carried it. */
 export interface FileEdit {

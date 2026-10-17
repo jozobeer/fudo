@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { renderMarkdown } from '../client/markdown.ts'
+import { renderMarkdown } from '../src/ui/markdown.ts'
 
 describe('the markdown renderer', () => {
   test('text that looks like markup stays text', () => {

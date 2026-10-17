@@ -1,7 +1,7 @@
 import { For, Index, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
-import { renderMarkdown } from '../../client/markdown.ts'
-import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../client/trace.ts'
+import { renderMarkdown } from '../../src/ui/markdown.ts'
+import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../src/ui/trace.ts'
 import { spanOf } from '../edits.ts'
 import type { SessionStore } from '../store.ts'
 

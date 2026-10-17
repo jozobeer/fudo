@@ -7,7 +7,7 @@ import {
   withSession,
   withSessions,
   withTheme,
-} from '../client/state.ts'
+} from '../src/ui/state.ts'
 
 let seq = 0
 const session = (type: string, data: unknown): UiEvent => {

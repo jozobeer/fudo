@@ -1,6 +1,6 @@
 import { Show, createMemo } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
-import type { TraceStep, TraceTool, TraceTurn } from '../../client/trace.ts'
+import type { TraceStep, TraceTool, TraceTurn } from '../../src/ui/trace.ts'
 import type { SessionStore } from '../store.ts'
 import { spanOf } from './waterfall.tsx'
 

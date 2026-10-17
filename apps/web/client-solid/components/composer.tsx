@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, onCleanup, onMount } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
-import { renderMarkdown } from '../../client/markdown.ts'
+import { renderMarkdown } from '../../src/ui/markdown.ts'
 import type { SessionStore } from '../store.ts'
 import { Button } from './ui/button.tsx'
 

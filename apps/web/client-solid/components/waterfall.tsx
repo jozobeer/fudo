@@ -1,5 +1,5 @@
 import { For, Index, Show, createMemo, createSignal, onCleanup } from 'solid-js'
-import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../client/trace.ts'
+import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../src/ui/trace.ts'
 import type { SessionStore } from '../store.ts'
 
 /** A span the way the axis says it: 0.3s, 38s, 4m 12s. */

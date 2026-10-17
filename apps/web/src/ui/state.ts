@@ -1,11 +1,6 @@
 import type { UiEvent, UiSessionEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
-import type {
-  JobDetailView,
-  RunStateView,
-  SessionSummary,
-  SettingsView,
-} from '../src/shared/rpc.ts'
+import type { JobDetailView, RunStateView, SessionSummary, SettingsView } from '../shared/rpc.ts'
 import { DEFAULT_THEME, type Theme } from './theme.ts'
 import { traceAfter, type TraceTurn } from './trace.ts'
 import { turnsAfter, type TurnView } from './trajectory.ts'

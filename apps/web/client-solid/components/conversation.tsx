@@ -1,6 +1,6 @@
 import { Show, createEffect, createSignal } from 'solid-js'
 import type { Conversation as ConversationState } from '@jozo-harness/ui-view'
-import { followsBottom } from '../../client/scroll.ts'
+import { followsBottom } from '../../src/ui/scroll.ts'
 import type { SessionStore } from '../store.ts'
 import { Turns } from './turns.tsx'
 

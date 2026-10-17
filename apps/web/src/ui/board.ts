@@ -1,6 +1,6 @@
 import type { UiEvent } from '@jozo-harness/ui-protocol'
 import { applyEvent, emptyConversation, type Conversation } from '@jozo-harness/ui-view'
-import type { SessionSummary } from '../src/shared/rpc.ts'
+import type { SessionSummary } from '../shared/rpc.ts'
 import { toolsOf, traceAfter, type TraceTurn } from './trace.ts'
 
 type ApprovalRequested = NonNullable<Conversation['approval']>

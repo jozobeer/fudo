@@ -1,12 +1,12 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
 import { plainText } from '@jozo-harness/ui-view'
 import type { RunStateView, SessionSummary, SettingsView } from '../src/shared/rpc.ts'
-import type { Pane } from './state.ts'
-import type { TurnView } from './trajectory.ts'
-import { escapeHtml } from './html.ts'
-import { THEMES } from './theme.ts'
-import { renderMarkdown } from './markdown.ts'
-import type { WebState } from './state.ts'
+import type { Pane } from '../src/ui/state.ts'
+import type { TurnView } from '../src/ui/trajectory.ts'
+import { escapeHtml } from '../src/ui/html.ts'
+import { THEMES } from '../src/ui/theme.ts'
+import { renderMarkdown } from '../src/ui/markdown.ts'
+import type { WebState } from '../src/ui/state.ts'
 
 const text = (value: string): string => escapeHtml(plainText(value))
 

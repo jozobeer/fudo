@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { THEMES, themeAttribute, themeFrom } from '../client/theme.ts'
+import { THEMES, themeAttribute, themeFrom } from '../src/ui/theme.ts'
 
 describe('the theme a page reads', () => {
   test('a choice the reader made is kept', () => {

@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createMemo, createSignal, onCleanup, type JSX } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
-import { boardOf, type BoardEntry, type Waiting } from '../../client/board.ts'
+import { boardOf, type BoardEntry, type Waiting } from '../../src/ui/board.ts'
 import { basenameOf, whenOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
 import { Button } from './ui/button.tsx'

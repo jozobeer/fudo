@@ -1,5 +1,5 @@
 import type { Conversation, ConversationBlock } from '@jozo-harness/ui-view'
-import type { WebState } from '../client/state.ts'
+import type { WebState } from '../src/ui/state.ts'
 
 /** How long ago a session started, the way a rail usually says it. */
 export const whenOf = (at: number, now: number): string => {

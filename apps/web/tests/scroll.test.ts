@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { FOLLOW_SLACK, followsBottom } from '../client/scroll.ts'
+import { FOLLOW_SLACK, followsBottom } from '../src/ui/scroll.ts'
 
 /** A scroll box where the content overflows by exactly `below` pixels. */
 const box = (below: number) => ({ scrollTop: 600 - below, clientHeight: 400, scrollHeight: 1000 })

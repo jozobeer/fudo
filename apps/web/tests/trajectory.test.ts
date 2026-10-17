@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
-import { turnsAfter, type TurnView } from '../client/trajectory.ts'
+import { turnsAfter, type TurnView } from '../src/ui/trajectory.ts'
 
 const event = (type: string, data: unknown, time: number): UiSessionEvent => ({
   seq: time,

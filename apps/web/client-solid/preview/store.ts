@@ -8,10 +8,10 @@ import {
   withSessions,
   withTheme,
   type WebState,
-} from '../../client/state.ts'
+} from '../../src/ui/state.ts'
 import type { RunStateView, SettingsView } from '../../src/shared/rpc.ts'
 import type { SessionStore } from '../store.ts'
-import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
+import { emptyWatched, watchedAfter, type Watched } from '../../src/ui/board.ts'
 import { fixtureSessions, type FixtureSession } from './fixture.ts'
 
 const SETTINGS: SettingsView = {

@@ -126,8 +126,8 @@ const bash = (
 })
 
 const FILES = [
-  'apps/web/client/trajectory.ts',
-  'apps/web/client/state.ts',
+  'apps/web/src/ui/trajectory.ts',
+  'apps/web/src/ui/state.ts',
   'packages/ui/view/src/conversation.ts',
   'packages/ui/protocol/src/index.ts',
   'apps/web/src/server/sessions.ts',
@@ -176,13 +176,13 @@ const ledgerSession = (start: number): ReadonlyArray<UiSessionEvent> => {
   log.push('request/header', { provider: 'ollama-cloud', model: 'qwen3-coder:480b' }, 5)
   step(log, 1, 'The user asks where the ledger is built. Search for turnsAfter.', '', [
     grep('turnsAfter', 4),
-    read('apps/web/client/trajectory.ts', 75),
+    read('apps/web/src/ui/trajectory.ts', 75),
   ])
   step(
     log,
     2,
     'Answer with the file and the function.',
-    '`apps/web/client/trajectory.ts` の `turnsAfter` です。イベントを 1 つずつ畳み、turn ごとに長さ・step 数・tool 数・終わりの理由を持ちます。',
+    '`apps/web/src/ui/trajectory.ts` の `turnsAfter` です。イベントを 1 つずつ畳み、turn ごとに長さ・step 数・tool 数・終わりの理由を持ちます。',
     [],
   )
   log.push('turn/end', { turn: 1, reason: { kind: 'completed' } }, 10)
@@ -226,7 +226,7 @@ const ledgerSession = (start: number): ReadonlyArray<UiSessionEvent> => {
             bash(
               'git grep -n lastSeq',
               String(round + 2) + ' lines',
-              'apps/web/client/state.ts:156: …',
+              'apps/web/src/ui/state.ts:156: …',
             ),
           ]
         : []),
@@ -235,7 +235,7 @@ const ledgerSession = (start: number): ReadonlyArray<UiSessionEvent> => {
   number += 1
   step(log, number, 'Only a fresh seq should reach the ledger.', '', [
     edit(
-      'apps/web/client/state.ts',
+      'apps/web/src/ui/state.ts',
       164,
       166,
       '    turns: turnsAfter(state.turns, event.event),',
@@ -245,7 +245,7 @@ const ledgerSession = (start: number): ReadonlyArray<UiSessionEvent> => {
       ].join('\n'),
     ),
     edit(
-      'apps/web/client/state.ts',
+      'apps/web/src/ui/state.ts',
       166,
       167,
       '  // every event reaches the ledger',

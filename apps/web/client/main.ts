@@ -3,7 +3,7 @@ import { RpcClient, RpcSerialization } from 'effect/rpc'
 import { Socket } from 'effect/socket'
 import type { UiCommand } from '@jozo-harness/ui-protocol'
 import { UiRpcs, withoutServices } from '../src/shared/rpc.ts'
-import { followsBottom } from './scroll.ts'
+import { followsBottom } from '../src/ui/scroll.ts'
 import {
   applyUiEvent,
   initialState,
@@ -18,8 +18,8 @@ import {
   withSettings,
   withTheme,
   type WebState,
-} from './state.ts'
-import { THEME_KEY, themeAttribute, themeFrom, type Theme } from './theme.ts'
+} from '../src/ui/state.ts'
+import { THEME_KEY, themeAttribute, themeFrom, type Theme } from '../src/ui/theme.ts'
 import {
   renderConversation,
   renderContext,

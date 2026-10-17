@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { UiEvent } from '@jozo-harness/ui-protocol'
-import { boardOf, emptyWatched, entryOf, watchedAfter, type Watched } from '../client/board.ts'
+import { boardOf, emptyWatched, entryOf, watchedAfter, type Watched } from '../src/ui/board.ts'
 
 const at = (seq: number, type: string, data: unknown): UiEvent => ({
   kind: 'session',

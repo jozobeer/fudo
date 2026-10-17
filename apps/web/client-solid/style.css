@@ -6,7 +6,7 @@
 @layer theme, base, components, client, utilities;
 
 @import 'tailwindcss';
-@import '../client/style.css' layer(client);
+@import '../src/ui/style.css' layer(client);
 
 /* Solid renders into #root, so the page's flex column has to reach through it. */
 #root {
