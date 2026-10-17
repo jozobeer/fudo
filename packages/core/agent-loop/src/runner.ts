@@ -102,6 +102,18 @@ const splitRoute = (route: string): { readonly provider: string; readonly model:
 const countEvents = (session: Session, type: 'turn/start' | 'step/start'): number =>
   session.events().filter((event) => event.type === type).length
 
+/** The calls the log holds with no result: the run that made them is gone. */
+const openCalls = (
+  events: ReadonlyArray<SessionEvent>,
+): ReadonlyArray<{ readonly callId: string; readonly name: string }> => {
+  const open = new Map<string, string>()
+  for (const event of events) {
+    if (event.type === 'tool/call') open.set(event.data.callId, event.data.name)
+    if (event.type === 'tool/result') open.delete(event.data.callId)
+  }
+  return [...open.entries()].map(([callId, name]) => ({ callId, name }))
+}
+
 const recordedTurnEnd = (session: Session, turn: number): boolean =>
   session.events().some((event) => event.type === 'turn/end' && event.data.turn === turn)
 
@@ -438,18 +450,34 @@ const agentLoopEffect = (
         : Effect.forEach(batch.calls, run, { discard: true })
     }
 
+    /** What a call gets when the run that made it never finished it. */
+    const didNotFinish = (agent: Agent, callId: string, name: string): Effect.Effect<void> =>
+      append(agent, 'tool/result', {
+        callId,
+        isError: true,
+        content: [{ type: 'text' as const, text: `tool ${name} did not finish` }],
+      }).pipe(Effect.catchCause(() => Effect.void))
+
     const failPending = (
       agent: Agent,
       pending: ReadonlyMap<string, ToolCall>,
     ): Effect.Effect<void> =>
       Effect.forEach(
         [...pending.values()],
-        (call) =>
-          append(agent, 'tool/result', {
-            callId: call.id,
-            isError: true,
-            content: [{ type: 'text' as const, text: `tool ${call.name} did not finish` }],
-          }).pipe(Effect.catchCause(() => Effect.void)),
+        (call) => didNotFinish(agent, call.id, call.name),
+        { discard: true },
+      )
+
+    /**
+     * The log a run resumes from can hold a call with no result: a process killed
+     * between the call and its answer, or a question the reader never answered. A
+     * turn that asks with that history asks the model about a call it never got an
+     * answer for, so those calls are written down as unfinished before it does.
+     */
+    const closeOpenCalls = (agent: Agent): Effect.Effect<void> =>
+      Effect.forEach(
+        openCalls(agent.session.events()),
+        (call) => didNotFinish(agent, call.callId, call.name),
         { discard: true },
       )
 
@@ -508,6 +536,7 @@ const agentLoopEffect = (
     const runTurn = (agent: Agent): Effect.Effect<void> => {
       const turn = countEvents(agent.session, 'turn/start') + 1
       const program = Effect.gen(function* () {
+        yield* closeOpenCalls(agent)
         yield* append(agent, 'turn/start', { turn })
         const claimed = yield* agent.inbox.claim(true).pipe(Effect.orDie)
         const decision = yield* hooks.waterfall('agent/pre-step', { agent, messages: claimed })

@@ -504,4 +504,30 @@ describe('agent loop', () => {
     expect(result?.data.isError).toBe(true)
     expect(reason(events)).toEqual([{ kind: 'cancelled', cause: 'user' }])
   })
+
+  test('a call the previous run left open is answered before the next turn asks', async () => {
+    const events = await scenario([chunks(textTurn('done'))], (ctx) =>
+      Effect.gen(function* () {
+        const agent = yield* ctx.agents.create({ cwd: '/work', options: { route: 'fake/model' } })
+        // A run that ended between a call and its result — a killed process, a
+        // question nobody answered — leaves the log holding a call no provider
+        // accepts without an answer. The next turn says so before it asks again.
+        yield* agent.session.append('tool/call', {
+          callId: 'c1',
+          name: 'echo',
+          arguments: '{}',
+        })
+        yield* agent.followup({ text: 'go', source: 'user' })
+        yield* agent.whenIdle
+        return agent
+      }),
+    )
+
+    const kinds = types(events)
+    const result = events.session.events().find((event) => event.type === 'tool/result')
+    expect(result?.data.isError).toBe(true)
+    expect(result?.data.content).toEqual([{ type: 'text', text: 'tool echo did not finish' }])
+    expect(kinds.indexOf('tool/result')).toBeLessThan(kinds.indexOf('turn/start'))
+    expect(reason(events)).toEqual([{ kind: 'completed' }])
+  })
 })
