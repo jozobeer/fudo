@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs'
+import { readdirSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite-plus'
@@ -13,13 +13,22 @@ const profile = (name: string): string =>
  */
 const pageAssets = (): Record<string, string> => {
   const directory = fileURLToPath(new URL('../../apps/web/dist/', import.meta.url))
-  try {
-    return Object.fromEntries(
-      readdirSync(directory).map((name) => ['web/' + name, join(directory, name)]),
-    )
-  } catch {
-    return {}
+  const assets: Record<string, string> = {}
+  const walk = (from: string, prefix: string): void => {
+    let entries: Array<Dirent>
+    try {
+      entries = readdirSync(from, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const path = join(from, entry.name)
+      if (entry.isDirectory()) walk(path, prefix + entry.name + '/')
+      else assets['web/' + prefix + entry.name] = path
+    }
   }
+  walk(directory, '')
+  return assets
 }
 
 // The single binary: one ESM bundle for Node with the profiles and (when built)

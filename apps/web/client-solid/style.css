@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+/* The tokens the current page keeps in :root, in the place Tailwind v4 reads
+   them. The full set follows as the components land. */
+@theme {
+  --color-surface: #101216;
+  --color-panel: #171a20;
+  --color-line: #262b34;
+  --color-text: #e6e8ec;
+  --color-muted: #9aa2b1;
+  --color-accent: #7aa2f7;
+  --color-danger: #f7768e;
+}
