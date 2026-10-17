@@ -1,6 +1,7 @@
 import { For } from 'solid-js'
 import { basenameOf, whenOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
+import { Button } from './ui/button.tsx'
 
 /** The sessions the store holds, the one on screen marked, and the way to a new one. */
 export const Rail = (props: { store: SessionStore }) => {
@@ -8,15 +9,21 @@ export const Rail = (props: { store: SessionStore }) => {
   return (
     <>
       <div class="brand">jozo-harness</div>
-      <button class="primary" type="button" onClick={() => props.store.moveTo(undefined)}>
+      <Button
+        id="new-session"
+        variant="primary"
+        type="button"
+        onClick={() => props.store.moveTo(undefined)}
+      >
         New session
-      </button>
+      </Button>
       <nav id="session-list" aria-label="Sessions">
         <For each={state().sessions}>
           {(summary) => (
             <button
               class={'session' + (summary.id === state().sessionId ? ' active' : '')}
               type="button"
+              data-session-id={summary.id}
               onClick={() => props.store.moveTo(summary.id)}
             >
               <span class="session-name">

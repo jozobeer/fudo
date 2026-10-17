@@ -107,7 +107,7 @@ describe('the Solid page', () => {
 
     const { container } = render(() => <Composer store={store} />)
 
-    const allow = container.querySelector('#takeover .approval-actions .primary')
+    const allow = container.querySelector('#takeover [data-approve="true"]')
     expect(allow?.textContent).toBe('Allow')
     fireEvent.click(allow as Element)
     expect(calls).toContainEqual({

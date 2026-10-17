@@ -1,8 +1,12 @@
+/*
+ * The port's stylesheet, in layers: the base reset, then the page's own sheet,
+ * then Tailwind's utilities, which is what lets a copied-in component override
+ * the sheet with a utility instead of an !important.
+ */
+@layer theme, base, components, client, utilities;
+
 @import 'tailwindcss';
-/* While the port is tried beside the current page it wears the same stylesheet,
-   so the two entries can be compared. The tokens below are those values in the
-   shape Tailwind v4 reads, for the components written with utilities. */
-@import '../client/style.css';
+@import '../client/style.css' layer(client);
 
 @theme {
   --color-bg: #0f1115;
@@ -21,4 +25,81 @@
   --color-tool: #7fd6a4;
   --color-error: #ff7b72;
   --color-warn: #ffc86b;
+}
+
+/*
+ * The four places the port moves, all of them CSS: a block arriving in the
+ * conversation, the right sheet opening and closing, the card that asks for an
+ * answer, and the composer lifting under it. Every one of them is 150-250ms of
+ * ease-out, and the whole set is off for a reader who asked for less motion.
+ */
+@keyframes jzh-block-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes jzh-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes jzh-sheet-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@keyframes jzh-takeover-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #conversation .block {
+    animation: jzh-block-in 180ms ease-out both;
+  }
+
+  #takeover .takeover-card {
+    animation: jzh-takeover-in 200ms ease-out both;
+  }
+
+  .context-body[data-open='true'] > * {
+    animation: jzh-sheet-in 200ms ease-out both;
+  }
+
+  .context-body[data-closing='true'] > * {
+    animation: jzh-sheet-out 150ms ease-in both;
+  }
+
+  #composer {
+    transform: translateY(0);
+    transition: transform 200ms ease-out;
+  }
+
+  footer[data-takeover='true'] #composer {
+    transform: translateY(-4px);
+  }
 }

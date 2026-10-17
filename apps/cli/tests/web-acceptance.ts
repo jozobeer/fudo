@@ -139,7 +139,10 @@ const plugins: ReadonlyArray<Plugin<any, any, any>> = [
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const evidence = join(repoRoot, '.tmp/web-evidence.png')
+const evidence = join(
+  repoRoot,
+  process.env.JZH_WEB_ENTRY === 'solid' ? '.tmp/web-evidence-solid.png' : '.tmp/web-evidence.png',
+)
 
 interface Cdp {
   readonly send: (method: string, params?: Record<string, unknown>) => Promise<unknown>
@@ -316,6 +319,13 @@ const waitsForTheQueue = async (client: Cdp, read: () => Promise<unknown>): Prom
   if (stillQueued !== false) throw new Error('the queue stayed on screen after it was claimed')
 }
 
+/** The card that asks for an answer arrives with motion, on the entry that has it. */
+const checksTheCard = async (client: Cdp): Promise<void> => {
+  if (entry !== '/solid/') return
+  const card = await client.evaluate(animationsOf('#takeover .takeover-card'))
+  if (card !== 'jzh-takeover-in 0.2s') throw new Error('the card does not arrive: ' + String(card))
+}
+
 /** Asks for a command, answers the approval the page draws, and checks the reply it drew. */
 const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Promise<string> => {
   await client.evaluate(type('run the command'))
@@ -323,6 +333,7 @@ const answersTheApproval = async (client: Cdp, read: () => Promise<unknown>): Pr
     throw new Error('the approval never reached the page')
   }
   await queuesWhileWaiting(client, read)
+  await checksTheCard(client)
   await client.evaluate('document.querySelector(\'[data-approve="true"]\').click()')
   const answer = await waitFor(read, 'approved and done')
   if (answer === undefined) throw new Error('the reply never reached the page')
@@ -357,6 +368,39 @@ const opensANewSession = async (client: Cdp): Promise<string> => {
   const cleared = await client.evaluate("!document.body.innerText.includes('approved and done')")
   if (cleared !== true) throw new Error('the old conversation stayed on screen')
   return first
+}
+
+/** The animation the page applies to one element, as the browser computes it. */
+const animationsOf = (selector: string): string =>
+  '(() => { const node = document.querySelector(' +
+  JSON.stringify(selector) +
+  "); if (node === null) return 'missing'; const style = getComputedStyle(node); return style.animationName + ' ' + style.animationDuration })()"
+
+/** The port's own motion: a block, the sheet, the card, the composer, and the quiet reader. */
+const checksTheAnimations = async (client: Cdp, read: () => Promise<unknown>): Promise<void> => {
+  const block = await client.evaluate(animationsOf('#conversation .block'))
+  if (block !== 'jzh-block-in 0.18s') throw new Error('a block does not arrive: ' + String(block))
+  // The settings sheet was closed by the step before; open one to watch it arrive.
+  await client.evaluate(showsPane('run'))
+  await sleep(50)
+  const sheet = await client.evaluate(animationsOf('#context .context-body > *'))
+  if (sheet !== 'jzh-sheet-in 0.2s') throw new Error('the sheet does not open: ' + String(sheet))
+  const lifted = await client.evaluate(
+    "getComputedStyle(document.getElementById('composer')).transitionDuration",
+  )
+  if (lifted !== '0.2s') throw new Error('the composer does not lift: ' + String(lifted))
+  // The reader who asked for less motion gets none of it.
+  await client.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+  })
+  await client.send('Page.reload')
+  if ((await waitFor(read, 'approved and done')) === undefined) {
+    throw new Error('the reload under reduced motion never came back')
+  }
+  const quiet = await client.evaluate(animationsOf('#conversation .block'))
+  if (quiet !== 'none 0s') {
+    throw new Error('an animation stayed under reduced motion: ' + String(quiet))
+  }
 }
 
 /** The attribute the stylesheet keys on, or '' while the system's choice stands. */
@@ -431,11 +475,20 @@ const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Prom
     throw new Error('a model list that cannot be asked for was not reported')
   }
   await client.evaluate("document.getElementById('panel-close').click()")
-  const closed = await client.evaluate(
-    "document.querySelector('#context .context-body').children.length",
+  // The sheet animates out first; the body empties when it has.
+  const emptied = await waitFor(
+    () =>
+      client.evaluate(
+        "document.querySelector('#context .context-body').children.length === 0 ? 'empty' : 'full'",
+      ),
+    'empty',
+    20,
   )
-  if (closed !== 0) throw new Error('the pane body stayed after it was hidden')
+  if (emptied === undefined) throw new Error('the pane body stayed after it was hidden')
 }
+
+/** The page the run reads: the current entry, or the Solid one beside it. */
+const entry = process.env.JZH_WEB_ENTRY === 'solid' ? '/solid/' : '/'
 
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = spawn(
@@ -446,7 +499,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
       '--disable-gpu',
       '--remote-debugging-port=0',
       '--user-data-dir=' + profileDir,
-      url + '/',
+      url + entry,
     ],
     { stdout: 'ignore', stderr: 'ignore' },
   )
@@ -472,6 +525,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await switchBack(client, read, first)
     await choosesATheme(client, read)
     await readsTheSettings(client, read)
+    if (entry === '/solid/') await checksTheAnimations(client, read)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {
@@ -482,7 +536,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
 
 /** The server hands the browser a built bundle, so a stale dist would test the wrong page. */
 const buildWeb = async (): Promise<void> => {
-  const built = spawnSync('pnpm', ['exec', 'vp', '-C', 'apps/web', 'build'], {
+  const built = spawnSync('pnpm', ['run', 'build:web'], {
     cwd: repoRoot,
     stdio: 'inherit',
   })

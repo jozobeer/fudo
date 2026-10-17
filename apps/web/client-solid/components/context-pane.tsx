@@ -1,10 +1,11 @@
-import { For, Match, Show, Switch } from 'solid-js'
+import { For, Match, Show, Switch, createEffect, createSignal, onCleanup } from 'solid-js'
 import type { RunStateView, SettingsView } from '../../src/shared/rpc.ts'
 import type { Pane } from '../../client/state.ts'
 import { THEMES, type Theme } from '../../client/theme.ts'
 import type { TurnView } from '../../client/trajectory.ts'
 import { childSessionsOf } from '../lib.ts'
 import type { SessionStore } from '../store.ts'
+import { Button } from './ui/button.tsx'
 
 const Goal = (props: { goal: RunStateView['goal'] }) => (
   <Show when={props.goal} fallback={<div class="run-empty">no goal</div>}>
@@ -47,6 +48,7 @@ const Run = (props: { store: SessionStore }) => {
                       <button
                         class={'run-job ' + (job.running ? 'running' : 'done')}
                         type="button"
+                        data-job-id={job.id}
                         onClick={() => props.store.openJob(job.id)}
                       >
                         <span class="run-job-state">{job.running ? 'running' : 'done'}</span>
@@ -65,6 +67,7 @@ const Run = (props: { store: SessionStore }) => {
                       <button
                         class="run-child"
                         type="button"
+                        data-session-id={id}
                         onClick={() => props.store.moveTo(id)}
                       >
                         {'subagent · ' + id.slice(0, 8)}
@@ -98,6 +101,7 @@ const Settings = (props: { store: SessionStore; settings: SettingsView | undefin
           <button
             class={'theme' + (theme === props.store.state().theme ? ' active' : '')}
             type="button"
+            data-theme={theme}
             onClick={() => props.store.chooseTheme(theme)}
           >
             {theme}
@@ -120,9 +124,9 @@ const Settings = (props: { store: SessionStore; settings: SettingsView | undefin
             when={props.store.state().models.length > 0}
             fallback={
               <div class="panel-actions">
-                <button type="button" onClick={() => props.store.askModels()}>
+                <Button id="ask-models" type="button" onClick={() => props.store.askModels()}>
                   List models
-                </button>
+                </Button>
               </div>
             }
           >
@@ -132,8 +136,9 @@ const Settings = (props: { store: SessionStore; settings: SettingsView | undefin
                   {(route) => <option value={route}>{route}</option>}
                 </For>
               </select>
-              <button
-                class="primary"
+              <Button
+                id="use-model"
+                variant="primary"
                 type="button"
                 onClick={() => {
                   const choice = document.getElementById('model-choice')
@@ -143,7 +148,7 @@ const Settings = (props: { store: SessionStore; settings: SettingsView | undefin
                 }}
               >
                 Use for later runs
-              </button>
+              </Button>
             </div>
             <div class="card-hint">the next run reads it from the settings file</div>
           </Show>
@@ -195,9 +200,13 @@ const Job = (props: { store: SessionStore; pane: Extract<Pane, { kind: 'job' }> 
           </pre>
           <div class="panel-actions">
             <Show when={detail().running}>
-              <button type="button" onClick={() => props.store.stopJob(props.pane.id)}>
+              <Button
+                id="stop-job"
+                type="button"
+                onClick={() => props.store.stopJob(props.pane.id)}
+              >
                 Stop
-              </button>
+              </Button>
             </Show>
           </div>
         </>
@@ -215,6 +224,23 @@ const PANES = [
 /** The right column: what the session runs toward, is set to, did, or one job. */
 export const ContextPane = (props: { store: SessionStore }) => {
   const pane = () => props.store.state().pane
+  /** What the body shows while the sheet slides out; undefined once it has. */
+  const [kept, setKept] = createSignal<Pane | undefined>(undefined)
+
+  createEffect(() => {
+    const current = pane()
+    if (current !== undefined) {
+      setKept(current)
+      return
+    }
+    if (kept() === undefined) return
+    const timer = setTimeout(() => setKept(undefined), 150)
+    onCleanup(() => clearTimeout(timer))
+  })
+
+  const body = (): Pane | undefined => pane() ?? kept()
+  const open = (): boolean => pane() !== undefined
+  const closing = (): boolean => pane() === undefined && kept() !== undefined
   const active = (kind: 'run' | 'settings' | 'trajectory'): boolean => pane()?.kind === kind
   const toggle = (kind: 'run' | 'settings' | 'trajectory'): void =>
     props.store.showPane(active(kind) ? undefined : { kind })
@@ -225,6 +251,7 @@ export const ContextPane = (props: { store: SessionStore }) => {
           <For each={PANES}>
             {(entry) => (
               <button
+                id={entry.kind}
                 class={'tab' + (active(entry.kind) ? ' active' : '')}
                 type="button"
                 onClick={() => toggle(entry.kind)}
@@ -244,6 +271,7 @@ export const ContextPane = (props: { store: SessionStore }) => {
           </Show>
         </nav>
         <button
+          id="panel-close"
           class="pane-close"
           type="button"
           aria-label="hide the pane"
@@ -252,19 +280,23 @@ export const ContextPane = (props: { store: SessionStore }) => {
           ×
         </button>
       </header>
-      <div class="context-body">
+      <div
+        class="context-body"
+        data-open={open() ? 'true' : 'false'}
+        data-closing={closing() ? 'true' : 'false'}
+      >
         <Switch>
-          <Match when={pane()?.kind === 'run'}>
+          <Match when={body()?.kind === 'run'}>
             <Run store={props.store} />
           </Match>
-          <Match when={pane()?.kind === 'settings'}>
+          <Match when={body()?.kind === 'settings'}>
             <Settings store={props.store} settings={props.store.state().settings} />
           </Match>
-          <Match when={pane()?.kind === 'trajectory'}>
+          <Match when={body()?.kind === 'trajectory'}>
             <Trajectory turns={props.store.state().turns} />
           </Match>
           <Match
-            when={pane()?.kind === 'job' ? (pane() as Extract<Pane, { kind: 'job' }>) : undefined}
+            when={body()?.kind === 'job' ? (body() as Extract<Pane, { kind: 'job' }>) : undefined}
           >
             {(job) => <Job store={props.store} pane={job()} />}
           </Match>

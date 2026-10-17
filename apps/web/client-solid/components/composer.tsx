@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch, onCleanup, onMount } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
 import type { SessionStore } from '../store.ts'
+import { Button } from './ui/button.tsx'
 
 /** The composer grows with its draft, up to the height of a page. */
 const grow = (node: HTMLTextAreaElement): void => {
@@ -35,9 +36,11 @@ const Takeover = (props: { store: SessionStore }) => {
               </Show>
             </div>
             <div class="approval-actions">
-              <button
-                class="primary"
+              <Button
+                variant="primary"
                 type="button"
+                data-approve="true"
+                data-call-id={approval().callId}
                 onClick={() =>
                   props.store.send({
                     kind: 'approve',
@@ -47,9 +50,11 @@ const Takeover = (props: { store: SessionStore }) => {
                 }
               >
                 Allow
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                data-approve="false"
+                data-call-id={approval().callId}
                 onClick={() =>
                   props.store.send({
                     kind: 'approve',
@@ -59,7 +64,7 @@ const Takeover = (props: { store: SessionStore }) => {
                 }
               >
                 Deny
-              </button>
+              </Button>
             </div>
             <div class="card-hint">or press y / n</div>
           </section>
@@ -75,6 +80,8 @@ const Takeover = (props: { store: SessionStore }) => {
                   {(option) => (
                     <button
                       type="button"
+                      data-ask-id={ask().id}
+                      data-answer={option}
                       onClick={() =>
                         props.store.send({ kind: 'answer', id: ask().id, answer: option })
                       }
@@ -116,8 +123,12 @@ export const Composer = (props: { store: SessionStore }) => {
     if (textarea !== undefined) grow(textarea)
   }
 
+  const takeover = (): boolean =>
+    props.store.state().conversation.approval !== undefined ||
+    props.store.state().conversation.ask !== undefined
+
   return (
-    <footer>
+    <footer data-takeover={takeover() ? 'true' : 'false'}>
       <div id="queue">
         <Queue store={props.store} />
       </div>
@@ -164,12 +175,12 @@ export const Composer = (props: { store: SessionStore }) => {
               </button>
             </Show>
           </div>
-          <button id="send" class="primary" type="submit">
+          <Button id="send" variant="primary" type="submit">
             Send
-          </button>
-          <button id="cancel" type="button" onClick={() => props.store.send({ kind: 'cancel' })}>
+          </Button>
+          <Button id="cancel" type="button" onClick={() => props.store.send({ kind: 'cancel' })}>
             Stop
-          </button>
+          </Button>
         </div>
       </form>
     </footer>
