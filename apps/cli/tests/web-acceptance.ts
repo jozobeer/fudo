@@ -139,10 +139,7 @@ const plugins: ReadonlyArray<Plugin<any, any, any>> = [
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const evidence = join(
-  repoRoot,
-  process.env.JZH_WEB_ENTRY === 'solid' ? '.tmp/web-evidence-solid.png' : '.tmp/web-evidence.png',
-)
+const evidence = join(repoRoot, '.tmp/web-evidence.png')
 
 interface Cdp {
   readonly send: (method: string, params?: Record<string, unknown>) => Promise<unknown>
@@ -319,9 +316,8 @@ const waitsForTheQueue = async (client: Cdp, read: () => Promise<unknown>): Prom
   if (stillQueued !== false) throw new Error('the queue stayed on screen after it was claimed')
 }
 
-/** The card that asks for an answer arrives with motion, on the entry that has it. */
+/** The card that asks for an answer arrives with motion. */
 const checksTheCard = async (client: Cdp): Promise<void> => {
-  if (entry !== '/solid/') return
   const card = await client.evaluate(animationsOf('#takeover .takeover-card'))
   if (card !== 'jzh-takeover-in 0.2s') throw new Error('the card does not arrive: ' + String(card))
 }
@@ -487,9 +483,6 @@ const readsTheSettings = async (client: Cdp, read: () => Promise<unknown>): Prom
   if (emptied === undefined) throw new Error('the pane body stayed after it was hidden')
 }
 
-/** The page the run reads: the current entry, or the Solid one beside it. */
-const entry = process.env.JZH_WEB_ENTRY === 'solid' ? '/solid/' : '/'
-
 const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOutcome> => {
   const browser = spawn(
     [
@@ -499,7 +492,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
       '--disable-gpu',
       '--remote-debugging-port=0',
       '--user-data-dir=' + profileDir,
-      url + entry,
+      url + '/',
     ],
     { stdout: 'ignore', stderr: 'ignore' },
   )
@@ -525,7 +518,7 @@ const driveBrowser = async (url: string, profileDir: string): Promise<BrowserOut
     await switchBack(client, read, first)
     await choosesATheme(client, read)
     await readsTheSettings(client, read)
-    if (entry === '/solid/') await checksTheAnimations(client, read)
+    await checksTheAnimations(client, read)
     await saveScreenshot(client)
     return { passed: true, answer }
   } finally {

@@ -96,11 +96,17 @@ describe('compiled binary', () => {
     try {
       const url = await urlFrom(child.stderr)
       const page = await fetch(url)
-      const script = await fetch(url + 'main.js')
+      const html = await page.text()
+      // The page names the bundle it was built with, hashed or not; that name is
+      // what the binary has to carry for the page to run away from the tree.
+      const src = /<script[^>]+src="([^"]+)"/.exec(html)?.[1]
+      const script = await fetch(new URL(src ?? '/', url))
 
       expect(page.status).toBe(200)
-      expect(await page.text()).toContain('<title>jozo-harness</title>')
+      expect(html).toContain('<title>jozo-harness</title>')
+      expect(src).toBeDefined()
       expect(script.status).toBe(200)
+      expect(script.headers.get('content-type')).toContain('text/javascript')
     } finally {
       child.kill()
       await child.exited
