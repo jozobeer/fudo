@@ -1,7 +1,7 @@
 import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { askPlugin } from '@jozo-harness/safety'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Tier1Tools, tier1Plugin } from '../src/index.ts'
 
 describe('tier1Plugin', () => {

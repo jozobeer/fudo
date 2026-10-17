@@ -1,5 +1,5 @@
 import type { SessionEvent } from '../src/index.ts'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { forkSeed } from '../src/index.ts'
 
 const header: SessionEvent = {

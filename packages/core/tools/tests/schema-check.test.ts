@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { toolSchemaIssues } from '../src/index.ts'
 
 const LONG = 'A tool description that is long enough to explain what the tool is for.'

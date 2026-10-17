@@ -1,5 +1,5 @@
 import type { SessionEvent } from '@jozo-harness/session'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { currentGoal, goalRounds, MIN_BLOCKED_ROUNDS } from '../src/index.ts'
 
 const event = (seq: number, type: string, data: unknown): SessionEvent =>

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { loadBundledProfile } from '../src/index.ts'
 import { mergeRows, parseProfile, renderConfig } from '@jozo-harness/kernel'

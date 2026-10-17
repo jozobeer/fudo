@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Deferred, Effect, Exit, Logger, Scope } from 'effect'
 import type { Bail, Emit, Parallel, Serial, Waterfall } from '../src/index.ts'
 import { Hooks, HooksLive, makeHooks } from '../src/index.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { currentPreset, describePreset, presetProblem, type SessionEvent } from '../src/index.ts'
 
 const event = (seq: number, type: string, data: unknown): SessionEvent =>

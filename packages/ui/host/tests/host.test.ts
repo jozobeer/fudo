@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { Agent } from '@jozo-harness/agent'
 import { makeHooks } from '@jozo-harness/kernel'
 import {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { callSummary, resultSummary, oneLine } from '@jozo-harness/tools'
 import { changedLines, exitSummaryOf, rangeOf } from '../src/index.ts'
 

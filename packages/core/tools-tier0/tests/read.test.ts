@@ -1,7 +1,7 @@
 import { HooksLive } from '@jozo-harness/kernel'
 import { Tools, toolsLayer, type ToolError, type ToolExecutionResult } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { groupCalls } from '../src/index.ts'
 
 const safe = (name: string) => name === 'read' || name === 'grep'

@@ -2,7 +2,7 @@ import type { Agent } from '@jozo-harness/agent'
 import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import type { SessionEvent } from '@jozo-harness/session'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import {
   fireSchedule,
   installScheduleRuns,

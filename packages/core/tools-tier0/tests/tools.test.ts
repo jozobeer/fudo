@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { tier0Tools } from '../src/index.ts'
 
 describe('tier0Tools', () => {

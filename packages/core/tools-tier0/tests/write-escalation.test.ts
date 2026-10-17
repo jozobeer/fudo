@@ -17,7 +17,7 @@ import { Context, Effect, Layer } from 'effect'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { tier0Tools } from '../src/index.ts'
 
 /** A sandbox that confines writes to the mode's roots, like seatbelt does. */

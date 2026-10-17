@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect, Exit, Schema } from 'effect'
 import {
   AssistantStreamRecordSchema,

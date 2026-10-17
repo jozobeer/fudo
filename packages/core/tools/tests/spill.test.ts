@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { applySpill, planSpill, SPILL_PREVIEW_CHARS, textOf } from '../src/index.ts'
 

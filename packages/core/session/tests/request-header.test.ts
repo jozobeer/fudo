@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { decodeSessionEvent, lastRequestHeader, type RequestHeaderData } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
 

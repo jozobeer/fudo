@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { decodeSessionEvent } from '@jozo-harness/session'
 import { Effect } from 'effect'
 import { approvalEventSchemas } from '../src/index.ts'

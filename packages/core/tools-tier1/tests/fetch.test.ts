@@ -7,7 +7,7 @@ import {
   type ToolExecutionResult,
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { startStubServer } from '@jozo-harness/test-support-stub'
 import { webFetchTool } from '../src/index.ts'
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Context, Layer, Schema } from 'effect'
 import { renderPluginKeys, type Plugin } from '../src/index.ts'
 

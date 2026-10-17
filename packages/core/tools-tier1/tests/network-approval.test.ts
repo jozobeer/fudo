@@ -2,7 +2,7 @@ import { HooksLive } from '@jozo-harness/kernel'
 import { approvalServiceLayer, policyLayer, type ApprovalRequested } from '@jozo-harness/safety'
 import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { startStubServer } from '@jozo-harness/test-support-stub'
 import { webFetchTool } from '../src/index.ts'
 

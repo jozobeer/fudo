@@ -3,7 +3,7 @@ import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import type { SessionEvent } from '@jozo-harness/session'
 import type { ToolExecution, ToolExecutionResult } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import {
   installRepeatReminders,
   repeatReminder,

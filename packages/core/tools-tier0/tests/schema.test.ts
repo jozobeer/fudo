@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { noneSandbox } from '@jozo-harness/safety'
 import { toolDeclaration, toolSchemaIssues } from '@jozo-harness/tools'
 import { tier0Tools } from '../src/index.ts'

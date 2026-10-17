@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { promptForApproval, type ApprovalRequested } from '../src/index.ts'
 
 const request: ApprovalRequested = {

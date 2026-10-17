@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vitest'
 import { Effect } from 'effect'
 
 test('Effect runs under bun test', async () => {

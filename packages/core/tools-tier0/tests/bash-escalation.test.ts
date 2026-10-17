@@ -15,7 +15,7 @@ import {
   type ToolExecutionResult,
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { makeBashTool } from '../src/index.ts'
 
 const call = (

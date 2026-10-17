@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { applyEvent, emptyConversation, type Conversation } from '../src/index.ts'
 import type { UiSessionEvent } from '@jozo-harness/ui-protocol'
 

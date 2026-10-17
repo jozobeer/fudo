@@ -8,7 +8,7 @@ import {
   type ToolExecutionResult,
 } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { makeWorkflowTool, type WorkflowTask } from '../src/index.ts'
 
 /** What one child is told to answer, by the task it was given. */

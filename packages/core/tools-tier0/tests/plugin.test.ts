@@ -2,7 +2,7 @@ import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { safetyPlugin } from '@jozo-harness/safety'
 import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Tier0Tools, tier0Plugin } from '../src/index.ts'
 
 describe('tier0Plugin', () => {

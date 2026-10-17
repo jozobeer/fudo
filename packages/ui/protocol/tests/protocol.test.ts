@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect, Schema } from 'effect'
 import { UiCommandSchema, UiEventSchema, type UiCommand, type UiEvent } from '../src/index.ts'
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { BlockAssembler } from '../src/index.ts'
 
 const fragment = (): string => crypto.randomUUID().slice(0, 8)

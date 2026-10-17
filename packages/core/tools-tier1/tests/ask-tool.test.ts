@@ -2,7 +2,7 @@ import { HooksLive } from '@jozo-harness/kernel'
 import { makeAsk } from '@jozo-harness/safety'
 import { Tools, toolsLayer, type ToolExecutionResult } from '@jozo-harness/tools'
 import { Deferred, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { askUserToolFor } from '../src/index.ts'
 
 describe('ask_user tool', () => {

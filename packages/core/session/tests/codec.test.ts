@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Effect } from 'effect'
 import { decodeSessionEvent, type SessionEvent } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'

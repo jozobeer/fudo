@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { startStubServer } from '@jozo-harness/test-support-stub'
 import { braveSearch } from '../src/index.ts'
 

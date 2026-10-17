@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { startMcpServer, TOOLS_LIST } from '../src/index.ts'
 
 const echoServer = [

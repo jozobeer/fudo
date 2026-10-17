@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { kernelPlugin, loadProfile, type Plugin } from '@jozo-harness/kernel'
 import {
   SessionError,

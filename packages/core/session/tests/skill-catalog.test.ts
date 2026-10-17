@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { decodeSessionEvent, lastSkillCatalog } from '../src/index.ts'
 import { event } from './support.ts'
 

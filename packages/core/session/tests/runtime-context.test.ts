@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { lastRuntimeContext } from '../src/index.ts'
 import { event } from './support.ts'
 

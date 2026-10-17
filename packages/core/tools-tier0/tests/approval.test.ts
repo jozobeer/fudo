@@ -3,7 +3,7 @@ import { approvalServiceLayer, policyLayer, type ApprovalRequested } from '@jozo
 import type { SessionEvent } from '@jozo-harness/session'
 import { Tools, toolsLayer } from '@jozo-harness/tools'
 import { Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { makeBashTool } from '../src/index.ts'
 
 describe('bash under the safety preset', () => {

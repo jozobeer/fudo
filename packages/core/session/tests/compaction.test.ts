@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import type { ContentBlock } from '@jozo-harness/llm'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import {
   SessionError,
   decodeSessionEvent,

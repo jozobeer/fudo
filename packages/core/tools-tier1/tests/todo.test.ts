@@ -1,7 +1,7 @@
 import { HooksLive } from '@jozo-harness/kernel'
 import { Tools, toolsLayer, type ToolError, type ToolExecutionResult } from '@jozo-harness/tools'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { todoWriteTool } from '../src/index.ts'
 
 const call = (args: unknown): Effect.Effect<ToolExecutionResult | undefined, ToolError, never> =>

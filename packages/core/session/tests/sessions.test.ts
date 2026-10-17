@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import { Effect } from 'effect'
 import { Sessions, sessionsLayer, type SessionEvent } from '../src/index.ts'

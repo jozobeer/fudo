@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { AgentsShape } from '@jozo-harness/agent'
 import { makeAsk, makePlanMode } from '@jozo-harness/safety'
 import { toolDeclaration, toolSchemaIssues, type ToolDefinition } from '@jozo-harness/tools'

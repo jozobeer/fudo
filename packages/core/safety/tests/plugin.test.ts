@@ -1,7 +1,7 @@
 import { kernelPlugin, loadProfile } from '@jozo-harness/kernel'
 import { systemPromptPlugin } from '@jozo-harness/system-prompt'
 import { Context, Effect, Layer } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Policy, Sandbox, safetyPlugin, sandboxLayerFor } from '../src/index.ts'
 
 const build = (config: unknown) =>

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { dshMetrics, jozoHarnessMetrics } from './metrics.ts'
 
 /** The two shapes, as the logs actually carry them. */

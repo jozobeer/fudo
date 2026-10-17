@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { HooksLive, makeHooks } from '@jozo-harness/kernel'
 import { Effect, Schema } from 'effect'
 import {

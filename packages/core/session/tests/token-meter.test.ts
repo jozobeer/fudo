@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { meterOf, thresholdOf, type TokenBudget } from '../src/index.ts'
 import { event, headerEvent } from './support.ts'
 

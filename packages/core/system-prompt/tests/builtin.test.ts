@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { ToolSchema } from '@jozo-harness/llm'
 import { Effect } from 'effect'
 import {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { firstLine, oneLine, plainText, truncate } from '../src/index.ts'
 
 describe('text', () => {

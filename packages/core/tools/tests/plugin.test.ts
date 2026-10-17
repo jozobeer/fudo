@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Hooks, loadProfile, makeHooks, type Plugin } from '@jozo-harness/kernel'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Tools, toolsPlugin } from '../src/index.ts'

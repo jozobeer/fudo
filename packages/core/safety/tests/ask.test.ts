@@ -1,7 +1,7 @@
 import { decodeSessionEvent } from '@jozo-harness/session'
 import type { Session, SessionEvent, SessionHeader, SessionId } from '@jozo-harness/session'
 import { Deferred, Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Ask, askEventSchemas, askServiceLayer, installAsk, makeAsk } from '../src/index.ts'
 
 describe('ask', () => {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { decodeResponse, encodeRequest, TOOLS_CALL } from '../src/index.ts'
 
 describe('encodeRequest', () => {

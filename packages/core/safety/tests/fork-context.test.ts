@@ -1,6 +1,6 @@
 import { Hooks, HooksLive } from '@jozo-harness/kernel'
 import { Deferred, Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 
 describe('forked work', () => {
   test('sees the provided hooks', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { nextDue, parseCron } from '../src/index.ts'
 
 /** A local instant, so the tests speak in the same clock the schedules do. */

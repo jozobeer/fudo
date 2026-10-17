@@ -1,7 +1,7 @@
 import { HooksLive } from '@jozo-harness/kernel'
 import { Tools, toolsLayer, type ToolDefinition } from '@jozo-harness/tools'
 import { Effect, Layer, Schema } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 
 const ok: ToolDefinition<{}, { readonly ok: boolean }> = {
   name: 'ok',

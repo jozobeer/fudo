@@ -1,6 +1,6 @@
 import { HooksLive } from '@jozo-harness/kernel'
 import { Context, Effect, Layer, Schema } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { Tools, toolsLayer, type ToolDefinition } from '../src/index.ts'
 
 const makeTool = (

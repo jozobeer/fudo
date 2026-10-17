@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { cwdOf, decodeSessionEvent } from '../src/index.ts'
 
 const header = { formatVersion: 1, createdAt: 0, cwd: '/start' }

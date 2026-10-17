@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'vitest'
 import { kernelPlugin, loadProfile, parseProfile } from '@jozo-harness/kernel'
 import { Sessions, sessionPlugin } from '@jozo-harness/session'
 import { sessionJsonlPlugin } from '@jozo-harness/session-jsonl'
