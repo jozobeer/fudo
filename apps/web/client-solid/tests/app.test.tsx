@@ -9,7 +9,11 @@ import { ContextPane } from '../components/context-pane.tsx'
 import { Conversation } from '../components/conversation.tsx'
 import { Board } from '../components/board.tsx'
 import { emptyWatched, watchedAfter, type Watched } from '../../client/board.ts'
+import { Waterfall } from '../components/waterfall.tsx'
+import { LensSwitch } from '../components/lens-switch.tsx'
+import { lensFrom, type Lens } from '../lens.ts'
 import type { SessionStore } from '../store.ts'
+import { traceOf } from '../../client/trace.ts'
 
 /** One call a component made, in the order it made them. */
 type Call =
@@ -102,33 +106,42 @@ describe('the Solid page', () => {
     expect(calls).toContainEqual({ kind: 'moveTo', id: 'aaaabbbb' })
   })
 
-  test('the conversation renders markdown, tool output, and the live step', () => {
-    const { store } = makeStore({
-      conversation: {
-        ...emptyConversation,
-        blocks: [
-          { kind: 'user', text: 'hello' },
-          { kind: 'assistant', text: '# Heading' },
-          {
-            kind: 'tool',
-            callId: 'c1',
-            name: 'read',
-            summary: 'a.ts',
-            status: 'done',
-            result: 'a.ts',
-            output: 'the file said so',
-          },
-        ],
-        live: 'still writing',
-      },
+  test('a turn shows the ask, folds its work into one line, and ends in the answer', () => {
+    const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
+    const { store, calls } = makeStore({
+      conversation: { ...emptyConversation, blocks: [{ kind: 'user', text: 'hello' }] },
+      trace: traceOf([
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'agent/inbox/claimed', { message: { text: 'hello', source: 'user' } }),
+        at(3, 'step/start', { step: 1 }),
+        at(4, 'tool/call', {
+          callId: 'c1',
+          name: 'edit',
+          arguments: '{"path":"a.ts"}',
+          summary: 'a.ts',
+        }),
+        at(5, 'tool/result', {
+          callId: 'c1',
+          isError: false,
+          summary: 'lines: 1 → 2',
+          content: [{ type: 'text', text: 'the file said so' }],
+        }),
+        at(6, 'step/end', { step: 1 }),
+        at(7, 'step/start', { step: 2 }),
+        at(8, 'assistant/message', { content: [{ type: 'text', text: '# Heading' }] }),
+        at(9, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ]),
     })
 
     const { container } = render(() => <Conversation store={store} />)
 
     expect(container.querySelector('.block.user .body')?.textContent).toBe('hello')
-    expect(container.querySelector('.markdown h1')?.textContent).toBe('Heading')
+    expect(container.querySelector('.process-count')?.textContent).toBe('2 steps, 1 call')
+    expect(container.querySelector('.answer h1')?.textContent).toBe('Heading')
     expect(container.querySelector('.tool-card .tool-output')?.textContent).toBe('the file said so')
-    expect(container.querySelector('.block.live')?.textContent).toContain('still writing')
+
+    fireEvent.click(container.querySelector('button.change') as Element)
+    expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'changes', path: 'a.ts' } })
   })
 
   test('an approval answers through the store, from the buttons and from y / n', () => {
@@ -194,5 +207,43 @@ describe('the Solid page', () => {
     )
     fireEvent.click(turns as Element)
     expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'trajectory' } })
+  })
+
+  test('the trace draws each call on its turn, and a call opens in the inspector', () => {
+    const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
+    const { store, calls } = makeStore({
+      trace: traceOf([
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'step/start', { step: 1 }),
+        at(3, 'tool/call', { callId: 'c1', name: 'bash', arguments: '{}', summary: 'pnpm test' }),
+        at(5, 'tool/result', { callId: 'c1', isError: true, summary: 'exit 1', content: [] }),
+        at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ]),
+    })
+
+    const { container } = render(() => <Waterfall store={store} />)
+
+    expect(container.querySelector('.wf-turn-failed')?.textContent).toBe('1 failed')
+    const row = container.querySelector('button.wf-row.tool.error')
+    expect(row?.querySelector('.wf-took')?.textContent).toBe('2.0s')
+    fireEvent.click(row as Element)
+    expect(calls).toContainEqual({ kind: 'pane', pane: { kind: 'inspect', turn: 1, callId: 'c1' } })
+  })
+
+  test('the switch marks the reading on screen and hands over the other', () => {
+    const chosen: Array<Lens> = []
+    const { container } = render(() => (
+      <LensSwitch lens="answers" onChoose={(lens) => chosen.push(lens)} />
+    ))
+
+    const pressed = container.querySelector('button[aria-pressed="true"]')
+    expect(pressed?.textContent).toBe('Answers')
+    fireEvent.click(container.querySelector('button[data-lens="timeline"]') as Element)
+    expect(chosen).toEqual(['timeline'])
+    expect([lensFrom('timeline'), lensFrom('waterfall'), lensFrom(null)]).toEqual([
+      'timeline',
+      'answers',
+      'answers',
+    ])
   })
 })
