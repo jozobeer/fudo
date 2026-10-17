@@ -33,15 +33,15 @@ pnpm install
 rustup show   # rust-toolchain.toml の版を（無ければ）入れて確認する
 ```
 
-`jzh` をコマンドとして使うには、CLI のパッケージでグローバルリンクを張り、pnpm の global bin を PATH に足す。
+`jzh` をコマンドとして使うには、pnpm の global bin を先に PATH へ通し、そこに CLI を入れる。pnpm 12 に `pnpm link --global` は無く、bin の場所が PATH に無いと pnpm は入れてくれないので、順序が要る。
 
 ```sh
-(cd apps/cli && pnpm link --global)   # pnpm bin -g が指す場所に jzh が入る
 export PATH="$(pnpm bin -g):$PATH"    # fish なら fish_add_path (pnpm bin -g)
+pnpm add --global ./apps/cli
 jzh --help
 ```
 
-リンクは作業ツリーを直接指すので、ソースの編集は次の実行からそのまま効く。外すときは `(cd apps/cli && pnpm unlink --global)` を実行する。
+シェルの起動時に効かせるなら `pnpm setup` が PATH の追記までしてくれる。入るのは作業ツリーへの `link:` なので、ソースの編集は次の実行からそのまま効く。外すときは `pnpm remove --global @jozo-harness/cli`。
 
 ### API キー
 
