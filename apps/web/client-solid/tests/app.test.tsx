@@ -10,6 +10,7 @@ import { Conversation } from '../components/conversation.tsx'
 import { Rail } from '../components/rail.tsx'
 import { Waterfall } from '../components/waterfall.tsx'
 import type { SessionStore } from '../store.ts'
+import { traceOf } from '../../client/trace.ts'
 
 /** One call a component made, in the order it made them. */
 type Call =
@@ -166,13 +167,13 @@ describe('the Solid page', () => {
   test('the trace draws each call on its turn, and a call opens in the inspector', () => {
     const at = (seq: number, type: string, data: unknown) => ({ seq, time: seq * 1000, type, data })
     const { store, calls } = makeStore({
-      log: [
+      trace: traceOf([
         at(1, 'turn/start', { turn: 1 }),
         at(2, 'step/start', { step: 1 }),
         at(3, 'tool/call', { callId: 'c1', name: 'bash', arguments: '{}', summary: 'pnpm test' }),
         at(5, 'tool/result', { callId: 'c1', isError: true, summary: 'exit 1', content: [] }),
         at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-      ],
+      ]),
     })
 
     const { container } = render(() => <Waterfall store={store} />)

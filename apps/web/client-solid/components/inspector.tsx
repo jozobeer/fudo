@@ -1,6 +1,6 @@
 import { Show, createMemo } from 'solid-js'
 import { plainText } from '@jozo-harness/ui-view'
-import { traceOf, type TraceStep, type TraceTool } from '../../client/trace.ts'
+import type { TraceStep, TraceTool, TraceTurn } from '../../client/trace.ts'
 import type { SessionStore } from '../store.ts'
 import { spanOf } from './waterfall.tsx'
 
@@ -19,7 +19,7 @@ interface Found {
 }
 
 const findCall = (
-  turns: ReturnType<typeof traceOf>,
+  turns: ReadonlyArray<TraceTurn>,
   turn: number,
   callId: string,
 ): Found | undefined => {
@@ -33,9 +33,7 @@ const findCall = (
 
 /** One call, opened: what the model reasoned, what it asked for, and what came back. */
 export const Inspector = (props: { store: SessionStore; turn: number; callId: string }) => {
-  const found = createMemo(() =>
-    findCall(traceOf(props.store.state().log), props.turn, props.callId),
-  )
+  const found = createMemo(() => findCall(props.store.state().trace, props.turn, props.callId))
   return (
     <Show when={found()} fallback={<div class="run-empty">pick a call in the trace</div>}>
       {(call) => (

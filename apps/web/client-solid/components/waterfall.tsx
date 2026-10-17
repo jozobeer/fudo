@@ -1,11 +1,5 @@
 import { For, Index, Show, createMemo, createSignal, onCleanup } from 'solid-js'
-import {
-  toolsOf,
-  traceOf,
-  type TraceStep,
-  type TraceTool,
-  type TraceTurn,
-} from '../../client/trace.ts'
+import { toolsOf, type TraceStep, type TraceTool, type TraceTurn } from '../../client/trace.ts'
 import type { SessionStore } from '../store.ts'
 
 /** A span the way the axis says it: 0.3s, 38s, 4m 12s. */
@@ -143,7 +137,7 @@ const TurnLane = (props: { turn: TraceTurn; now: number; filter: Filter; store: 
  * it broke; a row opens in the inspector.
  */
 export const Waterfall = (props: { store: SessionStore }) => {
-  const turns = createMemo(() => traceOf(props.store.state().log))
+  const turns = createMemo(() => props.store.state().trace)
   const now = createNow()
   const [text, setText] = createSignal('')
   const [failedOnly, setFailedOnly] = createSignal(false)
